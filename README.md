@@ -1,2 +1,5 @@
-# generale-vue
-front end client for GeneralE project
+# generale
+
+developing.
+
+generale is a game inspired by generals.io

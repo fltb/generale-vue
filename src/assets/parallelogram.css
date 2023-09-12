@@ -1,0 +1,6 @@
+.parallelogram {
+    transform: skewX(-15deg);
+}
+
+.parallelogram-border { transform: skewX(-15deg); }
+.parallelogram-border > * { transform: skewX(15deg); }

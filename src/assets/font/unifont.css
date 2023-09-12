@@ -1,0 +1,9 @@
+@font-face {
+    font-family: "v-sans";
+    src: url("./unifont-15.0.06.ttf");
+}
+
+@font-face {
+    font-family: "v-mono";
+    src: url("./unifont-15.0.06.ttf");
+}
