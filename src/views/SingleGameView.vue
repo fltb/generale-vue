@@ -27,132 +27,31 @@
                         </n-button-group>
                     </template>
                     <n-grid x-gap="12" cols="2 400:3 600:4">
-                        <n-gi>
+                        <n-gi v-for="player in playerList">
                             <n-thing>
                                 <template #avatar>
-                                    <n-avatar>
-                                        <n-icon>
-                                            Color
-                                        </n-icon>
-                                    </n-avatar>
+                                    <n-avatar :style="{
+                                        backgroundColor: player.color
+                                    }" />
                                 </template>
                                 <template #header>
-                                    Username
+                                    {{ player.username }}
                                 </template>
                                 <template #header-extra>
-                                    Team
+                                    {{ player.team }}
                                 </template>
                                 <template #description>
-                                    描述
+                                    {{ player.description }}
                                 </template>
                                 <template #action>
                                     <n-space>
-                                        <n-button size="small">
+                                        <n-button size="small" @click="kick(player.uuid)" >
                                             Kick
                                         </n-button>
-                                        <n-button size="small">
+                                        <n-button size="small" @click="report(player.uuid)" >
                                             Report
                                         </n-button>
-                                        <n-button size="small">
-                                            Add Friend
-                                        </n-button>
-                                    </n-space>
-                                </template>
-                            </n-thing>
-                        </n-gi>
-                        <n-gi>
-                            <n-thing>
-                                <template #avatar>
-                                    <n-avatar>
-                                        <n-icon>
-                                            Color
-                                        </n-icon>
-                                    </n-avatar>
-                                </template>
-                                <template #header>
-                                    Username
-                                </template>
-                                <template #header-extra>
-                                    Team
-                                </template>
-                                <template #description>
-                                    描述
-                                </template>
-                                <template #action>
-                                    <n-space>
-                                        <n-button size="small" dashed>
-                                            Kick
-                                        </n-button>
-                                        <n-button size="small" dashed>
-                                            Report
-                                        </n-button>
-                                        <n-button size="small" dashed>
-                                            Add Friend
-                                        </n-button>
-                                    </n-space>
-                                </template>
-                            </n-thing>
-                        </n-gi>
-                        <n-gi>
-                            <n-thing>
-                                <template #avatar>
-                                    <n-avatar>
-                                        <n-icon>
-                                            Color
-                                        </n-icon>
-                                    </n-avatar>
-                                </template>
-                                <template #header>
-                                    Username
-                                </template>
-                                <template #header-extra>
-                                    Team
-                                </template>
-                                <template #description>
-                                    描述
-                                </template>
-                                <template #action>
-                                    <n-space>
-                                        <n-button size="small">
-                                            Kick
-                                        </n-button>
-                                        <n-button size="small">
-                                            Report
-                                        </n-button>
-                                        <n-button size="small">
-                                            Add Friend
-                                        </n-button>
-                                    </n-space>
-                                </template>
-                            </n-thing>
-                        </n-gi>
-                        <n-gi>
-                            <n-thing>
-                                <template #avatar>
-                                    <n-avatar>
-                                        <n-icon>
-                                            Color
-                                        </n-icon>
-                                    </n-avatar>
-                                </template>
-                                <template #header>
-                                    Username
-                                </template>
-                                <template #header-extra>
-                                    Team
-                                </template>
-                                <template #description>
-                                    描述
-                                </template>
-                                <template #action>
-                                    <n-space>
-                                        <n-button size="small">
-                                            Kick
-                                        </n-button>
-                                        <n-button size="small">
-                                            Report
-                                        </n-button>
-                                        <n-button size="small">
+                                        <n-button size="small" @click="addFriend(player.uuid)" >
                                             Add Friend
                                         </n-button>
                                     </n-space>
@@ -206,7 +105,8 @@
             </PinchScrollZoom>
 
             <n-card :bordered="false" class="pl-3" style="position: fixed;bottom: 10px;width: 380px;">
-                <n-list class="chatbox-scroll-container" ref="chatBoxScrollContainer" style="height: 180px;overflow-y: scroll;">
+                <n-list class="chatbox-scroll-container" ref="chatBoxScrollContainer"
+                    style="height: 180px;overflow-y: scroll;">
                     <n-list-item v-for="comment in chatMessages">
                         <span>[{{ comment.time }}]</span>
                         <span>{{ comment.author }}</span>
@@ -218,7 +118,7 @@
                     <n-input-group>
                         <n-button @click="scrollToLastMessage()">
                             <n-icon :component="ArrowDown" />
-                </n-button>
+                        </n-button>
                         <n-input v-model:value="guestname" type="text" class="form-control"
                             placeholder="Say something here." aria-label="Say something here."
                             aria-describedby="basic-addon2" />
@@ -315,7 +215,30 @@ export default {
     },
     data() {
         return {
-            ingame: true,
+            // global vars begin::
+            ingame: false,
+            // global vars end::
+
+            // in room vars begin::
+            /**
+             * @type {Array<{
+             *              color: String,
+             *              username: String,
+             *              team: String,
+             *              description: String,
+             *              uuid: String
+             * }>}
+             */
+            playerList: [
+                { color: "#FF0000", username: "fltb", team: "1", description: "foo bar foo bar", uuid: "5d79f1d0-c6a9-4bc8-92d8-8e2614c87d0c" },
+                { color: "#FF0000", username: "fltb", team: "1", description: "foo bar foo bar", uuid: "5d79f1d0-c6a9-4bc8-92d8-8e2614c87d0c" },
+                { color: "#FF0000", username: "fltb", team: "1", description: "foo bar foo bar", uuid: "5d79f1d0-c6a9-4bc8-92d8-8e2614c87d0c" },
+                { color: "#FF0000", username: "fltb", team: "1", description: "foo bar foo bar", uuid: "5d79f1d0-c6a9-4bc8-92d8-8e2614c87d0c" },
+                { color: "#FF0000", username: "fltb", team: "1", description: "foo bar foo bar", uuid: "5d79f1d0-c6a9-4bc8-92d8-8e2614c87d0c" },
+            ],
+            // in room vars end::
+
+            // in game vars begin::
             windowHeight: window.innerHeight,
             windowWidth: window.innerWidth,
             map: {
@@ -354,6 +277,7 @@ export default {
                 { name: "FloatingBlocks", army: 114514, lands: 1919810 },
                 { name: "FFFFFFFFFFFFFFFF", army: 250000, lands: 2499750000 },
             ]
+            // in game vars end::
         }
     },
     mounted() {
@@ -365,6 +289,11 @@ export default {
         window.removeEventListener('resize', this.onResize);
     },
     methods: {
+        // room methods begin::
+        kick(uuid) { },
+        report(uuid) { },
+        addFriend(uuid) { },
+        // room methods end::
         reset() {
             this.$refs.zoomer.setData({
                 scale: 1,
@@ -386,6 +315,6 @@ export default {
         },
 
     },
-    components: {  PinchScrollZoom, CashOutline, NDataTable, NSlider, NInputNumber, NDescriptions, NInput, NInputGroup, NDescriptionsItem, NButtonGroup, NSpace, NAvatar, NIcon, NThing, NButton, NConfigProvider, NLayout, NLayoutContent, NLayoutFooter, NLayoutHeader, NCard, NGrid, NGi, NAffix, NList, NListItem }
+    components: { PinchScrollZoom, CashOutline, NDataTable, NSlider, NInputNumber, NDescriptions, NInput, NInputGroup, NDescriptionsItem, NButtonGroup, NSpace, NAvatar, NIcon, NThing, NButton, NConfigProvider, NLayout, NLayoutContent, NLayoutFooter, NLayoutHeader, NCard, NGrid, NGi, NAffix, NList, NListItem }
 }
 </script>
