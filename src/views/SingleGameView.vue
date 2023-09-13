@@ -207,7 +207,7 @@
 
             <n-card :bordered="false" class="pl-3" style="position: fixed;bottom: 10px;width: 380px;">
                 <n-list class="chatbox-scroll-container" ref="chatBoxScrollContainer" style="height: 180px;overflow-y: scroll;">
-                    <n-list-item v-for="comment in comments">
+                    <n-list-item v-for="comment in chatMessages">
                         <span>[{{ comment.time }}]</span>
                         <span>{{ comment.author }}</span>
                         :
@@ -339,7 +339,7 @@ export default {
             /**
              * @type {Array<{author: String, time: String, message: String}>}
              */
-            comments: [
+            chatMessages: [
                 { author: "system", time: "12:34", message: "testtesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttest" },
                 { author: "system", time: "12:34", message: "test" },
                 { author: "system", time: "12:34", message: "test" },
