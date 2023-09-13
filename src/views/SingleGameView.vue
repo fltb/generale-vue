@@ -12,23 +12,20 @@
                     <template #action>
                         <span class="me-3">Choose your team:</span>
                         <n-button-group size="small">
-                            <n-button type="default" round>
+                            <n-button type="default" round @click="deleteTeam()">
                                 -
                             </n-button>
-                            <n-button type="default">
-                                1
+                            <n-button v-for="team in teams" type="default" @click="chooseTeam(team)">
+                                {{ team }}
                             </n-button>
-                            <n-button type="default">
-                                2
-                            </n-button>
-                            <n-button type="default" round>
+                            <n-button type="default" round @click="addTeam()">
                                 +
                             </n-button>
                         </n-button-group>
                     </template>
                     <n-grid x-gap="12" cols="2 400:3 600:4">
                         <n-gi v-for="player in playerList">
-                            <n-thing>
+                            <n-thing class="m-2">
                                 <template #avatar>
                                     <n-avatar :style="{
                                         backgroundColor: player.color
@@ -45,13 +42,13 @@
                                 </template>
                                 <template #action>
                                     <n-space>
-                                        <n-button size="small" @click="kick(player.uuid)" >
+                                        <n-button size="small" @click="kick(player.uuid)">
                                             Kick
                                         </n-button>
-                                        <n-button size="small" @click="report(player.uuid)" >
+                                        <n-button size="small" @click="report(player.uuid)">
                                             Report
                                         </n-button>
-                                        <n-button size="small" @click="addFriend(player.uuid)" >
+                                        <n-button size="small" @click="addFriend(player.uuid)">
                                             Add Friend
                                         </n-button>
                                     </n-space>
@@ -236,6 +233,10 @@ export default {
                 { color: "#FF0000", username: "fltb", team: "1", description: "foo bar foo bar", uuid: "5d79f1d0-c6a9-4bc8-92d8-8e2614c87d0c" },
                 { color: "#FF0000", username: "fltb", team: "1", description: "foo bar foo bar", uuid: "5d79f1d0-c6a9-4bc8-92d8-8e2614c87d0c" },
             ],
+            /**
+             * @type {Array<Number>}
+             */
+            teams: [1, 2],
             // in room vars end::
 
             // in game vars begin::
@@ -293,6 +294,23 @@ export default {
         kick(uuid) { },
         report(uuid) { },
         addFriend(uuid) { },
+        addTeam() { 
+            if (this.teams.length > 20){
+                return
+            }
+            this.teams.push(this.teams[this.teams.length - 1] + 1) },
+        deleteTeam() {
+            if (this.teams.length <= 2) {
+                return;
+            }
+            const current = String(this.teams[this.teams.length - 1]);
+            let removable = true
+            this.playerList.forEach(player => { if (player.team === current) { removable = false } })
+            if (removable) {
+                this.teams.pop()
+            }
+        },
+        chooseTeam(team){},
         // room methods end::
         reset() {
             this.$refs.zoomer.setData({
