@@ -17,7 +17,8 @@
     "font-awesome": "^4.7.0",
     "vue": "^3.3.4",
     "vue-router": "^4.2.2",
-    "vue-zoom-scroll": "^1.0.29"
+    "vue-zoom-scroll": "^1.0.29",
+    "vuex": "^4.1.0"
   },
   "devDependencies": {
     "@rushstack/eslint-patch": "^1.2.0",
