@@ -1,5 +1,6 @@
+import api from '../../api/user';
+
 // initial state
-// shape: [{ id, quantity }]
 const state = () => ({
     token: window.localStorage.getItem('token')
 })
@@ -10,24 +11,19 @@ const getters = {}
 // actions
 const actions = {
     async login({ commit, state }, products) {
-        const response = await fetch('/token');
-        if (response.status !== 200) {
-            // this will catch by login page and display on the message
-            throw new Error(`${response.status} error when fetching token!`);
-        }
-        const json = await response.json();
-        commit('TOKEN', json.token);
+        // if error occurs, it will throw to caller
+        const token = await api.login(products.username, products.password);
+        commit('TOKEN', token);
     },
 
     async guestLogin({ commit, state }, products) {
-        const response = await fetch('/token');
-        if (response.status !== 200) {
-            // this will catch by login page and display on the message
-            throw new Error(`${response.status} error when fetching token!`);
-        }
-        const json = await response.json();
-        commit('TOKEN', json.token);
+        const token = await api.guestLogin(products.username);
+        commit('TOKEN', token);
     },
+    // won't modify the store, just a wrap
+    async register({commit, state}, products){
+        await api.register(products.username, products.password)
+    }
 }
 
 // mutations
