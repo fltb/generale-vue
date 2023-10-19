@@ -2,6 +2,8 @@
 import { RouterLink, RouterView, useRouter, useRoute } from 'vue-router';
 import TabsVue from './components/tabs.vue';
 import LoginComponent from './views/LoginView.vue';
+import genFooter from './components/footer.vue';
+import genHeader from './components/header.vue';
 import { Settings, GameController, CubeSharp, MapSharp } from '@vicons/ionicons5'
 import { NIcon, darkTheme, NConfigProvider, NLayout, NLayoutSider, NLayoutContent, NLayoutHeader, NLayoutFooter, NSpace, NTab, NTabs, NH1, NCard } from 'naive-ui';
 export default {
@@ -27,7 +29,7 @@ export default {
     },
   },
   components: {
-    TabsVue, NConfigProvider, RouterLink, RouterView, LoginComponent, NLayoutSider, NLayout, NLayoutContent, NLayoutHeader, NLayoutFooter, NSpace, NTab, NCard, NTabs, NH1, Settings, GameController, CubeSharp, MapSharp, NIcon,
+    TabsVue, NConfigProvider, RouterLink, RouterView, LoginComponent, NLayoutSider, NLayout, NLayoutContent, NLayoutHeader, NLayoutFooter, NSpace, NTab, NCard, NTabs, NH1, Settings, GameController, CubeSharp, MapSharp, NIcon, genFooter, genHeader
   }
 }
 </script>
@@ -39,9 +41,7 @@ export default {
     </div>
     <div v-else-if="token && !$route.fullPath.includes('/game/')" class="h-100">
       <n-layout class="h-100">
-        <n-layout-header bordered position="absolute" style="z-index: 2;">
-          Header Header Header
-        </n-layout-header>
+        <genHeader />
         <div style="/*position: relative;*/" class="container h-75 mt-3">
           <div style="/*position: absolute;top: 7%;left: 0;bottom: 0;right: 0; margin: auto;*/">
             <n-h1 style="font-size: 3.8em;padding-left: 0.2em;margin-top: 4.5%;">General E</n-h1>
@@ -57,9 +57,7 @@ export default {
             </n-card>
           </div>
         </div>
-        <n-layout-footer bordered position="absolute" style="z-index: 1;">
-          Footer Footer Footer
-        </n-layout-footer>
+        <genFooter />
       </n-layout>
       <!--RouterView /-->
     </div>
