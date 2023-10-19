@@ -159,7 +159,7 @@ import { NDataTable, NSlider, NInputNumber, NDescriptions, NDescriptionsItem, NI
 import { HomeOutline, CashOutline, ArrowDown, ArrowForward } from '@vicons/ionicons5';
 import { IconEqual, IconAlignCenter, IconMountain, IconHome } from '@tabler/icons-vue';
 import PinchScrollZoom from "@coddicat/vue-pinch-scroll-zoom";
-import { ref } from 'vue'
+import { ref, toRefs } from 'vue'
 
 const createColumns = () => {
     return [
@@ -193,7 +193,11 @@ const createColumns = () => {
 }
 
 export default {
-    props: ["gameID"],
+    props: ["id"],
+    provide() {
+        const { id } = toRefs(this.$props)
+        return { id }
+    },
     setup() {
         const containerRef = ref < HTMLElement | undefined > (undefined)
         const chatBoxScrollContainer = ref < HTMLElement | undefined > (undefined)
@@ -294,11 +298,12 @@ export default {
         kick(uuid) { },
         report(uuid) { },
         addFriend(uuid) { },
-        addTeam() { 
-            if (this.teams.length > 20){
+        addTeam() {
+            if (this.teams.length > 20) {
                 return
             }
-            this.teams.push(this.teams[this.teams.length - 1] + 1) },
+            this.teams.push(this.teams[this.teams.length - 1] + 1)
+        },
         deleteTeam() {
             if (this.teams.length <= 2) {
                 return;
@@ -310,7 +315,7 @@ export default {
                 this.teams.pop()
             }
         },
-        chooseTeam(team){},
+        chooseTeam(team) { },
         // room methods end::
         reset() {
             this.$refs.zoomer.setData({

@@ -29,13 +29,13 @@ const router = createRouter({
       component: () => import('../views/SettingsView.vue')
     },
     {
-      path: '/map/:mapID',
+      path: '/map/:id',
       name: 'Map',
       props: true,
       component: () => import('../views/SingleMapView.vue')
     },
     {
-      path: '/game/:gameID',
+      path: '/game/:id',
       name: 'Game',
       props: true,
       component: () => import('../views/SingleGameView.vue')

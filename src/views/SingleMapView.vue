@@ -12,7 +12,7 @@
                 </n-button>
             </template>
             <template #description>
-                描述{{ this.mapID }}
+                描述{{ this.id }}
             </template>
             货币是为了提高交易效率而用于交换的中介商品。货币有多种形式，如贝壳粮食等自然物、金属纸张等加工品、银行卡信用卡等磁条卡、移动支付加密货币等APP。
             <n-button @click="showModal = true">
@@ -72,7 +72,7 @@ export default defineComponent({
             showModal: ref(false)
         }
     },
-    props: ['mapID'],
+    props: ['id'],
     components: {
         NThing, NSpace, NButton, NIcon, NModal, NCard
     }
