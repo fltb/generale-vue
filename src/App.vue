@@ -12,6 +12,11 @@ export default {
       darkTheme: darkTheme,
     }
   },
+  computed: {
+    token() {
+      return this.$store.state.global.token
+    }
+  },
   methods: {
     /**
      * 
@@ -22,17 +27,17 @@ export default {
     },
   },
   components: {
-   TabsVue, NConfigProvider, RouterLink, RouterView, LoginComponent, NLayoutSider, NLayout, NLayoutContent, NLayoutHeader, NLayoutFooter, NSpace, NTab, NCard, NTabs, NH1, Settings, GameController, CubeSharp, MapSharp, NIcon,
+    TabsVue, NConfigProvider, RouterLink, RouterView, LoginComponent, NLayoutSider, NLayout, NLayoutContent, NLayoutHeader, NLayoutFooter, NSpace, NTab, NCard, NTabs, NH1, Settings, GameController, CubeSharp, MapSharp, NIcon,
   }
 }
 </script>
 
 <template>
   <n-config-provider :theme="darkTheme" class="h-100">
-    <div v-if="!isAuthenticated" class="container">
-      <LoginComponent @myInput="isAuthenticated = $event" />
+    <div v-if="!token" class="container">
+      <LoginComponent />
     </div>
-    <div v-else-if="isAuthenticated && !$route.fullPath.includes('/game/')" class="h-100">
+    <div v-else-if="token && !$route.fullPath.includes('/game/')" class="h-100">
       <n-layout class="h-100">
         <n-layout-header bordered position="absolute" style="z-index: 2;">
           Header Header Header

@@ -5,7 +5,7 @@ const debug = process.env.NODE_ENV !== 'production'
 
 export default createStore({
   modules: {
-    global
+    global: global
   },
   strict: debug,
   plugins: debug ? [createLogger()] : []

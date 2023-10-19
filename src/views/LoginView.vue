@@ -75,18 +75,18 @@ h1 {
 </script>
 
 <script>
-import { NButton, NInputGroup, NInput, NTabs, NTabPane, NForm, NFormItemRow, NCard, NAlert,NIcon} from 'naive-ui';
-import {ArrowForward} from '@vicons/ionicons5';
+import { NButton, NInputGroup, NInput, NTabs, NTabPane, NForm, NFormItemRow, NCard, NAlert, NIcon } from 'naive-ui';
+import { ArrowForward } from '@vicons/ionicons5';
 export default {
   name: 'LoginComponent',
   model: {
     event: 'myInput',
   },
   setup() {
-        return {
-            ArrowForward,
-        }
-    },
+    return {
+      ArrowForward,
+    }
+  },
   data() {
     return {
       guestname: undefined,
@@ -108,18 +108,35 @@ export default {
     }
   },
   methods: {
-    setLogined() {
-      console.log("login") //TEST
-      this.$emit('myInput', true)
+    __setLogined() {
+      this.$store.commit('global/TOKEN', "test-token"); //TEST
+    },
+    async __baseAct(action, args) {
+      try {
+        this.__setLogined();  
+        await this.$store.dispatch('global/' + action, args);
+        this.notice.enable = false;
+      } catch (error) {
+        this.notice.enable = true;
+        this.notice.message = error.toString();
+        this.notice.type = "error";
+      }
     },
     guestLogin() {
-      this.setLogined()
+      this.__baseAct('guestLogin', { username: this.guestname })
     },
     login() {
-
+      this.__baseAct('login', { username: this.loginInfo.username, password: this.lginInfo.password })
     },
     signup() {
-
+      const { username, password, repassword } = this.signupInfo;
+      if (password != repassword) {
+        this.notice.enable = true;
+        this.notice.type = 'error';
+        this.notice.message = 'password not match!';
+        return;
+      }
+      this.__baseAct('register', { username: username, password, password });
     }
   },
   components: {
