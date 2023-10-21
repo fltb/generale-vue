@@ -23,6 +23,9 @@ const actions = {
     // won't modify the store, just a wrap
     async register({commit, state}, products){
         await api.register(products.username, products.password)
+    },
+    logout({commit}){
+        commit('TOKEN', '')
     }
 }
 
