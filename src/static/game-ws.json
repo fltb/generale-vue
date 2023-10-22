@@ -15,6 +15,7 @@
         "game-clear-move",
         "game-update-map",
         "game-update-action-queue",
+        "game-update-rank",
         "game-full-map",
         "game-over"
     ],
