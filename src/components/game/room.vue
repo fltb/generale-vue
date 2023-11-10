@@ -1,8 +1,8 @@
 <script setup>
 import { NLayoutHeader, NLayoutFooter, NCard, NButtonGroup, NButton, NGrid, NGi, NThing, NSpace, NDescriptions, NDescriptionsItem, NSlider, NInputNumber, NAvatar } from 'naive-ui';
 import { inject, reactive } from 'vue';
-const { id } = inject('varables');
-let { ingame } = inject('varables');
+const { id } = inject('variables');
+let { ingame } = inject('variables');
 
 const infos = reactive({
     /**
