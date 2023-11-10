@@ -1,12 +1,12 @@
-
 /**
  * @async
  * @param {String} url - start from '/', domains are already added
+ * @param {String} method - method
  * @param {Object} body 
  * @param {String} wanted - name of wanted data Or null
  * @returns {Promise<String>}
  */
-async function baseActPost(url, body, wanted) {
+async function baseAct(url, method, body, wanted) {
     /**
      * response: { // 200 OK
      *      status: "success" || "failed"
@@ -16,7 +16,7 @@ async function baseActPost(url, body, wanted) {
      */
     const response = await fetch(
         `${import.meta.env.VITE_BASE_URL}${url}`, {
-        method: "post",
+        method: method,
         headers: {
             Accept: "application/json",
             "Content-Type": "application/json;charset=UTF-8",
@@ -40,6 +40,29 @@ async function baseActPost(url, body, wanted) {
     }
 }
 
+/**
+ * @async
+ * @param {String} url - start from '/', domains are already added
+ * @param {Object} body 
+ * @param {String} wanted - name of wanted data Or null
+ * @returns {Promise<String>}
+ */
+async function baseActPost(url, body, wanted) {
+    return await baseAct(url, "post", body, wanted)
+}
+
+/**
+ * @async
+ * @param {String} url - start from '/', domains are already added
+ * @param {Object} body 
+ * @param {String} wanted - name of wanted data Or null
+ * @returns {Promise<String>}
+ */
+async function baseActGet(url, body, wanted) {
+    return await baseAct(url, "get", body, wanted)
+}
+
 export {
-    baseActPost
+    baseActPost,
+    baseActGet
 };
