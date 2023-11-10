@@ -1,0 +1,96 @@
+{
+    "blocks": [
+        "mask",
+        "plain",
+        "moutain",
+        "water",
+        "swamp",
+        "barrack",
+        "king"
+    ],
+    "event-types": [
+        "ws-onopen",
+        "ws-onclose",
+        "room-update-infos",
+        "chatbox-message-receive",
+        "game-start",
+        "game-request-move",
+        "game-request-clear-move",
+        "game-request-full-map",
+        "game-update-map",
+        "game-update-action-queue",
+        "game-update-rank",
+        "game-full-map",
+        "game-over"
+    ],
+    "event-binary-chunk": {
+        "game-update-map": {
+            "length": 1,
+            "blocks-begin": 2,
+            "blocks": {
+                "row": 0,
+                "col": 1,
+                "id": 2,
+                "player-id": 3,
+                "number": 4,
+                "block-size": 5
+            }
+        },
+        "game-update-action-queue": {
+            "length": 1,
+            "queue-begin": 2,
+            "action": {
+                "row": 0,
+                "col": 1,
+                "act": 2,
+                "block-size": 3
+            }
+        },
+        "game-full-map": {
+            "rows": 1,
+            "cols": 2,
+            "blocks-begin": 3,
+            "blocks": {
+                "id": 0,
+                "player-id": 1,
+                "number": 2,
+                "block-size": 3
+            }
+        }
+    },
+    "event-json": {
+        "ws-onopen": [],
+        "ws-onclose": [],
+        "room-update-infos": {
+            "players": {
+                "<id>": {
+                    "color": "string",
+                    "uuid": "string"
+                }
+            }
+        },
+        "chatbox-message-receive": {
+            "id": "number",
+            "time": "string",
+            "message": "string"
+        },
+        "game-start": [],
+        "game-request-move": {
+            "row": "number",
+            "col": "number",
+            "act": "string"
+        },
+        "game-request-clear-move": [],
+        "game-request-full-map": [],
+        "game-update-rank": {
+            "rank": [
+                {
+                    "id": "number",
+                    "army": "number",
+                    "lands": "number"
+                }
+            ]
+        },
+        "game-over": []
+    }
+}
