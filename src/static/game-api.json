@@ -24,6 +24,7 @@
         "game-over"
     ],
     "event-binary-chunk": {
+        "DESCRIPTION": "index 0 should always be the type id",
         "game-update-map": {
             "length": 1,
             "blocks-begin": 2,
@@ -59,6 +60,11 @@
         }
     },
     "event-json": {
+        "format": {
+            "DESCRIPTION": "json returned from server should be like this",
+            "type": "string",
+            "payload": "<object of each event, listed below>"
+        },
         "ws-onopen": [],
         "ws-onclose": [],
         "room-update-infos": {
