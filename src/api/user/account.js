@@ -1,5 +1,5 @@
 // login, logout, guest login, register.
-import { baseActPost } from './fetch'
+import { baseActPost } from '../fetch'
 
 /**
  * @async
