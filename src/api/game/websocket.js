@@ -27,7 +27,8 @@ class gameWebsocket {
             } else {
                 const data = JSON.parse(event.data);
                 const type = data.type;
-                this.eventBindMap.get(type)(data);
+
+                this.eventBindMap.get(type)(data.payload);
             }
         }
 
