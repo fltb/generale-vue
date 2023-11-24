@@ -243,7 +243,7 @@ gameWs.bindFunctionToEvent('game-full-map', data => {
                 [conf['blocks']['id'], conf['blocks']['player-id'], conf['blocks']['number']]
                     .map(item => item + idx);
             const [id, playerId, number] = [data[idIndex], data[playerIdIndex], data[numberIndex]];
-            map.data[i][j] = item;
+            const item = map.data[i][j];
             item.id = id;
             item.playerId = playerId;
             item.color = roomInfos.players[playerId].color
