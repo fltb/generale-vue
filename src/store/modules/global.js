@@ -1,4 +1,4 @@
-import api from '../../api/user';
+import api from '../../api/user/account';
 
 // initial state
 const state = () => ({
