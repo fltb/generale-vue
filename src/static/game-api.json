@@ -25,9 +25,13 @@
     ],
     "event-binary-chunk": {
         "DESCRIPTION": "index 0 should always be the type id",
+        "base": {
+            "type": 0,
+            "error-code": 1
+        },
         "game-update-map": {
-            "length": 1,
-            "blocks-begin": 2,
+            "length": 2,
+            "blocks-begin": 3,
             "blocks": {
                 "row": 0,
                 "col": 1,
@@ -38,19 +42,20 @@
             }
         },
         "game-update-action-queue": {
-            "length": 1,
-            "queue-begin": 2,
+            "length": 2,
+            "queue-begin": 3,
             "action": {
                 "row": 0,
                 "col": 1,
-                "act": 2,
-                "block-size": 3
+                "to": 2,
+                "type": 3,
+                "block-size": 4
             }
         },
         "game-full-map": {
-            "rows": 1,
-            "cols": 2,
-            "blocks-begin": 3,
+            "rows": 2,
+            "cols": 3,
+            "blocks-begin": 4,
             "blocks": {
                 "id": 0,
                 "player-id": 1,

@@ -24,7 +24,6 @@ export default {
         const gameWs = new gameWebsocket(id.value);
         gameWs.bindFunctionToEvent("ws-onopen", () => this.loading = false)
         gameWs.bindFunctionToEvent('game-start', () => this.ingame = true)
-
         const roomInfos = reactive({
             players: {
                 "1": {

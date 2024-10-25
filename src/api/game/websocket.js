@@ -1,13 +1,13 @@
 import store from '../../store/index';
 import gameAPIConf from '../../static/game-api-conf';
-class gameWebsocket {
+class GameWebsocket {
     /**
      * Build a websocket connection to the game server.
      * @param {String} id - number in string format
      */
     constructor(id) {
         /**
-         * @type {Map<String:Function>} - when event(String) happend, call this Function
+         * @type {Map<Number:Function>} - when event(String) happend, call this Function
          */
         this.eventBindMap = new Map();
 
@@ -22,13 +22,14 @@ class gameWebsocket {
         this.ws.onmessage = (event) => {
             if (event.data instanceof Blob) {
                 const data = new Uint32Array(event.data);
-                const type = data[0];
+                // get event type string for this
+                const type = data[gameAPIConf['event-binary-chunk']['base']['type']]; // data[0], id
                 this.eventBindMap.get(type)(data);
-            } else {
+            } else { // string
                 const data = JSON.parse(event.data);
-                const type = data.type;
+                const type = gameAPIConf['event-id'][data.type]; // get data id(number) by string type
 
-                this.eventBindMap.get(type)(data.payload);
+                this.eventBindMap.get(type)(data.payload); // dispatch each payload for event listener
             }
         }
 
@@ -62,4 +63,5 @@ class gameWebsocket {
         this.ws.send(JSON.stringify({type: event, ...data}));
     }
 };
-export default gameWebsocket;
+
+export default GameWebsocket;

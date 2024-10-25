@@ -1,10 +1,11 @@
 <script setup>
 import { NLayoutHeader, NLayoutFooter, NCard, NButtonGroup, NButton, NGrid, NGi, NThing, NSpace, NDescriptions, NDescriptionsItem, NSlider, NInputNumber, NAvatar } from 'naive-ui';
-import { inject, reactive } from 'vue';
-const { id } = inject('variables');
+import { inject, ref, watch } from 'vue';
+const { id, gameWs, roominfos } = inject('variables');
 let { ingame } = inject('variables');
+import {getPlayerInfoInGame } from '../../api/user/game';
 
-const infos = reactive({
+const infos = ref({
     /**
  * @type {Array<{
  *              color: String,
@@ -37,23 +38,64 @@ function report(uuid) { }
 function addFriend(uuid) { }
 function prepare() { }
 function addTeam() {
-    if (infos.teams.length > 20) {
+    if (infos.value.teams.length > 20) {
         return
     }
-    infos.teams.push(infos.teams[infos.teams.length - 1] + 1)
+    infos.value.teams.push(infos.value.teams[infos.value.teams.length - 1] + 1)
 }
 function deleteTeam() {
-    if (infos.teams.length <= 2) {
+    if (infos.value.teams.length <= 2) {
         return;
     }
-    const current = String(infos.teams[infos.teams.length - 1]);
+    const current = String(infos.value.teams[infos.value.teams.length - 1]);
     let removable = true
-    infos.playerList.forEach(player => { if (player.team === current) { removable = false } })
+    infos.value.playerList.forEach(player => { if (player.team === current) { removable = false } })
     if (removable) {
-        infos.teams.pop()
+        infos.value.teams.pop()
     }
 }
 function chooseTeam(team) { }
+
+gameWs.bindFunctionToEvent('room-update-infos.value', data => {
+    function updateObject(original, updates) {
+        for (let key in updates) {
+            if (updates.hasOwnProperty(key)) {
+                if (typeof updates[key] === 'object' && updates[key] !== null && !Array.isArray(updates[key])) {
+                    // Recursively update nested objects
+                    original[key] = updateObject(original[key], updates[key]);
+                } else {
+                    original[key] = updates[key];
+                }
+            }
+        }
+        return original;
+    }
+    updateObject(infos.value, data);
+})
+watch(infos, (newValue, oldValue) => {
+    if (newValue.playerList) {
+        // Iterate through the playerList array
+        newValue.playerList.forEach(async (player, index) => {
+            if (player.uuid === oldValue.playerList[index].uuid) {
+                return;
+            }
+            // Fetch additional information based on the player's uuid
+            try {
+                const data = await getPlayerInfoInGame(uuid);
+
+                // Update the player's color, username, and description
+                if (data) {
+                    player.color = data.color;
+                    player.username = data.username;
+                    player.description = data.description;
+                }
+            } catch (error) {
+                console.error('Error fetching player info:', error);
+            }
+        });
+    }
+}, { deep: true });
+
 </script>
 
 <template>
