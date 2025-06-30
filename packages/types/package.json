@@ -1,0 +1,10 @@
+{
+  "name": "@generale/types",
+  "private": true,
+  "version": "1.0.0",
+  "types": "./src/index.ts",
+  "devDependencies": {
+    "bun-types": "latest",
+    "typescript": "^5.0.0"
+  }
+}

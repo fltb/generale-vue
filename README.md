@@ -1,5 +1,12 @@
-# generale
+# General E
 
-developing.
+To install dependencies:
 
-generale is a game inspired by generals.io
+```bash
+bun install
+```
+
+This project was created using `bun init` in bun v1.2.17. [Bun](https://bun.sh) is a fast all-in-one JavaScript runtime.
+
+Currently under development.
+
