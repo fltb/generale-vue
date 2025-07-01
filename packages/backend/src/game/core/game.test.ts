@@ -5,7 +5,6 @@ import {
     handleMove,
     updateGameState,
     isAdjacentToPlayer,
-    playerDefeatedBy,
 } from './game-utils';
 
 import {
@@ -55,7 +54,7 @@ function createState(width = 5, height = 5): GameState {
 function createRandomizedState(
     width = 10,
     height = 10,
-    playerConfigs: { id: PlayerId; teamId?: TeamId }[]
+    playerConfigs: { id: PlayerId; teamId: TeamId }[]
 ): GameState {
     let state = createState(width, height);
 
@@ -74,7 +73,7 @@ function createRandomizedState(
             if (!teams[pConfig.teamId]) {
                 teams[pConfig.teamId] = { id: pConfig.teamId, memberIds: [], status: PlayerStatus.Playing };
             }
-            teams[pConfig.teamId].memberIds.push(pConfig.id);
+            teams[pConfig.teamId]!.memberIds.push(pConfig.id);
         }
     });
     state = {
@@ -312,13 +311,13 @@ describe('isAdjacentToPlayer', () => {
         // all around should be true
         for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
             if (dx === 0 && dy === 0) continue;
-            expect(isAdjacentToPlayer(s.map, 'p', { x: 1 + dx, y: 1 + dy })).toBe(true);
+            expect(isAdjacentToPlayer(s, 'p', { x: 1 + dx, y: 1 + dy })).toBe(true);
         }
     });
 
     it('returns false when no neighbor', () => {
         const s = createState(3, 3);
-        expect(isAdjacentToPlayer(s.map, 'p', { x: 0, y: 0 })).toBe(false);
+        expect(isAdjacentToPlayer(s, 'p', { x: 0, y: 0 })).toBe(false);
     });
 });
 
@@ -592,7 +591,7 @@ describe('Enhanced Multi-Step and Randomized Tests', () => {
 
 describe('Randomized Multi-Step Fuzz Tests', () => {
 
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < 50; i++) {
         it(`Randomized Test Case #${i + 1}`, () => {
             let state = createRandomizedState(10, 10, [
                 { id: 'p1', teamId: 't1' },
@@ -668,7 +667,7 @@ describe('Randomized Multi-Step Fuzz Tests', () => {
                         const maskedTile = maskedState.map.tiles[y][x];
                         const isVisible = originalTile.ownerId === testPlayer.id ||
                             (testPlayer.teamId && state.players[originalTile.ownerId!]?.teamId === testPlayer.teamId) ||
-                            isAdjacentToPlayer(state.map, testPlayer.id, { x, y });
+                            isAdjacentToPlayer(state, testPlayer.id, { x, y });
 
                         if (isVisible) {
                             expect(maskedTile.type).not.toBe(TileType.Fog);
