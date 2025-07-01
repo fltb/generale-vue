@@ -37,14 +37,25 @@ export enum PlayerOperationType {
  * 单个地块的完整状态
  */
 export interface Tile {
-    readonly type: TileType;
-    ownerId: string | null; // null 表示中立
+    type: TileType;
+    ownerId: PlayerId | null; // null 表示中立
     army: number;
     /**
      * 用于内部逻辑的计时器，例如普通地块的产兵计时
      * @internal
      */
     _internalCounter?: number;
+}
+
+
+export type TeamId = string;
+
+/** 队伍核心信息 */
+export interface TeamCore {
+    readonly id: TeamId;
+    memberIds: PlayerId[];            // 队员列表
+    status: PlayerStatus;             // 队伍状态（比如全部队员都败北时可判负）
+    // 可以再加：胜利条件、分数、等等
 }
 
 /**
@@ -55,6 +66,9 @@ export interface PlayerCore {
     status: PlayerStatus;
     army?: number; // 总兵力
     land?: number; // 总地块
+    /** 上一次有操作的 tick，用于挂机判定 */
+    lastActiveTick?: number;
+    readonly teamId?: TeamId;                  // 玩家所属队伍
 }
 
 export interface GameMap {
@@ -63,13 +77,24 @@ export interface GameMap {
     readonly tiles: Tile[][];
 }
 
+export interface GameSettings {
+    readonly tileGrow: Record<TileType, {
+        readonly duration: number;
+        readonly growth: number;
+    }>;
+    /** 挂机多少 tick 视为失败 */
+    readonly afkThreshold: number;
+}
+
 /**
  * 代表整个游戏世界在某一时刻的快照。
  * 这是游戏的“单一真实来源 (Single Source of Truth)”。
  */
 export interface GameState {
-    readonly tick: number;
+    tick: number;
+    readonly settings: GameSettings;
     readonly players: Record<PlayerId, PlayerCore>;
+    readonly teams: Record<TeamId, TeamCore>;
     readonly map: GameMap;
 }
 
