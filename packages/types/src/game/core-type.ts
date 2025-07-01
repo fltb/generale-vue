@@ -64,11 +64,11 @@ export interface TeamCore {
 export interface PlayerCore {
     readonly id: PlayerId; // 玩家ID永不改变
     status: PlayerStatus;
-    army?: number; // 总兵力
-    land?: number; // 总地块
+    army: number; // 总兵力
+    land: number; // 总地块
     /** 上一次有操作的 tick，用于挂机判定 */
-    lastActiveTick?: number;
-    readonly teamId?: TeamId;                  // 玩家所属队伍
+    lastActiveTick: number;
+    readonly teamId: TeamId;                  // 玩家所属队伍
 }
 
 export interface GameMap {
