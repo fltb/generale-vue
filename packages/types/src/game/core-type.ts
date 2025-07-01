@@ -1,0 +1,113 @@
+/**
+ * 坐标
+ */
+export type Coordinates = {
+    x: number;
+    y: number;
+};
+
+/**
+ * 地块的类型
+ */
+export enum TileType {
+    Plain = 'PLAIN',        // 普通地块
+    Throne = 'THRONE',      // 王座
+    Barracks = 'BARRACKS',    // 兵营
+    Mountain = 'MOUNTAIN',    // 山地 (无法通行)
+    Swamp = 'SWAMP',          // 沼泽 (吞噬兵力)
+    Fog = 'FOG',            // 战争迷雾
+}
+
+/**
+ * 玩家的状态
+ */
+export enum PlayerStatus {
+    Playing = 'PLAYING',      // 游戏中
+    Defeated = 'DEFEATED',    // 已战败
+    Won = 'WON',              // 已胜利
+}
+
+export type PlayerId = string;
+
+export enum PlayerOperationType {
+    Move = 'MOVE',
+}
+
+/**
+ * 单个地块的完整状态
+ */
+export interface Tile {
+    readonly type: TileType;
+    ownerId: string | null; // null 表示中立
+    army: number;
+    /**
+     * 用于内部逻辑的计时器，例如普通地块的产兵计时
+     * @internal
+     */
+    _internalCounter?: number;
+}
+
+/**
+ * 玩家的全局状态
+ */
+export interface PlayerCore {
+    readonly id: PlayerId; // 玩家ID永不改变
+    status: PlayerStatus;
+    army?: number; // 总兵力
+    land?: number; // 总地块
+}
+
+export interface GameMap {
+    readonly width: number;
+    readonly height: number;
+    readonly tiles: Tile[][];
+}
+
+/**
+ * 代表整个游戏世界在某一时刻的快照。
+ * 这是游戏的“单一真实来源 (Single Source of Truth)”。
+ */
+export interface GameState {
+    readonly tick: number;
+    readonly players: Record<PlayerId, PlayerCore>;
+    readonly map: GameMap;
+}
+
+/**
+ * 给某一个玩家的，带有战争迷雾，隐藏了其他玩家信息的快照
+ */
+export type MaskedGameState = GameState;
+
+// --- 玩家操作相关类型 ---
+
+/**
+ * 移动操作的具体载荷
+ */
+export interface MoveOperationPayload {
+    from: Coordinates;
+    to: Coordinates;
+    /**
+     * 移动兵力的百分比 (0-100)。
+     */
+    percentage: number;
+}
+
+export type PlayerOperationPayload = | MoveOperationPayload;
+
+/**
+ * 玩家可以执行的操作。使用可辨识联合类型 (discriminated union) 方便未来扩展。
+ */
+export type PlayerOperation = {
+    readonly type: PlayerOperationType;
+    readonly payload: PlayerOperationPayload;
+}
+// 未来可以扩展:
+// | { type: 'BUILD'; payload: BuildActionPayload }
+// | { type: 'UPGRADE'; payload: UpgradeActionPayload };
+
+/**
+ * 每个玩家的操作队列。
+ * key 是玩家ID (Player['id'])。
+ * value 是该玩家在本 tick 提交的操作序列。
+ */
+export type PlayerActionQueues = Record<PlayerId, PlayerOperation[]>;
