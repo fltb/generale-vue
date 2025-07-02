@@ -191,6 +191,108 @@ game 的消息分为
 
 意外刷新和断线重联触发原来的逻辑，退到主页面的话，因为：当前游戏正在进行 且 当前页面不是 /game/:id，那么，弹出重连。
 
+### 游戏同步相关逻辑说明
+
+前端和后端需要维持一个抽象的连接进行双向的通信 socket。
+
+在理想的情况下面，它只需要两个接口：
+
+- send(event)
+- onMessage(event => void)
+
+然后，考虑到具体的业务逻辑，我们假设需要关闭的时候会主动关闭，需要打开的时候也主动打开。在此期间连接始终应当保持开启。
+
+打开链接应该由客户端主动发起，因为客户端不配备接收逻辑。关闭连接可以由服务端和客户端分别主动发起，然后双方清理连接。
+
+因为底层连接稳定，所以可以使用 0-rtt 的方式打开链接。 AI 设计一下这个协议。打开链接不做专门接口。客户端以对象创建为准，服务端以监听分发逻辑收到创建请求后将包装的 ServerSyncSocket 分发到需要的地方为准。所以只需要下面的接口
+
+- onOpen()
+- onClose()
+- close()
+
+但是，底层的连接可能会因为各种原因（超时，网络抖动，连接重置）等方式断开。这时候会影响到上层的连接。这时候就需要操作重连。
+
+我们需要先定义因为意外关闭的情况，这种情况就是底层连接不稳定的一个反应，不应该像关闭一样清理资源，而且应该在底层连接重连成功之后，执行一段恢复逻辑。需要在意外断开的时候通知。是复用上面的 open close 接口，还是自己写？AI 分析方案利弊
+
+我们定义一组抽象的同步连接器声明，此时 AI 需要优化下面的接口
+
+```ts
+// 定义服务器端的 “同步连接器” 接口
+export interface ServerSyncConnector<CEvt, SEvt> {
+  /** 当前连接是否就绪 */
+  readonly ready: boolean
+
+  /** 向客户端发送一条事件 */
+  send(evt: SEvt): void
+
+  /** 注册来自客户端的事件回调 */
+  onClientMessage(cb: (evt: CEvt) => void): void
+
+  /** 当连接首次建立或重连成功时触发 */
+  onOpen(cb: () => void): void
+
+  /** 当连接关闭时触发 */
+  onClose(cb: (code: number, reason: string) => void): void
+
+  /**
+   * 当底层网络断开（超时、断链、reset）等意外断开时回调。
+   * onClose 不触发资源清理，上层可在此做“重连中”状态展示。
+   */
+  onDisconnect(cb: (err?: Error) => void): void;
+
+  /**
+   * 当发生 onDisconnect 之后，底层尝试自动重连成功时触发此回调。
+   * 可用来恢复心跳、补发遗失的消息、同步状态等。
+   */
+  onReconnect(cb: () => void): void;
+
+  /** 主动关闭连接 */
+  close(code?: number, reason?: string): void
+}
+
+
+// 定义客户端的 “同步连接器” 接口
+export interface SyncConnector<CEvt, SEvt> {
+  /** 当前底层连接是否就绪、可双向通信 */
+  readonly ready: boolean;
+
+  /** 主动关闭（双边协商后的正常关闭） */
+  close(code?: number, reason?: string): void;
+
+  /** 发送事件 */
+  send(evt: CEvt): void;
+
+  // —— 注册回调 —— 
+
+  /**
+   * 当底层连接建立或在意外断开后重新连上时回调。
+   * 注意：此处既包括首次 onopen，也包括重连成功。
+   */
+  onOpen(cb: () => void): void;
+
+  /**
+   * 当“协商关闭”或一方主动调用 close() 时回调。
+   * 这时上层应当释放资源、停止定时心跳等。
+   */
+  onClose(cb: (code?: number, reason?: string) => void): void;
+
+  /**
+   * 当底层网络断开（超时、断链、reset）等意外断开时回调。
+   * onClose 不触发资源清理，上层可在此做“重连中”状态展示。
+   */
+  onDisconnect(cb: (err?: Error) => void): void;
+
+  /**
+   * 当发生 onDisconnect 之后，底层尝试自动重连成功时触发此回调。
+   * 可用来恢复心跳、补发遗失的消息、同步状态等。
+   */
+  onReconnect(cb: () => void): void;
+
+  /** 收到对端推送的消息 */
+  onMessage(cb: (evt: SEvt) => void): void;
+}
+```
+
 ### 自定义房间
 
 对于自定义房间，采用瀑布流 solid query + ws event + solid virtual 的形式。
