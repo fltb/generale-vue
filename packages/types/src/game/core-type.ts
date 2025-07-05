@@ -1,3 +1,5 @@
+import { SyncedStateClientGenericSyncAction } from "../connection";
+
 /**
  * 坐标
  */
@@ -122,10 +124,10 @@ export type PlayerOperationPayload = | MoveOperationPayload;
 /**
  * 玩家可以执行的操作。使用可辨识联合类型 (discriminated union) 方便未来扩展。
  */
-export type PlayerOperation = {
-    readonly type: PlayerOperationType;
-    readonly payload: PlayerOperationPayload;
-}
+export type PlayerOperation = SyncedStateClientGenericSyncAction<
+    PlayerOperationType,
+    PlayerOperationPayload
+>;
 // 未来可以扩展:
 // | { type: 'BUILD'; payload: BuildActionPayload }
 // | { type: 'UPGRADE'; payload: UpgradeActionPayload };
