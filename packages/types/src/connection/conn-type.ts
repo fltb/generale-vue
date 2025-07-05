@@ -1,74 +1,76 @@
-// 定义服务器端的 “同步连接器” 接口
+// Defines the server-side "sync connector" interface
 export interface ServerSyncConnector<CEvt, SEvt> {
-  /** 当前连接是否就绪 */
+  /** Whether the current connection is ready */
   readonly ready: boolean
 
-  /** 向客户端发送一条事件 */
+  /** Send an event to the client
+   * Behavior of send() during disconnect is currently considered UB (undefined behavior)
+   */
   send(evt: SEvt): void
 
-  /** 注册来自客户端的事件回调 */
+  /** Register callback for client events */
   onClientMessage(cb: (evt: CEvt) => void): void
 
-  /** 当连接首次建立或重连成功时触发 */
+  /** Triggered when connection is first established or successfully reconnected */
   onOpen(cb: () => void): void
 
-  /** 当连接关闭时触发 */
+  /** Triggered when connection is actively closed (either server or client decides to terminate) */
   onClose(cb: (code: number, reason: string) => void): void
 
   /**
-   * 当底层网络断开（超时、断链、reset）等意外断开时回调。
-   * onClose 不触发资源清理，上层可在此做“重连中”状态展示。
+   * Callback when underlying network disconnects unexpectedly (timeout, broken link, reset etc.)
+   * onClose doesn't trigger resource cleanup, UI can show "reconnecting" state here.
    */
   onDisconnect(cb: (err?: Error) => void): void;
 
   /**
-   * 当发生 onDisconnect 之后，底层尝试自动重连成功时触发此回调。
-   * 可用来恢复心跳、补发遗失的消息、同步状态等。
+   * Triggered when automatic reconnection succeeds after onDisconnect.
+   * Can be used to restore heartbeat, resend lost messages, sync state etc.
    */
   onReconnect(cb: () => void): void;
 
-  /** 主动关闭连接 */
+  /** Actively close the connection */
   close(code?: number, reason?: string): void
 }
 
 
-// 定义客户端的 “同步连接器” 接口
+// Defines the client-side "sync connector" interface
 export interface SyncConnector<CEvt, SEvt> {
-  /** 当前底层连接是否就绪、可双向通信 */
+  /** Whether the underlying connection is ready for bidirectional communication */
   readonly ready: boolean;
 
-  /** 主动关闭（双边协商后的正常关闭） */
+  /** Actively close (normal shutdown after bilateral negotiation) */
   close(code?: number, reason?: string): void;
 
-  /** 发送事件 */
+  /** Send event */
   send(evt: CEvt): void;
 
-  // —— 注册回调 —— 
+  // —— Callback registration —— 
 
   /**
-   * 当底层连接建立或在意外断开后重新连上时回调。
-   * 注意：此处既包括首次 onopen，也包括重连成功。
+   * Callback when underlying connection is established or successfully reconnected after unexpected disconnect.
+   * Note: Includes both initial onopen and successful reconnections.
    */
   onOpen(cb: () => void): void;
 
   /**
-   * 当“协商关闭”或一方主动调用 close() 时回调。
-   * 这时上层应当释放资源、停止定时心跳等。
+   * Callback when "negotiated close" or when either side actively calls close().
+   * Upper layer should release resources and stop heartbeat timers here.
    */
   onClose(cb: (code?: number, reason?: string) => void): void;
 
   /**
-   * 当底层网络断开（超时、断链、reset）等意外断开时回调。
-   * onClose 不触发资源清理，上层可在此做“重连中”状态展示。
+   * Callback when underlying network disconnects unexpectedly (timeout, broken link, reset etc.)
+   * onClose doesn't trigger resource cleanup, UI can show "reconnecting" state here.
    */
   onDisconnect(cb: (err?: Error) => void): void;
 
   /**
-   * 当发生 onDisconnect 之后，底层尝试自动重连成功时触发此回调。
-   * 可用来恢复心跳、补发遗失的消息、同步状态等。
+   * Triggered when automatic reconnection succeeds after onDisconnect.
+   * Can be used to restore heartbeat, resend lost messages, sync state etc.
    */
   onReconnect(cb: () => void): void;
 
-  /** 收到对端推送的消息 */
+  /** Received message from peer */
   onMessage(cb: (evt: SEvt) => void): void;
 }
