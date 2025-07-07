@@ -106,10 +106,12 @@ export interface GameState {
 export type MaskedGameState = GameState;
 
 // --- 玩家操作相关类型 ---
+export interface BaseOperation<T> {
+    type: PlayerOperationType
+    payload: T
+}
 
-/**
- * 移动操作的具体载荷
- */
+
 export interface MoveOperationPayload {
     from: Coordinates;
     to: Coordinates;
@@ -118,16 +120,13 @@ export interface MoveOperationPayload {
      */
     percentage: number;
 }
-
-export type PlayerOperationPayload = | MoveOperationPayload;
-
 /**
- * 玩家可以执行的操作。使用可辨识联合类型 (discriminated union) 方便未来扩展。
+ * 移动操作的具体载荷
  */
-export type PlayerOperation = SyncedStateClientGenericSyncAction<
-    PlayerOperationType,
-    PlayerOperationPayload
->;
+export type MoveOperation = BaseOperation<MoveOperationPayload>
+
+export type PlayerOperation = | MoveOperation;
+
 // 未来可以扩展:
 // | { type: 'BUILD'; payload: BuildActionPayload }
 // | { type: 'UPGRADE'; payload: UpgradeActionPayload };

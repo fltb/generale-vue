@@ -2,14 +2,14 @@ import {
     GameState,
     MaskedGameState,
     PlayerActionQueues,
-    PlayerOperation,
     PlayerId,
     SyncedGameServerEvent,
     SyncedGameServerStateUpdatePayloadType,
     SyncedGameServerEventType,
     ServerSyncConnector,
     SyncedGameClientActions,
-    SyncedGameState
+    SyncedGameState,
+    SyncedGameClientActionTypes
 } from '@generale/types';
 import { tick, mask } from '../core';
 import { enablePatches, produceWithPatches } from 'immer';
@@ -36,6 +36,7 @@ export class GameInstance {
     private settings: GameInstanceSettings;
     private connectors: Map<PlayerId, GameServerConnector>;
     private syncData = new Map<PlayerId, SyncEntry>();
+    private prevSentState = new Map<PlayerId, SyncedGameState>;
     private disconnected = new Set<PlayerId>();
 
     constructor(
@@ -51,25 +52,41 @@ export class GameInstance {
         for (const [pid, conn] of this.connectors) {
             // init synced state & metadata
             const masked = mask(this.state, pid);
-
+            this.syncData.set(pid, {
+                lastConfirmedOp: 0,
+                syncedState: {
+                    ...masked,
+                    playerDisplay: this.settings.playerDisplay,
+                    playerOperationQueue: [],
+                }
+            })
             conn.onOpen(() => this.sendState(pid, true));
             conn.onDisconnect(() => this.disconnected.add(pid));
             conn.onReconnect(() => {
                 this.disconnected.delete(pid);
                 this.sendState(pid, true);
             });
-            conn.onClientMessage(evt => this.handleClientEvent(pid, evt as any));
+            conn.onClientMessage(evt => this.handleClientEvent(pid, evt));
             conn.onClose(() => this.connectors.delete(pid));
         }
     }
 
-    private handleClientEvent(pid: PlayerId, evt: { operations: PlayerOperation[] }) {
-        const synced = this.playerSyncedStates.get(pid)!;
-        synced.playerOperationQueue = [...synced.playerOperationQueue, ...evt.operations];
+    private handleClientEvent(pid: PlayerId, evt: SyncedGameClientActions) {
+        const synced = this.syncData.get(pid)!;
+        switch (evt.type) {
+            case SyncedGameClientActionTypes.PUSH: {
+                synced.syncedState.playerOperationQueue = [...synced.syncedState.playerOperationQueue, ...evt.payload];
+            } break;
+            case SyncedGameClientActionTypes.CLEAN_ALL: {
+                synced.syncedState.playerOperationQueue = [];
+            } break;
+        }
+        synced.lastConfirmedOp = Math.max(synced.lastConfirmedOp, evt.optimisticId);
     }
 
     /**
-     * 根据上次同步状态与当前 state，自动计算并发送全量或增量
+     * 根据情况向客户端发送 this.syncData.get(pid)
+     * 以 snapshot 或者 patch 的形式
      * forceSnapshot: 是否强制发送全量
      */
     private sendState(pid: PlayerId, forceSnapshot = false) {
@@ -77,45 +94,43 @@ export class GameInstance {
         const conn = this.connectors.get(pid);
         if (!conn) return;
 
-        // 上次已同步的客户端视图
-        const prevEntry = this.syncData.get(pid);
-        const prevState = prevEntry?.syncedState;
-        const newState: SyncedGameState = {
-            ...mask(this.state, pid),
-            playerDisplay: this.settings.playerDisplay,
-            playerOperationQueue: prevState
-                ? prevState.playerOperationQueue
-                : []  // 首次无旧条目则空队列
+        const entry = this.syncData.get(pid)!;
+        const current = entry.syncedState;
+
+        const payloadBase = {
+            version: this.version,
+            confirmedOp: entry.lastConfirmedOp
         };
 
-        // 比对补丁
-        const [_, patches] = produceWithPatches(prevState ?? newState, draft => {
-            Object.assign(draft, newState);
-        });
-
-        // 计算 confirmedOp
-        const oldIds = prevState
-            ? prevState.playerOperationQueue.map(op => op.optimisticId)
-            : [];
-        const newIds = newState.playerOperationQueue.map(op => op.optimisticId);
-        const removed = oldIds.filter(id => !newIds.includes(id));
-        const confirmed = removed.length > 0
-            ? Math.max(...removed)
-            : prevEntry?.lastConfirmedOp ?? 0;
-
-        // 全局版本自增
-        this.version++;
-        const payloadBase = { version: this.version, confirmedOp: confirmed };
-
-        // 决定首次或强制发快照，或差异发增量
-        const isFirst = !prevEntry;
-        if (isFirst || forceSnapshot || patches.length === 0) {
+        // 如果没有 prevSentState 或者强制 snapshot，就直接发全量
+        if (!this.prevSentState.has(pid) || forceSnapshot) {
             conn.send({
                 type: SyncedGameServerEventType.STATE_UPDATE,
                 payload: {
                     type: SyncedGameServerStateUpdatePayloadType.SNAPSHOT,
                     ...payloadBase,
-                    payload: newState
+                    payload: current
+                }
+            });
+            // 记录下来，供下次 diff
+            this.prevSentState.set(pid, current);
+            return;
+        }
+
+        // 否则走 diff 流程
+        const prev = this.prevSentState.get(pid)!;
+        const [nextSnapshot, patches] = produceWithPatches(prev, draft => {
+            Object.assign(draft, current);
+        });
+
+        // 临时的判断，以后会根据经验参数之类的方式判断是否发 snapshot
+        if (patches.length > 1000) {
+            conn.send({
+                type: SyncedGameServerEventType.STATE_UPDATE,
+                payload: {
+                    type: SyncedGameServerStateUpdatePayloadType.SNAPSHOT,
+                    ...payloadBase,
+                    payload: current
                 }
             });
         } else {
@@ -129,11 +144,8 @@ export class GameInstance {
             });
         }
 
-        // 更新 syncData 条目
-        this.syncData.set(pid, {
-            lastConfirmedOp: confirmed,
-            syncedState: newState
-        });
+        // 更新 prevSentState
+        this.prevSentState.set(pid, nextSnapshot);
     }
 
     /** 推进游戏并触发同步 */
@@ -147,6 +159,15 @@ export class GameInstance {
         this.version++;
 
         // 对所有玩家发送状态
+        for (const pid of this.connectors.keys()) {
+            const synced = this.syncData.get(pid)!;
+            const masked = mask(this.state, pid);
+            synced.syncedState = {
+                ...synced.syncedState,
+                ...masked,
+            };
+        }
+
         for (const pid of this.connectors.keys()) {
             this.sendState(pid);
         }

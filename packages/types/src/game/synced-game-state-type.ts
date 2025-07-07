@@ -1,5 +1,5 @@
-import { SyncedStateClientBaseActions, SyncedStateClientGenericSyncAction, SyncedStateServerEvent, SyncedStateServerEventType, SyncedStateServerStateUpdatePayloadType } from "../connection/sync-store-type";
-import { MaskedGameState, PlayerOperation, PlayerId } from "./core-type";
+import { SyncedStateClientGenericSyncAction, SyncedStateServerEvent } from "../connection/sync-store-type";
+import { MaskedGameState, PlayerId, PlayerOperation } from "./core-type";
 
 export interface SyncedGameState extends MaskedGameState {
     playerDisplay: {
@@ -26,7 +26,6 @@ export type SyncedGameClientPlayerOperationClancelAllAction = SyncedStateClientG
 >;
 
 export type SyncedGameClientActions =
-    | SyncedStateClientBaseActions
     | SyncedGameClientPlayerOperationPushAction
     | SyncedGameClientPlayerOperationClancelAllAction;
 

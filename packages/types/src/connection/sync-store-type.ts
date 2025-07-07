@@ -36,7 +36,7 @@ import { Patch } from 'immer';
  *    - commit rejects after timeout, ensuring calling side can catch errors.
  *
  * 7. Reconnection:
- *    - When underlying connector reconnects successfully, triggers onOpen again, executing "sync_request + resend pending".
+ *    - When underlying connector reconnects successfully, triggers onOpen again, executing "resend pending".
  *    - Maintains consistency between client and server states.
  */
 
@@ -125,12 +125,13 @@ export type SyncedStateClientGenericSyncAction<
     readonly payload: P;
 };
 
-/**
- * Client -> Server synchronization request event, used for version synchronization during initial connection/reconnection
- */
-export type SyncedStateClientSyncAction = SyncedStateClientGenericSyncAction<
-    SyncedStateClientBaseActionType.SYNC_ACTION,
-    { version: number }
->;
+// Currently unused
+// /**
+//  * Client -> Server synchronization request event, used for version synchronization during initial connection/reconnection
+//  */
+// export type SyncedStateClientSyncAction = SyncedStateClientGenericSyncAction<
+//     SyncedStateClientBaseActionType.SYNC_ACTION,
+//     { version: number }
+// >;
 
-export type SyncedStateClientBaseActions = | SyncedStateClientSyncAction;
+// export type SyncedStateClientBaseActions;

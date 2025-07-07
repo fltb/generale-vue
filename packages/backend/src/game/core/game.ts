@@ -1,4 +1,4 @@
-import { GameState, PlayerActionQueues, PlayerOperationType, MoveOperationPayload, TileType, MaskedGameState, PlayerStatus, PlayerId } from "@generale/types";
+import { GameState, PlayerActionQueues, PlayerOperationType, TileType, MaskedGameState, PlayerStatus, PlayerId } from "@generale/types";
 import { handleMove, isAdjacentToPlayer, updateGameState } from "./game-utils";
 
 
@@ -38,7 +38,7 @@ export function tick(
         let ok = false;
         switch (op.type) { // This access is now safe
             case PlayerOperationType.Move:
-                ok = handleMove(newState, pid, op.payload as MoveOperationPayload);
+                ok = handleMove(newState, pid, op.payload);
                 break;
             // case … 以后扩展
             default:
