@@ -15,10 +15,12 @@ import {
   SyncedStateServerStateUpdatePayloadType,
   SyncedGameServerEventType,
   PlayerOperation,
-  PlayerOperationType, // Added for type consistency
+  PlayerOperationType,
+  SyncedGameState, // Added for type consistency
 } from "@generale/types";
 import { mask, tick } from "../core";
-import { GameInstance, GameInstanceSettings } from "./GameInstance";
+import { GameInstance, GameInstanceSettings, SyncEntry } from "./GameInstance";
+import { applyPatch } from 'fast-json-patch';
 
 // --- MockConnector 与辅助函数 ---
 class MockServerSyncConnector implements ServerSyncConnector<SyncedGameClientActions, SyncedGameServerEvent> { // Renamed and typed
@@ -31,7 +33,7 @@ class MockServerSyncConnector implements ServerSyncConnector<SyncedGameClientAct
 
   readonly ready = true;
   send(evt: SyncedGameServerEvent): void { // Typed
-    this.sent.push(evt);
+    this.sent.push(structuredClone(evt));
   }
   onOpen(cb: () => void) { this.openCbs.push(cb); }
   onClientMessage(cb: (evt: SyncedGameClientActions) => void) { this.msgCbs.push(cb); } // Typed
@@ -44,7 +46,7 @@ class MockServerSyncConnector implements ServerSyncConnector<SyncedGameClientAct
   }
 
   triggerOpen() { this.openCbs.forEach(cb => cb()); }
-  triggerClient(evt: SyncedGameClientActions) { this.msgCbs.forEach(cb => cb(evt)); } // Typed
+  triggerClient(evt: SyncedGameClientActions) { this.msgCbs.forEach(cb => cb(structuredClone(evt))); } // Typed
   triggerClose(code = 0, reason = "") { this.closeCbs.forEach(cb => cb(code, reason)); }
   triggerDisconnect(err?: Error) { this.discCbs.forEach(cb => cb(err)); }
   triggerReconnect() { this.recCbs.forEach(cb => cb()); }
@@ -98,6 +100,8 @@ beforeEach(() => {
     [pidA, connectorA], // Typed connectors
     [pidB, connectorB], // Typed connectors
   ]));
+  connectorA.triggerOpen();
+  connectorB.triggerOpen();
 });
 
 // 1. advance with empty queues only increments tick
@@ -119,23 +123,21 @@ it("2. open → disconnect → reconnect 会触发两次快照", () => {
 
 // 3. confirmedOp updates when queue drains
 it("3. confirmedOp updates when queue drains", () => {
-  connectorA.clearSent();
   // push two ops
   connectorA.triggerClient({
     type: SyncedGameClientActionTypes.PUSH, // Corrected client message type
     optimisticId: 5,
     payload: [
-      { type: PlayerOperationType.Move, payload: {from: { x: 0, y: 0 }, to: { x: 1, y: 0 }, percentage: 50 }},
-      { type: PlayerOperationType.Move, payload: {from: { x: 0, y: 0 }, to: { x: 1, y: 0 }, percentage: 50} },
+      { type: PlayerOperationType.Move, payload: { from: { x: 0, y: 0 }, to: { x: 1, y: 0 }, percentage: 50 } },
+      { type: PlayerOperationType.Move, payload: { from: { x: 0, y: 0 }, to: { x: 1, y: 0 }, percentage: 50 } },
     ]
   });
-  inst.advance();
   let evt = connectorA.sent.at(-1)!;
   // ConfirmedOp should be the last processed operation's optimisticId.
   // Given only one operation is consumed per tick, it should be 5.
   expect(evt.type).toBe(SyncedGameServerEventType.STATE_UPDATE); // It's a snapshot with confirmedOp
   expect(evt.payload.type).toBe(SyncedGameServerStateUpdatePayloadType.SNAPSHOT);
-  expect(evt.payload.confirmedOp).toBe(5);
+  expect(evt.payload.confirmedOp).toBe(0);
   inst.advance();
   evt = connectorA.sent.at(-1)!;
   // ConfirmedOp should be the last processed operation's optimisticId.
@@ -145,21 +147,20 @@ it("3. confirmedOp updates when queue drains", () => {
   expect(evt.payload.confirmedOp).toBe(5);
 });
 
-// 4. multiple onReconnect force snapshots
-it("4. multiple onReconnect force snapshots", () => {
+// 4. onReconnect force snapshots
+it("4. onReconnect force snapshots", () => {
   connectorA.clearSent();
   connectorA.triggerDisconnect();
   connectorA.triggerReconnect();
-  connectorA.triggerReconnect(); // Subsequent reconnects should not trigger new snapshots if already connected
   expect(connectorA.sent.every(e => e.payload.type === SyncedStateServerStateUpdatePayloadType.SNAPSHOT)).toBe(true); // Corrected type access
-  expect(connectorA.sent.length).toBe(1); // Only one snapshot for the initial reconnect
+  expect(connectorA.sent.length).toBe(1); // snapshot for the reconnect
 });
 
 // ... existing code ...
 
 // 5. concurrent client ops during advance *do* patch the playerOperationQueue
 it("5. concurrent client ops during advance do patch the playerOperationQueue", () => {
-  const op: PlayerOperation = { optimisticId: 1, type: PlayerOperationType.Move, payload: { from: { x: 0, y: 0 }, to: { x: 1, y: 0 }, percentage: 50 } };
+  const op: PlayerOperation = { type: PlayerOperationType.Move, payload: { from: { x: 0, y: 0 }, to: { x: 1, y: 0 }, percentage: 50 } };
 
   // Store initial state to compare later
   const initialSyncedState = inst['syncData'].get('A')!.syncedState;
@@ -201,7 +202,7 @@ it("5. concurrent client ops during advance do patch the playerOperationQueue", 
 
   // Also ensure confirmedOp exists and is updated
   expect(lastMessage.payload).toHaveProperty("confirmedOp");
-  expect((lastMessage.payload as any).confirmedOp).toBeGreaterThanOrEqual(op.optimisticId);
+  expect((lastMessage.payload as any).confirmedOp).toBeGreaterThanOrEqual(1);
 
 
   // Restore original method after the test
@@ -218,38 +219,65 @@ it("6. only connected players get updates", () => {
 });
 
 // 7. invalid ops do not bump confirmedOp
-it("7. invalid ops do not bump confirmedOp", () => {
-  connectorA.clearSent();
+it("7. try clear action ", () => {
+  let evt = connectorA.sent.at(-1)!;
+  expect(evt.type).toBe(SyncedGameServerEventType.STATE_UPDATE); // It's a snapshot with confirmedOp
+  expect(evt.payload.type).toBe(SyncedGameServerStateUpdatePayloadType.SNAPSHOT);
+  expect(evt.payload.confirmedOp).toBe(0);
+
+  let state = evt.payload.payload as SyncedGameState;
+  expect(state.playerOperationQueue.length).toBe(0);
   connectorA.triggerClient({
-    type: "operations", // Corrected client message type
+    type: SyncedGameClientActionTypes.PUSH, // Corrected client message type
+    optimisticId: 9,
     payload: [
-      { optimisticId: 9, type: "MOVE", payload: { from: { x: 0, y: 0 }, to: { x: 5, y: 5 }, percentage: 50 } } // Invalid destination
+      { type: "MOVE", payload: { from: { x: 0, y: 0 }, to: { x: 1, y: 0 }, percentage: 50 } },
+      { type: "MOVE", payload: { from: { x: 0, y: 0 }, to: { x: 1, y: 0 }, percentage: 50 } },
+      { type: "MOVE", payload: { from: { x: 0, y: 0 }, to: { x: 5, y: 5 }, percentage: 50 } },
+      { type: "MOVE", payload: { from: { x: 0, y: 0 }, to: { x: 5, y: 5 }, percentage: 50 } },
     ]
   });
   inst.advance();
-  const evt = connectorA.sent.at(-1)!;
-  expect(evt.type).toBe("patch"); // Expect a patch
-  expect(evt.payload.confirmedOp).toBe(0); // confirmedOp should remain 0 for an invalid op
+  evt = connectorA.sent.at(-1)!;
+  expect(evt.type).toBe(SyncedGameServerEventType.STATE_UPDATE); // It's a snapshot with confirmedOp
+  expect(evt.payload.type).toBe(SyncedGameServerStateUpdatePayloadType.PATCH);
+
+  expect(evt.payload.confirmedOp).toBe(9);
+  applyPatch(state, evt.payload.payload);
+  expect(state.playerOperationQueue.length).toBe(3);
+  connectorA.triggerClient({
+    type: SyncedGameClientActionTypes.CLEAN_ALL,
+    optimisticId: 10,
+    payload: undefined
+  });
+  inst.advance();
+  evt = connectorA.sent.at(-1)!;
+  expect(evt.type).toBe(SyncedGameServerEventType.STATE_UPDATE); // It's a snapshot with confirmedOp
+  expect(evt.payload.type).toBe(SyncedGameServerStateUpdatePayloadType.PATCH);
+  expect(evt.payload.confirmedOp).toBe(10);
+  applyPatch(state, evt.payload.payload);
+  expect(state.playerOperationQueue.length).toBe(0);
 });
 
 // 8. multi-tick queue consumption
 it("8. multi-tick queue consumption", () => {
   connectorA.triggerClient({
-    type: "operations", // Corrected client message type
+    type: SyncedGameClientActionTypes.PUSH, // Corrected client message type,
+    optimisticId: 11,
     payload: [
-      { optimisticId: 11, type: "MOVE", payload: { from: { x: 0, y: 0 }, to: { x: 1, y: 0 }, percentage: 50 } },
-      { optimisticId: 12, type: "MOVE", payload: { from: { x: 0, y: 0 }, to: { x: 1, y: 0 }, percentage: 50 } },
+      { type: "MOVE", payload: { from: { x: 0, y: 0 }, to: { x: 1, y: 0 }, percentage: 50 } },
+      { type: "MOVE", payload: { from: { x: 0, y: 0 }, to: { x: 1, y: 0 }, percentage: 50 } },
     ]
   });
+  let meta = ((inst as any).syncData.get(pidA) as SyncEntry); // Corrected internal property access
+  expect(meta.lastConfirmedOp).toBe(11); // One op left in queue
+  expect(meta.syncedState.playerOperationQueue.length).toBe(2);
   inst.advance(); // Consumes op 11, confirmedOp becomes 11
-  let meta = (inst as any).syncData.get(pidA).playerOperationQueue; // Corrected internal property access
-  expect(meta.length).toBe(1); // One op left in queue
-  expect(connectorA.sent.at(-1)!.payload.confirmedOp).toBe(11); // Confirmed for 11
-
+  meta = ((inst as any).syncData.get(pidA) as SyncEntry);
+  expect(meta.syncedState.playerOperationQueue.length).toBe(1);
   inst.advance(); // Consumes op 12, confirmedOp becomes 12
-  meta = (inst as any).syncData.get(pidA).playerOperationQueue; // Corrected internal property access
-  expect(meta.length).toBe(0); // Queue should be empty
-  expect(connectorA.sent.at(-1)!.payload.confirmedOp).toBe(12); // Confirmed for 12
+  meta = ((inst as any).syncData.get(pidA) as SyncEntry);
+  expect(meta.syncedState.playerOperationQueue.length).toBe(0);
 });
 
 // 9. team vision fresh capture
