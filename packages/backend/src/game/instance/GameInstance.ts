@@ -12,9 +12,7 @@ import {
     SyncedGameClientActionTypes
 } from '@generale/types';
 import { tick, mask } from '../core';
-import { enablePatches, produceWithPatches } from 'immer';
-
-enablePatches();
+import { compare } from 'fast-json-patch';
 
 type GameServerConnector = ServerSyncConnector<SyncedGameClientActions, SyncedGameServerEvent>;
 
@@ -22,7 +20,7 @@ export interface GameInstanceSettings {
     playerDisplay: SyncedGameState['playerDisplay'];
 }
 
-interface SyncEntry {
+export interface SyncEntry {
     lastConfirmedOp: number;
     syncedState: SyncedGameState;
 }
@@ -73,6 +71,9 @@ export class GameInstance {
 
     private handleClientEvent(pid: PlayerId, evt: SyncedGameClientActions) {
         const synced = this.syncData.get(pid)!;
+        if (synced.lastConfirmedOp >= evt.optimisticId) {
+            return;
+        }
         switch (evt.type) {
             case SyncedGameClientActionTypes.PUSH: {
                 synced.syncedState.playerOperationQueue = [...synced.syncedState.playerOperationQueue, ...evt.payload];
@@ -81,7 +82,7 @@ export class GameInstance {
                 synced.syncedState.playerOperationQueue = [];
             } break;
         }
-        synced.lastConfirmedOp = Math.max(synced.lastConfirmedOp, evt.optimisticId);
+        synced.lastConfirmedOp = evt.optimisticId;
     }
 
     /**
@@ -113,15 +114,13 @@ export class GameInstance {
                 }
             });
             // 记录下来，供下次 diff
-            this.prevSentState.set(pid, current);
+            this.prevSentState.set(pid, structuredClone(current));
             return;
         }
 
-        // 否则走 diff 流程
         const prev = this.prevSentState.get(pid)!;
-        const [nextSnapshot, patches] = produceWithPatches(prev, draft => {
-            Object.assign(draft, current);
-        });
+        // 否则走 diff 流程
+        const patches = compare(prev, current);
 
         // 临时的判断，以后会根据经验参数之类的方式判断是否发 snapshot
         if (patches.length > 1000) {
@@ -145,7 +144,7 @@ export class GameInstance {
         }
 
         // 更新 prevSentState
-        this.prevSentState.set(pid, nextSnapshot);
+        this.prevSentState.set(pid, structuredClone(current));
     }
 
     /** 推进游戏并触发同步 */
@@ -154,13 +153,14 @@ export class GameInstance {
         for (const [pid, synced] of this.syncData) {
             queues[pid] = synced.syncedState.playerOperationQueue;
         }
-        const { state: newState } = tick(this.state, queues);
+        const { state: newState, queue } = tick(this.state, queues);
         this.state = newState;
         this.version++;
 
         // 对所有玩家发送状态
         for (const pid of this.connectors.keys()) {
             const synced = this.syncData.get(pid)!;
+            synced.syncedState.playerOperationQueue = queue[pid] ?? [];
             const masked = mask(this.state, pid);
             synced.syncedState = {
                 ...synced.syncedState,
