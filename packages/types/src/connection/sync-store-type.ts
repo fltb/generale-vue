@@ -1,5 +1,5 @@
 // src/types.ts
-import { Patch } from 'immer';
+import { Operation } from 'fast-json-patch';
 
 /**
  * Full synchronization mechanism explanation:
@@ -79,7 +79,7 @@ export type SyncedStateServerStateUpdatePayload<T> =
         /** Latest confirmed optimistic operation ID */
         confirmedOp: number;
         /** Patch array */
-        payload: Patch[];
+        payload: Operation[];
     };
 
 export enum SyncedStateServerEventType {
@@ -117,13 +117,12 @@ export enum SyncedStateClientBaseActionType {
  * - optimisticId: Unique optimistic update identifier for confirmation/rollback
  */
 export type SyncedStateClientGenericSyncAction<
-    T extends string,
-    P extends unknown
+  T extends string,
+  P extends unknown = undefined
 > = {
-    readonly optimisticId: number;
-    readonly type: T;
-    readonly payload: P;
-};
+  readonly optimisticId: number;
+  readonly type: T;
+} & (P extends undefined ? {} : { readonly payload: P });
 
 // Currently unused
 // /**

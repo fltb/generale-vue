@@ -21,8 +21,7 @@ export type SyncedGameClientPlayerOperationPushAction = SyncedStateClientGeneric
 >;
 
 export type SyncedGameClientPlayerOperationClancelAllAction = SyncedStateClientGenericSyncAction<
-    SyncedGameClientActionTypes.CLEAN_ALL,
-    undefined
+    SyncedGameClientActionTypes.CLEAN_ALL
 >;
 
 export type SyncedGameClientActions =
