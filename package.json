@@ -3,14 +3,13 @@
   "module": "index.ts",
   "type": "module",
   "private": true,
-    "workspaces": [
+  "workspaces": [
     "packages/*"
   ],
   "scripts": {
     "build": "bun run --filter=./packages/* build",
     "dev": "bun run --filter=./packages/* dev"
   },
-
   "devDependencies": {
     "@types/bun": "latest"
   },
