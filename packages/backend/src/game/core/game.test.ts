@@ -7,7 +7,7 @@ import {
     isAdjacentToPlayer,
 } from './game-utils';
 
-import {
+import { GameStatus,
     TileType,
     GameState,
     PlayerStatus,
@@ -446,9 +446,15 @@ describe('Enhanced Multi-Step and Randomized Tests', () => {
 
         it('4. 连续的移动指令队列会被逐个 tick 顺序执行', () => {
             let state = createState(10, 10);
-            state.players['p1'] = { id: 'p1', status: PlayerStatus.Playing };
-            // 起点 (x=0, y=0), 对应 tiles[0][0]
-            state.map.tiles[0][0] = { ownerId: 'p1', army: 100, type: TileType.Plain };
+state.players['p1'] = { id: 'p1', status: PlayerStatus.Playing, teamId: 't1', army: 100, land: 1, lastActiveTick: 0 };
+state.players['p2'] = { id: 'p2', status: PlayerStatus.Playing, teamId: 't2', army: 50, land: 1, lastActiveTick: 0 };
+state.teams['t1'] = { id: 't1', memberIds: ['p1'], status: PlayerStatus.Playing };
+state.teams['t2'] = { id: 't2', memberIds: ['p2'], status: PlayerStatus.Playing };
+// 让p2占据远离p1的角落地块，避免被影响
+state.map.tiles[9][9] = { ownerId: 'p2', army: 50, type: TileType.Plain };
+// 起点 (x=0, y=0), 对应 tiles[0][0]
+state.map.tiles[0][0] = { ownerId: 'p1', army: 100, type: TileType.Plain };
+
 
             let queues: PlayerActionQueues = {
                 'p1': [
@@ -468,6 +474,7 @@ describe('Enhanced Multi-Step and Randomized Tests', () => {
             let res = tick(state, queues);
             state = res.state;
             queues = res.queue;
+            expect(state.status).toBe(GameStatus.Playing);
             expect(state.map.tiles[0][1].ownerId).toBe('p1'); // 验证 tiles[y=0][x=1]
             expect(queues.p1.length).toBe(5);
 
@@ -475,6 +482,7 @@ describe('Enhanced Multi-Step and Randomized Tests', () => {
             res = tick(state, queues);
             state = res.state;
             queues = res.queue;
+            expect(state.status).toBe(GameStatus.Playing);
             expect(state.map.tiles[0][2].ownerId).toBe('p1'); // 验证 tiles[y=0][x=2]
             expect(queues.p1.length).toBe(4);
 
@@ -482,10 +490,12 @@ describe('Enhanced Multi-Step and Randomized Tests', () => {
             res = tick(state, queues);
             state = res.state;
             queues = res.queue;
+            expect(res.state.status).toBe(GameStatus.Playing);
             expect(res.state.map.tiles[0][3].ownerId).toBe('p1'); // 验证 tiles[y=0][x=3]
             expect(res.queue.p1.length).toBe(3);
 
             res = tick(state, queues);
+            expect(res.state.status).toBe(GameStatus.Playing);
             expect(res.state.map.tiles[1][3].ownerId).toBe(null); // 验证 tiles[y=1][x=3] 因为兵力不够所以失败
             expect(res.queue.p1.length).toBe(0); // 后续操作都被放弃
         });
@@ -511,7 +521,12 @@ describe('Enhanced Multi-Step and Randomized Tests', () => {
 
         it('6. 攻击沼泽地块(Swamp)会在占领后损失兵力', () => {
             const state = createState(5, 5);
-            state.players['p1'] = { id: 'p1', status: PlayerStatus.Playing };
+            state.players['p1'] = { id: 'p1', status: PlayerStatus.Playing, teamId: 't1', army: 20, land: 1, lastActiveTick: 0 };
+            state.players['p2'] = { id: 'p2', status: PlayerStatus.Playing, teamId: 't2', army: 50, land: 1, lastActiveTick: 0 };
+            state.teams['t1'] = { id: 't1', memberIds: ['p1'], status: PlayerStatus.Playing };
+            state.teams['t2'] = { id: 't2', memberIds: ['p2'], status: PlayerStatus.Playing };
+            // 让p2占据远离p1的角落地块，避免被影响
+            state.map.tiles[4][4] = { ownerId: 'p2', army: 50, type: TileType.Plain };
             // 起始地块 (x=0, y=0), 对应 tiles[0][0]
             state.map.tiles[0][0] = { ownerId: 'p1', army: 20, type: TileType.Plain };
             // 目标沼泽 (x=0, y=1), 对应 tiles[1][0]
@@ -523,11 +538,13 @@ describe('Enhanced Multi-Step and Randomized Tests', () => {
 
             // p1 移动 19 兵力, 占领后兵力为 19-5=14。然后负增长会生效所以是 13 验证 tiles[1][0]
             expect(newState.map.tiles[1][0].army).toBe(13);
+            expect(newState.status).toBe(GameStatus.Playing);
             expect(newState.map.tiles[1][0].ownerId).toBe('p1');
 
             // 在下一个 tick，沼泽地块的负增长也会生效
             ({ state: newState } = tick(newState, {}));
             // 兵力从 14 变为 13。验证 tiles[1][0]
+            expect(newState.status).toBe(GameStatus.Playing);
             expect(newState.map.tiles[1][0].army).toBe(12);
         });
 

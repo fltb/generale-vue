@@ -55,8 +55,11 @@ class MockServerSyncConnector implements ServerSyncConnector<SyncedGameClientAct
 }
 
 // Minimal 2x1 initial state helper
+import { GameStatus } from '@generale/types';
+
 function createInitialState(): GameState {
   return {
+    status: GameStatus.Playing,
     tick: 0,
     settings: {
       afkThreshold: 5,
@@ -439,5 +442,114 @@ describe("GameInstance core behaviors", () => {
     expect(connectorA.sent.length).toBe(1);
     expect(connectorA.sent[0].payload.type).toBe(SyncedStateServerStateUpdatePayloadType.SNAPSHOT);
     expect(connectorA.sent[0].payload.confirmedOp).toBe(61);
+  });
+
+  it("游戏结束判定：A 占领 B 的王座，游戏状态为Ended", () => {
+    // 构造一个2x2地图，A占所有地块，B无地块
+    const state: GameState = {
+      status: GameStatus.Playing,
+      tick: 0,
+      settings: {
+        afkThreshold: 5,
+        tileGrow: {
+          [TileType.Plain]: { duration: 1, growth: 1 },
+          [TileType.Throne]: { duration: 1, growth: 1 },
+          [TileType.Barracks]: { duration: 1, growth: 1 },
+          [TileType.Mountain]: { duration: 100000, growth: 0 },
+          [TileType.Swamp]: { duration: 1, growth: -1 },
+          [TileType.Fog]: { duration: 100000, growth: 0 },
+        },
+      },
+      players: {
+        A: { id: "A", status: PlayerStatus.Playing, army: 10, land: 4, lastActiveTick: 0, teamId: "teamA" },
+        B: { id: "B", status: PlayerStatus.Playing, army: 0, land: 0, lastActiveTick: 0, teamId: "teamB" },
+      },
+      teams: {
+        teamA: { id: "teamA", memberIds: ["A"], status: PlayerStatus.Playing },
+        teamB: { id: "teamB", memberIds: ["B"], status: PlayerStatus.Playing },
+      },
+      map: {
+        width: 2,
+        height: 2,
+        tiles: [
+          [
+            { type: TileType.Throne, ownerId: "B", army: 1 },
+            { type: TileType.Plain, ownerId: "A", army: 2 }
+          ],
+          [
+            { type: TileType.Plain, ownerId: "A", army: 5 },
+            { type: TileType.Plain, ownerId: "A", army: 3 }
+          ]
+        ]
+      }
+    };
+    // 用GameInstance推进
+    const { GameInstance } = require("./GameInstance");
+    const settings = { playerDisplay: { A: { tileColor: 0xff0000 }, B: { tileColor: 0x0000ff } } };
+    const connectorA = { 
+      sent: [], 
+      send(evt: any) { this.sent.push(structuredClone(evt)); }, 
+      onOpen() {}, 
+      onClientMessage(_evt: any) {}, 
+      onClose() {}, 
+      onDisconnect() {}, 
+      onReconnect() {}, 
+      ready: true,
+      triggerClient(evt: any) { 
+        // Process the client message directly in the GameInstance
+        inst.handleClientEvent("A", evt);
+      }
+    };
+    const connectorB = { 
+      sent: [], 
+      send(evt: any) { this.sent.push(structuredClone(evt)); }, 
+      onOpen() {}, 
+      onClientMessage(_evt: any) {}, 
+      onClose() {}, 
+      onDisconnect() {}, 
+      onReconnect() {}, 
+      ready: true,
+      triggerClient(evt: any) { 
+        // Process the client message directly in the GameInstance
+        inst.handleClientEvent("B", evt);
+      }
+    };
+    const inst = new GameInstance(state, settings, new Map([
+      ["A", connectorA],
+      ["B", connectorB],
+    ]));
+    inst.advance();
+    // 添加操作让A攻占B的王座
+    const queues = {
+      A: [
+        { type: PlayerOperationType.Move, payload: { from: { x: 0, y: 1 }, to: { x: 0, y: 0 }, percentage: 100 } }
+      ]
+    };
+    
+    // 模拟客户端操作
+    connectorA.triggerClient({
+      type: SyncedGameClientActionTypes.PUSH,
+      payload: queues.A,
+      optimisticId: 1
+    });
+    
+    // 再次推进游戏
+    inst.advance();
+    
+    // 合并patch并判断最终状态
+    let stateA = structuredClone(connectorA.sent[0].payload.payload);
+    let stateB = structuredClone(connectorB.sent[0].payload.payload);
+    applyPatch(stateA, connectorA.sent[1].payload.payload);
+    applyPatch(stateB, connectorB.sent[1].payload.payload);
+
+    expect(stateA.players['A']?.status).toBe(PlayerStatus.Playing);
+    expect(stateA.players['B']?.status).toBe(PlayerStatus.Defeated);
+    expect(stateA.status).toBe(GameStatus.Ended);
+    expect(stateA.map.tiles[0][0]?.ownerId).toBe("A");
+
+    expect(stateB.players['A']?.status).toBe(PlayerStatus.Playing);
+    expect(stateB.players['B']?.status).toBe(PlayerStatus.Defeated);
+    expect(stateB.status).toBe(GameStatus.Ended);
+    expect(stateB.map.tiles[0][0]?.ownerId).toBe(null); // 因为失败了，看不到
   });
 });
