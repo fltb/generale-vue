@@ -92,7 +92,13 @@ export interface GameSettings {
  * 代表整个游戏世界在某一时刻的快照。
  * 这是游戏的“单一真实来源 (Single Source of Truth)”。
  */
+export enum GameStatus {
+    Playing = 'PLAYING',
+    Ended = 'ENDED',
+}
+
 export interface GameState {
+    status: GameStatus;
     tick: number;
     readonly settings: GameSettings;
     readonly players: Record<PlayerId, PlayerCore>;

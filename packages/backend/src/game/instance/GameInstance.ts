@@ -12,6 +12,7 @@ import {
     SyncedGameClientActionTypes
 } from '@generale/types';
 import { tick, mask } from '../core';
+import { GameStatus } from '@generale/types';
 import { compare } from 'fast-json-patch';
 
 type GameServerConnector = ServerSyncConnector<SyncedGameClientActions, SyncedGameServerEvent>;
@@ -149,6 +150,9 @@ export class GameInstance {
 
     /** 推进游戏并触发同步 */
     public advance() {
+        if (this.state.status === GameStatus.Ended) {
+            return;
+        }
         const queues: PlayerActionQueues = {};
         for (const [pid, synced] of this.syncData) {
             queues[pid] = synced.syncedState.playerOperationQueue;

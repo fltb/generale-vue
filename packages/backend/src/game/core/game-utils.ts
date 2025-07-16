@@ -1,4 +1,4 @@
-import { GameState, MoveOperationPayload, Coordinates, TileType, PlayerStatus, PlayerId, Tile, PlayerCore } from "@generale/types";
+import { GameState, MoveOperationPayload, Coordinates, TileType, PlayerStatus, PlayerId, Tile, PlayerCore, GameStatus } from "@generale/types";
 
 
 /** 坐标是否相邻（四方向） */
@@ -160,6 +160,38 @@ export function updateGameState(state: GameState): void {
     }
 
     state.tick++;
+
+    // 保证即使外部只调用 updateGameState 也能同步胜负状态
+    autoJudge(state);
+}
+
+export function autoJudge(state: GameState) {
+    // —— 自动判负：如果玩家land和army都为0，直接判为Defeated ——
+    for (const player of Object.values(state.players)) {
+        if (player.status === PlayerStatus.Playing && player.land === 0 && player.army === 0) {
+            player.status = PlayerStatus.Defeated;
+        }
+    }
+    // —— 自动判负队伍+全局胜负判定：同tick内同步 ——
+    let aliveTeamsCount = 0;
+    for (const team of Object.values(state.teams)) {
+        const allDefeated = team.memberIds.every(pid => state.players[pid]?.status !== PlayerStatus.Playing);
+        if (allDefeated) {
+            team.status = PlayerStatus.Defeated;
+        } else {
+            team.status = PlayerStatus.Playing;
+            aliveTeamsCount++;
+        }
+    }
+    const totalTeams = Object.keys(state.teams).length;
+    if (totalTeams > 1 && aliveTeamsCount <= 1) {
+        state.status = GameStatus.Ended;
+    } else if (aliveTeamsCount === 0) {
+        // 所有队伍都被淘汰
+        state.status = GameStatus.Ended;
+    } else {
+        state.status = GameStatus.Playing;
+    }
 }
 
 /** 判断某格与玩家地块是否相邻，用于战争迷雾 */

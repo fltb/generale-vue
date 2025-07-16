@@ -1,5 +1,6 @@
 import { GameState, PlayerActionQueues, PlayerOperationType, TileType, MaskedGameState, PlayerStatus, PlayerId } from "@generale/types";
-import { handleMove, isAdjacentToPlayer, updateGameState } from "./game-utils";
+import { autoJudge, handleMove, isAdjacentToPlayer, updateGameState } from "./game-utils";
+import { GameStatus } from "@generale/types";
 
 
 
@@ -13,6 +14,9 @@ export function tick(
     state: GameState,
     queues: PlayerActionQueues
 ): { state: GameState; queue: PlayerActionQueues } {
+    if (state.status === GameStatus.Ended) {
+        return { state: structuredClone(state), queue: {} };
+    }
     // 深拷贝保证纯函数
     const newState: GameState = structuredClone(state);
     const newQueues: PlayerActionQueues = {};
@@ -59,6 +63,7 @@ export function tick(
     }
 
     updateGameState(newState);
+    autoJudge(newState);
     return { state: newState, queue: newQueues };
 }
 
