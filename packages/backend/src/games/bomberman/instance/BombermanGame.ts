@@ -18,19 +18,20 @@ export class BombermanGame {
   private queues: Record<PlayerId, BombermanOperation[]> = {};
   private bots: Array<{ playerId: PlayerId; getAction: (state: BombermanState) => BombermanOperation }> = [];
 
-  constructor(config: BombermanConfig, playerIds: PlayerId[]) {
+  constructor(config: BombermanConfig, players: { id: string; name: string }[]) {
     const width = config.mapWidth;
     const height = config.mapHeight;
     const map = generateBombermanMap(width, height);
-    const spawns = getSpawnPositions(playerIds.length, width, height);
+    const spawns = getSpawnPositions(players.length, width, height);
 
-    const players: Record<string, BombermanPlayer> = {};
-    for (let i = 0; i < playerIds.length; i++) {
+    const playerMap: Record<string, BombermanPlayer> = {};
+    for (let i = 0; i < players.length; i++) {
       const spawn = spawns[i];
-      const pid = playerIds[i];
-      if (!spawn || !pid) continue;
-      players[pid] = {
-        playerId: pid,
+      const p = players[i];
+      if (!(spawn && p)) continue;
+      playerMap[p.id] = {
+        playerId: p.id,
+        name: p.name,
         alive: true,
         x: spawn.x,
         y: spawn.y,
@@ -46,7 +47,7 @@ export class BombermanGame {
       status: GameStatus.Playing,
       tick: 0,
       map,
-      players,
+      players: playerMap,
       bombs: [],
       explosions: [],
       items: [],
@@ -54,7 +55,7 @@ export class BombermanGame {
       bombIdCounter: 0,
     };
 
-    for (const pid of playerIds) this.queues[pid] = [];
+    for (const p of players) this.queues[p.id] = [];
   }
 
   addBot(playerId: PlayerId, getAction: (state: BombermanState) => BombermanOperation): void {
@@ -68,6 +69,7 @@ export class BombermanGame {
     if (!spawn) return;
     this.state.players[playerId] = {
       playerId,
+      name: `Bot-${playerId.slice(0, 8)}`,
       alive: true,
       x: spawn.x,
       y: spawn.y,

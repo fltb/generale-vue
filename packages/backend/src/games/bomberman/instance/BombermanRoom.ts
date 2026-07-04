@@ -29,6 +29,7 @@ export class BombermanRoom {
   private creatorId: PlayerId;
 
   onGameStartCallback?: (playerIds: PlayerId[]) => void;
+  onDisbandedCallback?: () => void;
 
   constructor(roomName: string, config: BombermanConfig, creatorId: PlayerId, _creatorName: string) {
     this.creatorId = creatorId;
@@ -46,22 +47,26 @@ export class BombermanRoom {
     this.onGameStartCallback = cb;
   }
 
+  onDisbanded(cb: () => void): void {
+    this.onDisbandedCallback = cb;
+  }
+
   addPlayer(
     user: { id: PlayerId; name: string },
     connector: BombermanRoomConnector,
   ): { success: true } | { success: false; message: string } {
     if (this.destroyed) return { success: false, message: "Room destroyed" };
-    if (this.state.phase !== "lobby") return { success: false, message: "Game already in progress" };
 
     const existing = this.state.players.find((p) => p.id === user.id);
     if (existing) {
-      // Reconnect: replace connector
       this.connectors.set(user.id, connector);
       this.wireConnector(user.id, connector);
       this.version++;
       this.sendState(user.id, true);
       return { success: true };
     }
+
+    if (this.state.phase !== "lobby") return { success: false, message: "Game already in progress" };
 
     // First player must be the creator
     if (this.state.players.length === 0 && user.id !== this.creatorId) {
@@ -128,6 +133,7 @@ export class BombermanRoom {
     if (this.state.players.length === 0) {
       this.state.phase = "disbanded";
       this.destroyed = true;
+      if (this.onDisbandedCallback) this.onDisbandedCallback();
       return;
     }
 
@@ -202,6 +208,23 @@ export class BombermanRoom {
 
     if (typeof evt.optimisticId === "number") {
       synced.lastConfirmedOp = evt.optimisticId;
+    }
+    this.version++;
+    this.broadcastState();
+  }
+
+  broadcastCustom(event: BombermanPreGameServerEvent): void {
+    for (const [, c] of this.connectors) {
+      try {
+        c.send({ type: "custom", payload: event } as any);
+      } catch {}
+    }
+  }
+
+  resumeGame(): void {
+    this.state.phase = "lobby";
+    for (const p of this.state.players) {
+      p.ready = false;
     }
     this.version++;
     this.broadcastState();

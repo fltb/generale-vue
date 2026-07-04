@@ -12,12 +12,14 @@ export class BombermanService {
   private game: BombermanGame | null = null;
   private destroyed = false;
   private gameConnectors = new Map<string, SubConnector>();
+  public onDisband?: () => void;
 
   constructor(gameId: GameId, roomName: string, config: BombermanConfig, creatorId: string, creatorName: string) {
     this.gameId = gameId;
     this.roomName = roomName;
     this.room = new BombermanRoom(roomName, config, creatorId, creatorName);
     this.room.onGameStart(() => this.startGame());
+    this.room.onDisbanded(() => { this.onDisband?.(); });
   }
 
   registerHandlers(): void {
@@ -74,9 +76,9 @@ export class BombermanService {
   }
 
   startGame(): void {
-    const playerIds = this.room.getPlayerIds();
+    const roomPlayers = this.room.getPlayers().map(p => ({ id: p.id, name: p.name }));
     const config = this.room.getConfig();
-    this.game = new BombermanGame(config, playerIds);
+    this.game = new BombermanGame(config, roomPlayers);
     const g = this.game;
 
     g.onTick((state) => {
@@ -92,7 +94,20 @@ export class BombermanService {
       }
     });
 
-    g.onEnd(() => {
+    g.onEnd((result) => {
+      const players = Object.values(result.state.players) as { playerId: string; name: string; alive: boolean }[];
+      const rankings = players
+        .sort((a, b) => (a.alive === b.alive ? 0 : a.alive ? -1 : 1))
+        .map((p, i) => ({ playerId: p.playerId, rank: i + 1 }));
+
+      this.room.broadcastCustom({
+        type: "gameended" as any,
+        rankings,
+        winnerId: result.winnerId,
+      });
+
+      this.room.resumeGame();
+
       g.destroy();
       this.game = null;
       this.gameConnectors.clear();
@@ -139,5 +154,6 @@ export class BombermanService {
     unregisterDomainHandler(`chat-${this.gameId}`);
     this.room.destroy();
     this.game?.destroy();
+    this.onDisband?.();
   }
 }

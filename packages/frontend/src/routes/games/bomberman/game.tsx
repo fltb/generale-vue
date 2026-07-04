@@ -26,10 +26,10 @@ export function BombermanGame(props: BombermanGameProps) {
     const s = state();
     if (!s?.players) return;
     if (s.status === GameStatus.Ended) {
-      const allPlayers = Object.values(s.players) as { playerId: string; alive: boolean }[];
+      const allPlayers = Object.values(s.players) as { playerId: string; name: string; alive: boolean }[];
       const list = allPlayers
         .sort((a, b) => (a.alive === b.alive ? 0 : a.alive ? -1 : 1))
-        .map((p, i) => ({ name: p.playerId.slice(0, 8), rank: i + 1, score: p.alive ? 100 : 0 }));
+        .map((p, i) => ({ name: p.name ?? p.playerId.slice(0, 8), rank: i + 1, score: p.alive ? 100 : 0 }));
       setRankings(list);
       setShowScoreboard(true);
     }

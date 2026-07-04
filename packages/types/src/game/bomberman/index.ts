@@ -15,6 +15,7 @@ export interface BombermanMap {
 
 export interface BombermanPlayer {
   playerId: string;
+  name: string;
   alive: boolean;
   x: number;
   y: number;

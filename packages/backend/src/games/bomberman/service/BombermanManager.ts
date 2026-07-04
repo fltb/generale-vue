@@ -27,6 +27,7 @@ export class BombermanManager {
     const id = `bomb_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
     const config = defaultBombermanConfig();
     const service = new BombermanService(id, roomName, config, creatorId, creatorName);
+    service.onDisband = () => { this.removeGame(id); };
     service.registerHandlers();
     this.services.set(id, service);
     this.broadcastLobbyUpdate();
