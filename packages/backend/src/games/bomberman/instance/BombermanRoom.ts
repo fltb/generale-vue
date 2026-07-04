@@ -245,7 +245,11 @@ export class BombermanRoom {
           type: SyncedStateServerEventType.STATE_UPDATE,
           payload: { type: "snapshot", version: ver, confirmedOp: op, payload: state },
         } as any),
-      () => {},
+      (patches, ver, op) =>
+        conn.send({
+          type: SyncedStateServerEventType.STATE_UPDATE,
+          payload: { type: "patch", version: ver, confirmedOp: op, payload: patches },
+        } as any),
     );
   }
 
