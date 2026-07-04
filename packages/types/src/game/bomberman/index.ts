@@ -125,29 +125,17 @@ export type BombermanPreGameClientAction =
   | { type: "START_GAME"; optimisticId: number };
 
 export enum BombermanPreGameServerEventType {
-  STATE_UPDATE = "STATE_UPDATE",
-  PLAYER_JOINED = "PLAYER_JOINED",
-  PLAYER_LEFT = "PLAYER_LEFT",
-  KICKED = "KICKED",
-  GAME_STARTED = "GAME_STARTED",
-  GAME_ENDED = "GAME_ENDED",
-  ROOM_DISBANDED = "ROOM_DISBANDED",
+  KICKED = "kicked",
+  GAME_STARTED = "gamestarted",
+  GAME_ENDED = "gameended",
+  ROOM_DISBANDED = "disbanded",
 }
 
 export type BombermanPreGameServerEvent =
-  | {
-      type: BombermanPreGameServerEventType.STATE_UPDATE;
-      payload: { type: "snapshot"; version: number; confirmedOp: number; payload: BombermanRoomState };
-    }
-  | { type: BombermanPreGameServerEventType.PLAYER_JOINED; payload: { playerId: string; playerName: string } }
-  | { type: BombermanPreGameServerEventType.PLAYER_LEFT; payload: { playerId: string } }
-  | { type: BombermanPreGameServerEventType.KICKED; payload: { reason: string } }
-  | { type: BombermanPreGameServerEventType.GAME_STARTED; payload: { gameDomain: string } }
-  | {
-      type: BombermanPreGameServerEventType.GAME_ENDED;
-      payload: { rankings: { playerId: string; rank: number }[]; winnerId: string | null };
-    }
-  | { type: BombermanPreGameServerEventType.ROOM_DISBANDED };
+  | { type: BombermanPreGameServerEventType.KICKED; reason?: string }
+  | { type: BombermanPreGameServerEventType.GAME_STARTED; startedAt: number }
+  | { type: BombermanPreGameServerEventType.GAME_ENDED; rankings: { playerId: string; rank: number }[]; winnerId: string | null }
+  | { type: BombermanPreGameServerEventType.ROOM_DISBANDED; reason?: string };
 
 export interface BombermanGameEndResult {
   winnerId: string | null;

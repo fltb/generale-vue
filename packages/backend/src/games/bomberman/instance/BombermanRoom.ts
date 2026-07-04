@@ -8,10 +8,15 @@ import {
   type BombermanRoomPhase,
   type PlayerId,
   type ServerSyncConnector,
+  type SyncedStateServerEvent,
+  SyncedStateServerEventType,
 } from "@generale/types";
 import { StateSyncState } from "../../../game/instance/state-sync";
 
-export type BombermanRoomConnector = ServerSyncConnector<BombermanPreGameClientAction, BombermanPreGameServerEvent>;
+export type BombermanRoomConnector = ServerSyncConnector<
+  BombermanPreGameClientAction,
+  SyncedStateServerEvent<BombermanRoomState, BombermanPreGameServerEvent>
+>;
 
 export class BombermanRoom {
   private state: BombermanRoomState;
@@ -176,7 +181,7 @@ export class BombermanRoom {
         {
           const targetConn = this.connectors.get(evt.targetId);
           if (targetConn) {
-            targetConn.send({ type: BombermanPreGameServerEventType.KICKED, payload: { reason: "Kicked by host" } });
+            targetConn.send({ type: "custom", payload: { type: BombermanPreGameServerEventType.KICKED, reason: "Kicked by host" } } as any);
             targetConn.close();
           }
           this.removePlayer(evt.targetId);
@@ -190,7 +195,7 @@ export class BombermanRoom {
         this.version++;
         this.onGameStartCallback?.(this.state.players.map((p) => p.id));
         for (const [, c] of this.connectors) {
-          c.send({ type: BombermanPreGameServerEventType.GAME_STARTED, payload: { gameDomain: "" } });
+          c.send({ type: "custom", payload: { type: BombermanPreGameServerEventType.GAME_STARTED, startedAt: Date.now() } } as any);
         }
         break;
     }
@@ -214,10 +219,10 @@ export class BombermanRoom {
       confirmedOp,
       (state, ver, op) =>
         conn.send({
-          type: BombermanPreGameServerEventType.STATE_UPDATE,
+          type: SyncedStateServerEventType.STATE_UPDATE,
           payload: { type: "snapshot", version: ver, confirmedOp: op, payload: state },
-        }),
-      () => {}, // Bomberman room state is small, always use snapshot
+        } as any),
+      () => {},
     );
   }
 

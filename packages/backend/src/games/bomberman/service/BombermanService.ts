@@ -1,4 +1,5 @@
-import type { BombermanConfig, GameId, BombermanPreGameClientAction, BombermanPreGameServerEvent } from "@generale/types";
+import type { BombermanConfig, GameId, BombermanPreGameClientAction, BombermanPreGameServerEvent, BombermanRoomState, SyncedStateServerEvent } from "@generale/types";
+import { SyncedStateServerEventType } from "@generale/types";
 import type { SubConnector } from "../../../plugins/websocket";
 import { registerDomainHandler, unregisterDomainHandler } from "../../../plugins/websocket";
 import { BombermanGame } from "../instance/BombermanGame";
@@ -20,7 +21,7 @@ export class BombermanService {
   }
 
   registerHandlers(): void {
-    registerDomainHandler<BombermanPreGameClientAction, BombermanPreGameServerEvent>(
+    registerDomainHandler<BombermanPreGameClientAction, SyncedStateServerEvent<BombermanRoomState, BombermanPreGameServerEvent>>(
       `room-${this.gameId}`,
       (connector) => {
         const { userid, username } = connector.context;
@@ -63,7 +64,7 @@ export class BombermanService {
         });
         connector.onClose(() => this.gameConnectors.delete(userid));
         connector.send({
-          type: "STATE_UPDATE",
+          type: SyncedStateServerEventType.STATE_UPDATE,
           payload: { type: "snapshot", version: g.getState().tick, payload: g.getState() },
         });
       },
@@ -82,7 +83,7 @@ export class BombermanService {
       for (const [, conn] of this.gameConnectors) {
         try {
           conn.send({
-            type: "STATE_UPDATE",
+            type: SyncedStateServerEventType.STATE_UPDATE,
             payload: { type: "snapshot", version: state.tick, payload: state },
           });
         } catch {

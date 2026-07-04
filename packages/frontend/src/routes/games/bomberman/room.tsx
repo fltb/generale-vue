@@ -40,16 +40,17 @@ export function BombermanRoom() {
     },
     applyEvent: (s) => s,
     onCustomEvent: (evt) => {
-      if (evt.type === BombermanPreGameServerEventType.GAME_STARTED) {
+      const e = evt as BombermanPreGameServerEvent;
+      if (e.type === BombermanPreGameServerEventType.GAME_STARTED) {
         setShowGame(true);
         setTimeout(() => gameSync.connect(), 500);
       }
-      if (evt.type === BombermanPreGameServerEventType.GAME_ENDED) {
-        setGameOver(evt.payload);
+      if (e.type === BombermanPreGameServerEventType.GAME_ENDED) {
+        setGameOver({ rankings: e.rankings, winnerId: e.winnerId });
         setShowScoreboard(true);
       }
-      if (evt.type === BombermanPreGameServerEventType.KICKED) setError("You were kicked from the room");
-      if (evt.type === BombermanPreGameServerEventType.ROOM_DISBANDED) setError("Room has been disbanded");
+      if (e.type === BombermanPreGameServerEventType.KICKED) setError("You were kicked from the room");
+      if (e.type === BombermanPreGameServerEventType.ROOM_DISBANDED) setError("Room has been disbanded");
     },
     onConnectionClosed: () => setError("Connection lost"),
     autoOpen: false,
