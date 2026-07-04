@@ -16,14 +16,12 @@ export function BombermanRoom() {
   const params = useParams();
   const navigate = useNavigate();
   const [playerId, setPlayerId] = createSignal("");
-  const [loading, setLoading] = createSignal(true);
+  const [phase, setPhase] = createSignal<"loading" | "lobby" | "playing" | "ended" | "error">("loading");
   const [error, setError] = createSignal("");
-  const [showGame, setShowGame] = createSignal(false);
   const [gameOver, setGameOver] = createSignal<{
     rankings: { playerId: string; rank: number }[];
     winnerId: string | null;
   } | null>(null);
-  const [showScoreboard, setShowScoreboard] = createSignal(false);
 
   const roomDomain = `room-${params.id}`;
   const gameDomain = `game-${params.id}`;
@@ -42,17 +40,26 @@ export function BombermanRoom() {
     onCustomEvent: (evt) => {
       const e = evt as BombermanPreGameServerEvent;
       if (e.type === BombermanPreGameServerEventType.GAME_STARTED) {
-        setShowGame(true);
+        setPhase("playing");
         setTimeout(() => gameSync.connect(), 500);
       }
       if (e.type === BombermanPreGameServerEventType.GAME_ENDED) {
         setGameOver({ rankings: e.rankings, winnerId: e.winnerId });
-        setShowScoreboard(true);
+        setPhase("ended");
       }
-      if (e.type === BombermanPreGameServerEventType.KICKED) setError("You were kicked from the room");
-      if (e.type === BombermanPreGameServerEventType.ROOM_DISBANDED) setError("Room has been disbanded");
+      if (e.type === BombermanPreGameServerEventType.KICKED) {
+        setError("You were kicked from the room");
+        setPhase("error");
+      }
+      if (e.type === BombermanPreGameServerEventType.ROOM_DISBANDED) {
+        setError("Room has been disbanded");
+        setPhase("error");
+      }
     },
-    onConnectionClosed: () => setError("Connection lost"),
+    onConnectionClosed: () => {
+      setError("Connection lost");
+      setPhase("error");
+    },
     autoOpen: false,
   });
 
@@ -73,20 +80,20 @@ export function BombermanRoom() {
       } = await res.json();
       if (!(d.success && d.data)) {
         setError(d.message || "Failed to connect");
-        setLoading(false);
+        setPhase("error");
         return;
       }
       setPlayerId(d.data.playerId);
-      setLoading(false);
       if (d.data.phase === "playing") {
-        setShowGame(true);
+        setPhase("playing");
         gameSync.connect();
       } else {
+        setPhase("lobby");
         roomSync.connect();
       }
     } catch {
       setError("Network error");
-      setLoading(false);
+      setPhase("error");
     }
   });
 
@@ -113,75 +120,75 @@ export function BombermanRoom() {
     gameSync.disconnect();
   });
 
-  if (loading())
-    return (
-      <div class="p-8 text-center">
-        <span class="loading loading-spinner loading-lg" />
-      </div>
-    );
-  if (error())
-    return (
-      <div class="p-8 text-center">
-        <div class="alert alert-error mb-4">{error()}</div>
-        <button class="btn" onClick={() => navigate("/bomberman")}>
-          Back to Lobby
-        </button>
-      </div>
-    );
-
   return (
     <ProtectedRoute>
-    <div class="container mx-auto p-4">
-      <Show when={!showGame()}>
-        <h1 class="text-2xl font-bold mb-4">{roomSync.state().roomName || "Bomberman Room"}</h1>
-        <p class="text-sm text-gray-500 mb-4">
-          Players: {roomSync.state().players?.length ?? 0}/{roomSync.state().maxPlayers}
-        </p>
-        <div class="grid gap-2 mb-4">
-          {(roomSync.state().players ?? []).map((p) => (
-            <div class="flex items-center gap-2 p-2 bg-base-200 rounded pixel-border">
-              <span class="font-bold">
-                {p.name}
-                {p.isHost ? " \u2605" : ""}
-              </span>
-              <span class={p.ready ? "badge badge-success" : "badge badge-ghost"}>{p.ready ? "Ready" : "Waiting"}</span>
-              {isHost() && p.id !== playerId() && (
-                <button
-                  class="btn btn-xs btn-error ml-auto"
-                  onClick={() => {
-                    roomSync.dispatch({ type: "KICK_PLAYER", targetId: p.id } as any);
-                  }}
-                >
-                  Kick
-                </button>
-              )}
-            </div>
-          ))}
-        </div>
-        <div class="flex gap-2">
-          <button class="btn btn-primary" onClick={toggleReady}>
-            {selfPlayer()?.ready ? "Unready" : "Ready"}
-          </button>
-          {isHost() && (
-            <button class="btn btn-success" disabled={!allReady()} onClick={startGame}>
-              Start Game
-            </button>
-          )}
+      <Show when={phase() === "loading"}>
+        <div class="p-8 text-center">
+          <span class="loading loading-spinner loading-lg" />
         </div>
       </Show>
 
-      <Show when={showGame() && gameSync.state()}>
+      <Show when={phase() === "error"}>
+        <div class="p-8 text-center">
+          <div class="alert alert-error mb-4">{error()}</div>
+          <button class="btn" onClick={() => navigate("/bomberman")}>
+            Back to Lobby
+          </button>
+        </div>
+      </Show>
+
+      <Show when={phase() === "lobby"}>
+        <div class="container mx-auto p-4">
+          <h1 class="text-2xl font-bold mb-4">{roomSync.state().roomName || "Bomberman Room"}</h1>
+          <p class="text-sm text-gray-500 mb-4">
+            Players: {roomSync.state().players?.length ?? 0}/{roomSync.state().maxPlayers}
+          </p>
+          <div class="grid gap-2 mb-4">
+            {(roomSync.state().players ?? []).map((p) => (
+              <div class="flex items-center gap-2 p-2 bg-base-200 rounded pixel-border">
+                <span class="font-bold">
+                  {p.name}
+                  {p.isHost ? " \u2605" : ""}
+                </span>
+                <span class={p.ready ? "badge badge-success" : "badge badge-ghost"}>
+                  {p.ready ? "Ready" : "Waiting"}
+                </span>
+                {isHost() && p.id !== playerId() && (
+                  <button
+                    class="btn btn-xs btn-error ml-auto"
+                    onClick={() => roomSync.dispatch({ type: "KICK_PLAYER", targetId: p.id } as any)}
+                  >
+                    Kick
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+          <div class="flex gap-2">
+            <button class="btn btn-primary" onClick={toggleReady}>
+              {selfPlayer()?.ready ? "Unready" : "Ready"}
+            </button>
+            {isHost() && (
+              <button class="btn btn-success" disabled={!allReady()} onClick={startGame}>
+                Start Game
+              </button>
+            )}
+          </div>
+        </div>
+      </Show>
+
+      <Show when={phase() === "playing" && gameSync.state()}>
         <BombermanGame
           initialState={gameSync.state()}
           onAction={handleGameAction}
           onBackToRoom={() => {
-            setShowGame(false);
-            setShowScoreboard(false);
+            setPhase("lobby");
+            gameSync.disconnect();
           }}
         />
       </Show>
 
-      <Show when={showScoreboard()}>
+      <Show when={phase() === "ended"}>
         <div class="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
           <div class="bg-base-200 p-8 rounded pixel-border text-center">
             <h2 class="text-2xl font-bold mb-4">Game Over</h2>
@@ -189,9 +196,7 @@ export function BombermanRoom() {
               <div class="mb-4">
                 <p class="text-lg mb-2">Winner: {gameOver()!.winnerId ?? "Draw"}</p>
                 {(gameOver()!.rankings ?? []).map((r) => (
-                  <p>
-                    #{r.rank}: {r.playerId.slice(0, 8)}
-                  </p>
+                  <p>#{r.rank}: {r.playerId.slice(0, 8)}</p>
                 ))}
               </div>
             )}
@@ -201,7 +206,6 @@ export function BombermanRoom() {
           </div>
         </div>
       </Show>
-    </div>
     </ProtectedRoute>
   );
 }
