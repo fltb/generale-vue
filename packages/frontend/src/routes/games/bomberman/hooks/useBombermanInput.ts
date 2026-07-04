@@ -16,6 +16,7 @@ export function useBombermanInput(onAction: (op: BombermanOperation) => void) {
     d: { type: "MOVE", direction: "right" },
     " ": { type: "PLACE_BOMB" },
     e: { type: "DETONATE" },
+    Escape: { type: "SURRENDER" } as BombermanOperation,
   };
 
   const onKeyDown = (e: KeyboardEvent) => {

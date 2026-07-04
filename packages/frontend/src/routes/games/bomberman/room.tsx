@@ -233,6 +233,7 @@ export function BombermanRoom() {
             setPhase("lobby");
             gameSync.disconnect();
           }}
+          playerId={playerId()}
         />
       </Show>
 

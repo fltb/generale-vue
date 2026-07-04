@@ -12,6 +12,7 @@ export class BombermanService {
   private game: BombermanGame | null = null;
   private destroyed = false;
   private gameConnectors = new Map<string, SubConnector>();
+  private disconnectTimers = new Map<string, ReturnType<typeof setTimeout>>();
   public onDisband?: () => void;
 
   constructor(gameId: GameId, roomName: string, config: BombermanConfig, creatorId: string, creatorName: string) {
@@ -56,6 +57,10 @@ export class BombermanService {
         }
         const g = this.game;
         this.gameConnectors.set(userid, connector);
+
+        const existingTimer = this.disconnectTimers.get(userid);
+        if (existingTimer) clearTimeout(existingTimer);
+
         connector.onClientMessage((evt) => {
           const e = evt as Record<string, unknown>;
           const op = {
@@ -64,7 +69,15 @@ export class BombermanService {
           } as unknown as import("@generale/types").BombermanOperation;
           g.handleAction(userid, op, e["optimisticId"] as number | undefined);
         });
-        connector.onClose(() => this.gameConnectors.delete(userid));
+        connector.onClose(() => {
+          this.gameConnectors.delete(userid);
+          const timer = setTimeout(() => {
+            if (this.game && !this.gameConnectors.has(userid)) {
+              this.game.handleAction(userid, { type: "SURRENDER" } as import("@generale/types").BombermanOperation);
+            }
+          }, 30000);
+          this.disconnectTimers.set(userid, timer);
+        });
         connector.send({
           type: SyncedStateServerEventType.STATE_UPDATE,
           payload: { type: "snapshot", version: g.getState().tick, payload: g.getState() },
@@ -108,6 +121,9 @@ export class BombermanService {
 
       this.room.resumeGame();
 
+      for (const timer of this.disconnectTimers.values()) clearTimeout(timer);
+      this.disconnectTimers.clear();
+
       g.destroy();
       this.game = null;
       this.gameConnectors.clear();
@@ -149,6 +165,8 @@ export class BombermanService {
   destroy(): void {
     if (this.destroyed) return;
     this.destroyed = true;
+    for (const timer of this.disconnectTimers.values()) clearTimeout(timer);
+    this.disconnectTimers.clear();
     unregisterDomainHandler(`room-${this.gameId}`);
     unregisterDomainHandler(`game-${this.gameId}`);
     unregisterDomainHandler(`chat-${this.gameId}`);

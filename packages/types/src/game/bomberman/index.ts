@@ -88,6 +88,7 @@ export type BombermanOperation =
   | { type: "KICK_BOMB"; direction: string }
   | { type: "THROW_BOMB"; direction: string }
   | { type: "DETONATE" }
+  | { type: "SURRENDER" }
   | { type: "NOOP" };
 
 export interface BombermanBotConfig {

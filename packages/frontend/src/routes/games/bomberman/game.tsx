@@ -1,5 +1,5 @@
 import { Application } from "solid-pixi";
-import { createSignal, createMemo } from "solid-js";
+import { createSignal, createMemo, onMount } from "solid-js";
 import type { BombermanState, BombermanOperation } from "@generale/types";
 import { GameStatus } from "@generale/types";
 import { useBombermanInput } from "./hooks/useBombermanInput";
@@ -13,14 +13,20 @@ interface BombermanGameProps {
   initialState: BombermanState;
   onAction: (op: BombermanOperation) => void;
   onBackToRoom: () => void;
+  playerId?: string;
 }
 
 export function BombermanGame(props: BombermanGameProps) {
   const { showVirtualControls } = useBombermanInput(props.onAction);
   const [showScoreboard, setShowScoreboard] = createSignal(false);
   const [rankings, setRankings] = createSignal<{ name: string; rank: number; score: number }[]>([]);
+  const [showControls, setShowControls] = createSignal(true);
 
   const state = createMemo(() => props.initialState);
+
+  onMount(() => {
+    setTimeout(() => setShowControls(false), 6000);
+  });
 
   createMemo(() => {
     const s = state();
@@ -56,7 +62,22 @@ export function BombermanGame(props: BombermanGameProps) {
         aliveCount={players().filter((p) => p.alive).length}
         totalPlayers={players().length}
       />
+      {showControls() && (
+        <div class="fixed bottom-20 left-1/2 -translate-x-1/2 bg-black/80 text-white px-6 py-4 rounded-lg z-40 text-sm text-center pointer-events-none transition-opacity duration-500">
+          <div class="font-bold mb-2">Controls</div>
+          <div class="grid grid-cols-2 gap-x-6 gap-y-1">
+            <span class="text-left">Move</span><span class="text-right font-mono">WASD / Arrows</span>
+            <span class="text-left">Place Bomb</span><span class="text-right font-mono">Space</span>
+            <span class="text-left">Detonate</span><span class="text-right font-mono">E</span>
+          </div>
+        </div>
+      )}
       {showVirtualControls() && <VirtualControls onAction={props.onAction} />}
+      {props.playerId && state().players[props.playerId]?.alive && (
+        <button class="fixed top-4 right-4 z-30 btn btn-sm btn-outline btn-error" onClick={() => props.onAction({ type: "SURRENDER" } as BombermanOperation)}>
+          Surrender
+        </button>
+      )}
       {showScoreboard() && <Scoreboard players={rankings()} onBackToRoom={props.onBackToRoom} />}
     </div>
   );

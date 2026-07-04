@@ -201,6 +201,14 @@ export function tick(state: BombermanState, queues: Record<PlayerId, BombermanOp
         }
         break;
       }
+      case "SURRENDER": {
+        const player = next.players[pid];
+        if (player) player.alive = false;
+        break;
+      }
+      // NOOP and unknown: no action
+      default:
+        break;
     }
   }
 
