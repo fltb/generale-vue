@@ -17,8 +17,8 @@ export function defaultBombermanConfig(): BombermanConfig {
     mapWidth: 15,
     mapHeight: 13,
     playerLimit: 4,
-    tickRate: 4,
-    bombFuse: 12,
+    tickRate: 10,
+    bombFuse: 25,
     bombLimit: 1,
     blastRadius: 1,
     roundTimeSec: 180,
@@ -40,8 +40,8 @@ export function validateBombermanConfig(config: unknown): string | null {
   if (c.playerLimit !== undefined && (c.playerLimit < 2 || c.playerLimit > 4)) {
     return "playerLimit must be between 2 and 4";
   }
-  if (c.tickRate !== undefined && (c.tickRate < 2 || c.tickRate > 8)) {
-    return "tickRate must be between 2 and 8";
+  if (c.tickRate !== undefined && (c.tickRate < 2 || c.tickRate > 15)) {
+    return "tickRate must be between 2 and 15";
   }
   return null;
 }

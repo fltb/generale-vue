@@ -39,7 +39,7 @@ export function EntityLayer(props: EntityLayerProps) {
                 top: `${player.y * TILE_SIZE + TILE_SIZE * 0.2}px`,
                 border: "2px solid rgba(255,255,255,0.5)",
                 "box-shadow": "0 0 6px rgba(0,0,0,0.5)",
-                transition: "left 0.1s linear, top 0.1s linear",
+                transition: "left 0.08s linear, top 0.08s linear",
               }}
             >
               {player.name?.charAt(0).toUpperCase() ?? "?"}
