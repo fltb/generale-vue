@@ -21,7 +21,7 @@ const DIRS: Record<string, { dx: number; dy: number }> = {
 };
 
 function genBombId(s: BombermanState): string {
-  const id = s.bombIdCounter!;
+  const id = s.bombIdCounter ?? 0;
   s.bombIdCounter = id + 1;
   return `bomb_${id}`;
 }
@@ -37,7 +37,7 @@ function weightedRandom(table: { type: string; weight: number }[]): string {
     r -= item.weight;
     if (r <= 0) return item.type;
   }
-  return table[0]!.type;
+  return table[0]?.type ?? "BOMB_UP";
 }
 
 function hasBombAt(state: BombermanState, x: number, y: number): boolean {
@@ -59,7 +59,8 @@ function movePlayer(player: BombermanPlayer, direction: string, state: Bomberman
 
   const itemIdx = state.items.findIndex((i) => i.x === nx && i.y === ny);
   if (itemIdx >= 0) {
-    const item = state.items[itemIdx]!;
+    const item = state.items[itemIdx];
+    if (!item) return;
     state.items.splice(itemIdx, 1);
     if (["BOMB_UP", "FIRE_UP", "SPEED_UP"].includes(item.type)) {
       if (item.type === "BOMB_UP") player.bombMax++;
@@ -141,7 +142,7 @@ function processExplosions(state: BombermanState): void {
       if (exploded.has(bomb.id)) continue;
       exploded.add(bomb.id);
       const hasPierce = Object.values(state.players).some(
-        (p) => p.playerId === bomb.playerId && p.items.includes("PIERCE" as ItemType)
+        (p) => p.playerId === bomb.playerId && p.items.includes("PIERCE" as ItemType),
       );
       explode(bomb, state, hasPierce);
       for (const other of state.bombs) {
@@ -195,7 +196,8 @@ export function tick(state: BombermanState, queues: Record<PlayerId, BombermanOp
       case "DETONATE": {
         const remoteBombs = next.bombs.filter((b) => b.playerId === pid);
         if (remoteBombs.length > 0) {
-          remoteBombs[0]!.fuse = 0;
+          const first = remoteBombs[0];
+          if (first) first.fuse = 0;
         }
         break;
       }

@@ -26,29 +26,56 @@ export class BombermanGame {
 
     const players: Record<string, BombermanPlayer> = {};
     for (let i = 0; i < playerIds.length; i++) {
-      const spawn = spawns[i]!;
-      const pid = playerIds[i]!;
+      const spawn = spawns[i];
+      const pid = playerIds[i];
+      if (!spawn || !pid) continue;
       players[pid] = {
-        playerId: pid, alive: true, x: spawn.x, y: spawn.y,
-        bombMax: config.bombLimit, bombActive: 0, blastRadius: config.blastRadius,
-        speed: 1, items: [],
+        playerId: pid,
+        alive: true,
+        x: spawn.x,
+        y: spawn.y,
+        bombMax: config.bombLimit,
+        bombActive: 0,
+        blastRadius: config.blastRadius,
+        speed: 1,
+        items: [],
       };
     }
 
     this.state = {
-      status: GameStatus.Playing, tick: 0, map, players,
-      bombs: [], explosions: [], items: [], config, bombIdCounter: 0,
+      status: GameStatus.Playing,
+      tick: 0,
+      map,
+      players,
+      bombs: [],
+      explosions: [],
+      items: [],
+      config,
+      bombIdCounter: 0,
     };
 
     for (const pid of playerIds) this.queues[pid] = [];
   }
 
   addBot(playerId: PlayerId, getAction: (state: BombermanState) => BombermanOperation): void {
-    const spawns = getSpawnPositions(Object.keys(this.state.players).length + 1, this.state.config.mapWidth, this.state.config.mapHeight);
-    const spawn = spawns[Object.keys(this.state.players).length]!;
+    const spawns = getSpawnPositions(
+      Object.keys(this.state.players).length + 1,
+      this.state.config.mapWidth,
+      this.state.config.mapHeight,
+    );
+    const idx = Object.keys(this.state.players).length;
+    const spawn = spawns[idx];
+    if (!spawn) return;
     this.state.players[playerId] = {
-      playerId, alive: true, x: spawn.x, y: spawn.y,
-      bombMax: 1, bombActive: 0, blastRadius: 1, speed: 1, items: [],
+      playerId,
+      alive: true,
+      x: spawn.x,
+      y: spawn.y,
+      bombMax: 1,
+      bombActive: 0,
+      blastRadius: 1,
+      speed: 1,
+      items: [],
     };
     this.bots.push({ playerId, getAction });
     this.queues[playerId] = [];
@@ -66,13 +93,15 @@ export class BombermanGame {
       for (const bot of this.bots) {
         const action = bot.getAction(this.state);
         if (!this.queues[bot.playerId]) this.queues[bot.playerId] = [];
-        this.queues[bot.playerId]!.push(action);
+        this.queues[bot.playerId]?.push(action);
       }
       this.state = tick(this.state, this.queues);
       for (const pid of Object.keys(this.queues)) this.queues[pid] = [];
 
       for (const cb of this.onTickCallbacks) {
-        try { cb(this.state); } catch {}
+        try {
+          cb(this.state);
+        } catch {}
       }
 
       if (this.state.status === GameStatus.Ended) {
@@ -83,24 +112,33 @@ export class BombermanGame {
   }
 
   stopTicking(): void {
-    if (this.tickTimerId) { clearInterval(this.tickTimerId); this.tickTimerId = null; }
+    if (this.tickTimerId) {
+      clearInterval(this.tickTimerId);
+      this.tickTimerId = null;
+    }
   }
 
-  getState(): BombermanState { return this.state; }
+  getState(): BombermanState {
+    return this.state;
+  }
 
-  onTick(cb: (state: BombermanState) => void): void { this.onTickCallbacks.push(cb); }
+  onTick(cb: (state: BombermanState) => void): void {
+    this.onTickCallbacks.push(cb);
+  }
 
   private triggerEnd(): void {
     const alive = Object.values(this.state.players).filter((p) => p.alive);
     const result: BombermanGameEndResult = {
-      winnerId: alive.length === 1 ? alive[0]!.playerId : null,
+      winnerId: alive.length === 1 ? (alive[0]?.playerId ?? null) : null,
       reason: alive.length <= 1 ? "last_alive" : "timeout",
       state: this.state,
     };
     for (const cb of this.onEndCallbacks) cb(result);
   }
 
-  onEnd(cb: (result: BombermanGameEndResult) => void): void { this.onEndCallbacks.push(cb); }
+  onEnd(cb: (result: BombermanGameEndResult) => void): void {
+    this.onEndCallbacks.push(cb);
+  }
 
   destroy(): void {
     if (this.destroyed) return;

@@ -1,4 +1,4 @@
-import type { BombermanConfig, GameId } from "@generale/types";
+import type { BombermanConfig, GameId, BombermanPreGameClientAction, BombermanPreGameServerEvent } from "@generale/types";
 import type { SubConnector } from "../../../plugins/websocket";
 import { registerDomainHandler, unregisterDomainHandler } from "../../../plugins/websocket";
 import { BombermanGame } from "../instance/BombermanGame";
@@ -16,39 +16,58 @@ export class BombermanService {
     this.gameId = gameId;
     this.roomName = roomName;
     this.room = new BombermanRoom(roomName, config, creatorId, creatorName);
-    this.room.onGameStart((_playerIds) => this.startGame());
+    this.room.onGameStart(() => this.startGame());
   }
 
   registerHandlers(): void {
-    registerDomainHandler(`room-${this.gameId}`, (connector: SubConnector) => {
-      const ctx = connector.context as any;
-      const userid: string | undefined = ctx.userid;
-      const username: string | undefined = ctx.username;
-      if (!userid || !username) { connector.close(4001, "Missing auth"); return; }
-      if (this.room.isDisbanded()) { connector.close(4004, "Room disbanded"); return; }
-      const result = this.room.addPlayer({ id: userid, name: username }, connector as any);
-      if (!result.success) { connector.close(4003, result.message); }
-    });
+    registerDomainHandler<BombermanPreGameClientAction, BombermanPreGameServerEvent>(
+      `room-${this.gameId}`,
+      (connector) => {
+        const { userid, username } = connector.context;
+        if (!(userid && username)) {
+          connector.close(4001, "Missing auth");
+          return;
+        }
+        if (this.room.isDisbanded()) {
+          connector.close(4004, "Room disbanded");
+          return;
+        }
+        const result = this.room.addPlayer({ id: userid, name: username }, connector);
+        if (!result.success) {
+          connector.close(4003, result.message);
+        }
+      },
+    );
 
-    registerDomainHandler(`game-${this.gameId}`, (connector: SubConnector) => {
-      const ctx = connector.context as any;
-      const userid: string | undefined = ctx.userid;
-      if (!userid) { connector.close(4001, "Missing auth"); return; }
-      if (!this.game) { connector.close(4002, "Game not started"); return; }
-      this.gameConnectors.set(userid, connector);
-      connector.onClientMessage((evt: any) => {
-        this.game!.handleAction(userid, {
-          type: evt.type,
-          ...(evt.direction ? { direction: evt.direction as any } : {}),
-        }, evt.optimisticId);
-      });
-      connector.onClose(() => this.gameConnectors.delete(userid));
-      // Push current state immediately
-      connector.send({
-        type: "STATE_UPDATE",
-        payload: { type: "snapshot", version: this.game!.getState().tick, payload: this.game!.getState() },
-      });
-    });
+    registerDomainHandler<Record<string, unknown>, Record<string, unknown>>(
+      `game-${this.gameId}`,
+      (connector) => {
+        const { userid } = connector.context;
+        if (!userid) {
+          connector.close(4001, "Missing auth");
+          return;
+        }
+        if (!this.game) {
+          connector.close(4002, "Game not started");
+          return;
+        }
+        const g = this.game;
+        this.gameConnectors.set(userid, connector);
+        connector.onClientMessage((evt) => {
+          const e = evt as Record<string, unknown>;
+          const op = {
+            type: e["type"],
+            ...(e["direction"] ? { direction: e["direction"] } : {}),
+          } as unknown as import("@generale/types").BombermanOperation;
+          g.handleAction(userid, op, e["optimisticId"] as number | undefined);
+        });
+        connector.onClose(() => this.gameConnectors.delete(userid));
+        connector.send({
+          type: "STATE_UPDATE",
+          payload: { type: "snapshot", version: g.getState().tick, payload: g.getState() },
+        });
+      },
+    );
 
     registerDomainHandler(`chat-${this.gameId}`, () => {});
   }
@@ -57,28 +76,33 @@ export class BombermanService {
     const playerIds = this.room.getPlayerIds();
     const config = this.room.getConfig();
     this.game = new BombermanGame(config, playerIds);
+    const g = this.game;
 
-    this.game.onTick((state) => {
+    g.onTick((state) => {
       for (const [, conn] of this.gameConnectors) {
         try {
           conn.send({
             type: "STATE_UPDATE",
             payload: { type: "snapshot", version: state.tick, payload: state },
           });
-        } catch {}
+        } catch {
+          // ignore send failures
+        }
       }
     });
 
-    this.game.onEnd((_result) => {
-      this.game?.destroy();
+    g.onEnd(() => {
+      g.destroy();
       this.game = null;
       this.gameConnectors.clear();
     });
 
-    this.game.startTicking();
+    g.startTicking();
   }
 
-  getPhase(): string { return this.room.getPhase(); }
+  getPhase(): string {
+    return this.room.getPhase();
+  }
 
   getSummary() {
     const s = this.room.getState();
@@ -92,19 +116,17 @@ export class BombermanService {
     };
   }
 
-  getPlayerCount(): number { return this.room.getPlayers().length; }
+  getPlayerCount(): number {
+    return this.room.getPlayers().length;
+  }
 
   prepConnectionForPlayer(userid: string) {
     const phase = this.room.getPhase();
     const inRoom = this.room.getPlayers().some((p) => p.id === userid);
-    const primary = (phase === "playing" && inRoom) ? `game-${this.gameId}` : `room-${this.gameId}`;
+    const primary = phase === "playing" && inRoom ? `game-${this.gameId}` : `room-${this.gameId}`;
     return {
       success: true as const,
-      data: {
-        playerId: userid,
-        phase,
-        domains: { primary, game: `game-${this.gameId}`, chat: `chat-${this.gameId}` },
-      },
+      data: { playerId: userid, phase, domains: { primary, game: `game-${this.gameId}`, chat: `chat-${this.gameId}` } },
     };
   }
 

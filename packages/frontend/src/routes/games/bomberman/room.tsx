@@ -47,10 +47,8 @@ export function BombermanRoom() {
         setGameOver(evt.payload);
         setShowScoreboard(true);
       }
-      if (evt.type === BombermanPreGameServerEventType.KICKED)
-        setError("You were kicked from the room");
-      if (evt.type === BombermanPreGameServerEventType.ROOM_DISBANDED)
-        setError("Room has been disbanded");
+      if (evt.type === BombermanPreGameServerEventType.KICKED) setError("You were kicked from the room");
+      if (evt.type === BombermanPreGameServerEventType.ROOM_DISBANDED) setError("Room has been disbanded");
     },
     onConnectionClosed: () => setError("Connection lost"),
     autoOpen: false,
@@ -71,7 +69,7 @@ export function BombermanRoom() {
         message?: string;
         data?: { playerId: string; phase: string };
       } = await res.json();
-      if (!d.success || !d.data) {
+      if (!(d.success && d.data)) {
         setError(d.message || "Failed to connect");
         setLoading(false);
         return;
@@ -90,9 +88,7 @@ export function BombermanRoom() {
     }
   });
 
-  const selfPlayer = createMemo(() =>
-    (roomSync.state().players ?? []).find((p) => p.id === playerId()),
-  );
+  const selfPlayer = createMemo(() => (roomSync.state().players ?? []).find((p) => p.id === playerId()));
   const isHost = createMemo(() => selfPlayer()?.isHost ?? false);
   const allReady = createMemo(() => {
     const players = roomSync.state().players ?? [];
@@ -134,9 +130,7 @@ export function BombermanRoom() {
   return (
     <div class="container mx-auto p-4">
       <Show when={!showGame()}>
-        <h1 class="text-2xl font-bold mb-4">
-          {roomSync.state().roomName || "Bomberman Room"}
-        </h1>
+        <h1 class="text-2xl font-bold mb-4">{roomSync.state().roomName || "Bomberman Room"}</h1>
         <p class="text-sm text-gray-500 mb-4">
           Players: {roomSync.state().players?.length ?? 0}/{roomSync.state().maxPlayers}
         </p>
@@ -147,9 +141,7 @@ export function BombermanRoom() {
                 {p.name}
                 {p.isHost ? " \u2605" : ""}
               </span>
-              <span class={p.ready ? "badge badge-success" : "badge badge-ghost"}>
-                {p.ready ? "Ready" : "Waiting"}
-              </span>
+              <span class={p.ready ? "badge badge-success" : "badge badge-ghost"}>{p.ready ? "Ready" : "Waiting"}</span>
               {isHost() && p.id !== playerId() && (
                 <button
                   class="btn btn-xs btn-error ml-auto"
@@ -192,9 +184,7 @@ export function BombermanRoom() {
             <h2 class="text-2xl font-bold mb-4">Game Over</h2>
             {gameOver() && (
               <div class="mb-4">
-                <p class="text-lg mb-2">
-                  Winner: {gameOver()!.winnerId ?? "Draw"}
-                </p>
+                <p class="text-lg mb-2">Winner: {gameOver()!.winnerId ?? "Draw"}</p>
                 {(gameOver()!.rankings ?? []).map((r) => (
                   <p>
                     #{r.rank}: {r.playerId.slice(0, 8)}

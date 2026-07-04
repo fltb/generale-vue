@@ -42,11 +42,20 @@ export function BombermanGame(props: BombermanGameProps) {
       <div class="absolute inset-0" style="transform:scale(2);transform-origin:top left">
         <Application resizeTo={window}>
           <MapLayer tiles={state().map?.tiles ?? []} />
-          <EntityLayer players={players()} bombs={state().bombs ?? []} explosions={state().explosions ?? []} items={state().items ?? []} />
+          <EntityLayer
+            players={players()}
+            bombs={state().bombs ?? []}
+            explosions={state().explosions ?? []}
+            items={state().items ?? []}
+          />
         </Application>
       </div>
 
-      <HUD timeLeft={state().roundTimer ?? 0} aliveCount={players().filter((p) => p.alive).length} totalPlayers={players().length} />
+      <HUD
+        timeLeft={state().roundTimer ?? 0}
+        aliveCount={players().filter((p) => p.alive).length}
+        totalPlayers={players().length}
+      />
       {showVirtualControls() && <VirtualControls onAction={props.onAction} />}
       {showScoreboard() && <Scoreboard players={rankings()} onBackToRoom={props.onBackToRoom} />}
     </div>

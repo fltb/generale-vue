@@ -21,7 +21,10 @@ export function bombermanRoutes(app: Elysia) {
       "/room/create",
       async ({ body, cookie, set }) => {
         const userId = getUserIdFromCookie(cookie);
-        if (!userId) { set.status = 401; return { success: false, error: "Please log in first" }; }
+        if (!userId) {
+          set.status = 401;
+          return { success: false, error: "Please log in first" };
+        }
         const user = await userService.findById(userId);
         const creatorName = user?.username ?? "Unknown";
         const service = bombermanManager.createGame(body.roomName, userId, creatorName);
@@ -29,14 +32,20 @@ export function bombermanRoutes(app: Elysia) {
       },
       { body: t.Object({ roomName: t.String(), password: t.Optional(t.String()) }), cookie: cookieScheme },
     )
-    .get("/room/list", async ({ cookie, set }) => {
+    .get("/room/list", ({ cookie, set }) => {
       const userId = getUserIdFromCookie(cookie);
-      if (!userId) { set.status = 401; return { success: false, error: "Please log in first" }; }
+      if (!userId) {
+        set.status = 401;
+        return { success: false, error: "Please log in first" };
+      }
       return { success: true, data: bombermanManager.getRoomListSummary() };
     })
-    .get("/room/connect/:gameId", async ({ params, cookie, set }) => {
+    .get("/room/connect/:gameId", ({ params, cookie, set }) => {
       const userId = getUserIdFromCookie(cookie);
-      if (!userId) { set.status = 401; return { success: false, error: "Please log in first" }; }
+      if (!userId) {
+        set.status = 401;
+        return { success: false, error: "Please log in first" };
+      }
       const service = bombermanManager.getGame(params.gameId);
       if (!service) return { success: false, message: "Game not found" };
       return service.prepConnectionForPlayer(userId);

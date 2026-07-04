@@ -135,7 +135,8 @@ export class BombermanRoom {
 
   private transferHost(): void {
     if (this.state.players.length === 0) return;
-    const next = this.state.players[0]!;
+    const next = this.state.players[0];
+    if (!next) return;
     next.isHost = true;
     this.state.hostId = next.id;
     if (this.hostReclaimTimer) {
@@ -226,12 +227,24 @@ export class BombermanRoom {
     }
   }
 
-  getState(): BombermanRoomState { return this.state; }
-  getPhase(): BombermanRoomPhase { return this.state.phase; }
-  getPlayers(): BombermanRoomPlayer[] { return this.state.players; }
-  getPlayerIds(): PlayerId[] { return this.state.players.map((p) => p.id); }
-  getConfig(): BombermanConfig { return this.state.config; }
-  isDisbanded(): boolean { return this.destroyed || this.state.phase === "disbanded"; }
+  getState(): BombermanRoomState {
+    return this.state;
+  }
+  getPhase(): BombermanRoomPhase {
+    return this.state.phase;
+  }
+  getPlayers(): BombermanRoomPlayer[] {
+    return this.state.players;
+  }
+  getPlayerIds(): PlayerId[] {
+    return this.state.players.map((p) => p.id);
+  }
+  getConfig(): BombermanConfig {
+    return this.state.config;
+  }
+  isDisbanded(): boolean {
+    return this.destroyed || this.state.phase === "disbanded";
+  }
 
   destroy(): void {
     if (this.destroyed) return;

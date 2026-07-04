@@ -1,16 +1,19 @@
 import { BombermanService } from "./BombermanService";
 import { registerDomainHandler } from "../../../plugins/websocket";
 import { defaultBombermanConfig } from "../settings";
-import type { SubConnector } from "../../../plugins/websocket";
+import type { SubConnector, WSContextBase } from "../../../plugins/websocket";
 
 export class BombermanManager {
   private services = new Map<string, BombermanService>();
   private lobbyConnectors: SubConnector[] = [];
 
   constructor() {
-    registerDomainHandler("lobby-bomberman", (connector) => {
-      const ctx = connector.context as any;
-      if (!ctx.userid) { connector.close(4001, "Not authenticated"); return; }
+    registerDomainHandler<unknown, { type: string; payload: unknown }>("lobby-bomberman", (connector) => {
+      const ctx = connector.context as WSContextBase;
+      if (!ctx.userid) {
+        connector.close(4001, "Not authenticated");
+        return;
+      }
       this.lobbyConnectors.push(connector);
       connector.onClose(() => {
         const idx = this.lobbyConnectors.indexOf(connector);
@@ -36,13 +39,16 @@ export class BombermanManager {
 
   removeGame(id: string): void {
     const service = this.services.get(id);
-    if (service) { service.destroy(); this.services.delete(id); this.broadcastLobbyUpdate(); }
+    if (service) {
+      service.destroy();
+      this.services.delete(id);
+      this.broadcastLobbyUpdate();
+    }
   }
 
   getRoomListSummary() {
     const result = [];
     for (const svc of this.services.values()) {
-      if (!svc) continue;
       result.push(svc.getSummary());
     }
     return result;
@@ -51,7 +57,11 @@ export class BombermanManager {
   broadcastLobbyUpdate(): void {
     const list = this.getRoomListSummary();
     for (const conn of this.lobbyConnectors) {
-      try { conn.send({ type: "ROOM_LIST_UPDATE", payload: list }); } catch {}
+      try {
+        conn.send({ type: "ROOM_LIST_UPDATE", payload: list });
+      } catch {
+        // ignore
+      }
     }
   }
 }

@@ -135,12 +135,18 @@ export enum BombermanPreGameServerEventType {
 }
 
 export type BombermanPreGameServerEvent =
-  | { type: BombermanPreGameServerEventType.STATE_UPDATE; payload: { type: "snapshot"; version: number; confirmedOp: number; payload: BombermanRoomState } }
+  | {
+      type: BombermanPreGameServerEventType.STATE_UPDATE;
+      payload: { type: "snapshot"; version: number; confirmedOp: number; payload: BombermanRoomState };
+    }
   | { type: BombermanPreGameServerEventType.PLAYER_JOINED; payload: { playerId: string; playerName: string } }
   | { type: BombermanPreGameServerEventType.PLAYER_LEFT; payload: { playerId: string } }
   | { type: BombermanPreGameServerEventType.KICKED; payload: { reason: string } }
   | { type: BombermanPreGameServerEventType.GAME_STARTED; payload: { gameDomain: string } }
-  | { type: BombermanPreGameServerEventType.GAME_ENDED; payload: { rankings: { playerId: string; rank: number }[]; winnerId: string | null } }
+  | {
+      type: BombermanPreGameServerEventType.GAME_ENDED;
+      payload: { rankings: { playerId: string; rank: number }[]; winnerId: string | null };
+    }
   | { type: BombermanPreGameServerEventType.ROOM_DISBANDED };
 
 export interface BombermanGameEndResult {
