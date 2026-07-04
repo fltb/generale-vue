@@ -1,5 +1,6 @@
 import { useNavigate } from "@solidjs/router";
 import { createSignal, onMount, For, Show } from "solid-js";
+import { ProtectedRoute } from "~/components/ProtectedRoute";
 import { useWS } from "~/hooks/useWebsocket";
 
 interface RoomSummary {
@@ -53,6 +54,7 @@ export function BombermanHub() {
   }
 
   return (
+    <ProtectedRoute>
     <div class="container mx-auto p-8">
       <div class="flex items-center justify-between mb-6">
         <h1 class="text-3xl font-bold">Bomberman</h1>
@@ -87,5 +89,6 @@ export function BombermanHub() {
         </div>
       </Show>
     </div>
+    </ProtectedRoute>
   );
 }

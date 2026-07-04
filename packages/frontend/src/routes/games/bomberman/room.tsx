@@ -8,6 +8,7 @@ import type {
 } from "@generale/types";
 import { useParams, useNavigate } from "@solidjs/router";
 import { createSignal, createMemo, onMount, onCleanup, Show } from "solid-js";
+import { ProtectedRoute } from "~/components/ProtectedRoute";
 import { useSyncedState } from "~/hooks/useSyncedState";
 import { BombermanGame } from "./game";
 
@@ -128,6 +129,7 @@ export function BombermanRoom() {
     );
 
   return (
+    <ProtectedRoute>
     <div class="container mx-auto p-4">
       <Show when={!showGame()}>
         <h1 class="text-2xl font-bold mb-4">{roomSync.state().roomName || "Bomberman Room"}</h1>
@@ -199,5 +201,6 @@ export function BombermanRoom() {
         </div>
       </Show>
     </div>
+    </ProtectedRoute>
   );
 }
