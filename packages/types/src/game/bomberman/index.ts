@@ -75,6 +75,7 @@ export interface BombermanState {
   config: BombermanConfig;
   roundTimer?: number;
   shrinkBoundary?: number;
+  bombIdCounter?: number;
   round?: number;
   totalRounds?: number;
   scores?: Record<string, number>;

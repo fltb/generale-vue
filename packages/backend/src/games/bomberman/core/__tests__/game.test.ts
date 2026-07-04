@@ -122,6 +122,7 @@ describe("tick - round timer and shrink", () => {
   it("roundTimer decrements each tick", () => {
     const state = makeBaseState();
     state.config.roundTimeSec = 1;
+    state.config.shrinkEnabled = true;
     const result = tick(state, { p1: [], p2: [] });
     expect((result as any).roundTimer).toBe(3);
   });

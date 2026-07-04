@@ -13,11 +13,6 @@ const ITEM_DROP_TABLE: { type: string; weight: number }[] = [
   { type: "SPIRIT", weight: 1 },
 ];
 
-let nextId = 1;
-function genId(): string {
-  return `bomb_${nextId++}`;
-}
-
 const DIRS: Record<string, { dx: number; dy: number }> = {
   up: { dx: 0, dy: -1 },
   down: { dx: 0, dy: 1 },
@@ -25,8 +20,14 @@ const DIRS: Record<string, { dx: number; dy: number }> = {
   right: { dx: 1, dy: 0 },
 };
 
+function genBombId(s: BombermanState): string {
+  const id = s.bombIdCounter!;
+  s.bombIdCounter = id + 1;
+  return `bomb_${id}`;
+}
+
 function cloneState(state: BombermanState): BombermanState {
-  return JSON.parse(JSON.stringify(state));
+  return structuredClone(state) as BombermanState;
 }
 
 function weightedRandom(table: { type: string; weight: number }[]): string {
@@ -74,7 +75,7 @@ function placeBomb(player: BombermanPlayer, state: BombermanState): void {
   if (player.bombActive >= player.bombMax) return;
   if (hasBombAt(state, player.x, player.y)) return;
   state.bombs.push({
-    id: genId(),
+    id: genBombId(state),
     playerId: player.playerId,
     x: player.x,
     y: player.y,
@@ -139,7 +140,10 @@ function processExplosions(state: BombermanState): void {
     for (const bomb of batch) {
       if (exploded.has(bomb.id)) continue;
       exploded.add(bomb.id);
-      explode(bomb, state, false);
+      const hasPierce = Object.values(state.players).some(
+        (p) => p.playerId === bomb.playerId && p.items.includes("PIERCE" as ItemType)
+      );
+      explode(bomb, state, hasPierce);
       for (const other of state.bombs) {
         if (!exploded.has(other.id) && other.fuse > 0) {
           const dx = Math.abs(other.x - bomb.x);
@@ -173,6 +177,8 @@ export function tick(state: BombermanState, queues: Record<PlayerId, BombermanOp
   const next = cloneState(state);
   next.tick++;
 
+  if (next.bombIdCounter === undefined) next.bombIdCounter = state.bombIdCounter ?? 0;
+
   for (const [pid, ops] of Object.entries(queues)) {
     const player = next.players[pid];
     if (!player?.alive) continue;
@@ -186,6 +192,13 @@ export function tick(state: BombermanState, queues: Record<PlayerId, BombermanOp
       case "PLACE_BOMB":
         placeBomb(player, next);
         break;
+      case "DETONATE": {
+        const remoteBombs = next.bombs.filter((b) => b.playerId === pid);
+        if (remoteBombs.length > 0) {
+          remoteBombs[0]!.fuse = 0;
+        }
+        break;
+      }
     }
   }
 
@@ -196,7 +209,7 @@ export function tick(state: BombermanState, queues: Record<PlayerId, BombermanOp
   for (const e of next.explosions) e.ttl--;
   next.explosions = next.explosions.filter((e) => e.ttl > 0);
 
-  if (next.config.roundTimeSec > 0) {
+  if (next.config.shrinkEnabled && next.config.roundTimeSec > 0) {
     if (!next.roundTimer) next.roundTimer = next.config.roundTimeSec * next.config.tickRate;
     next.roundTimer--;
     if (next.roundTimer <= 0) {
