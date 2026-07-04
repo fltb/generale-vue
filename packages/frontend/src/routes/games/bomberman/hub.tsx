@@ -94,34 +94,34 @@ export function BombermanHub() {
 
   return (
     <ProtectedRoute>
-    <div class="container mx-auto p-8">
-      <div class="flex items-center justify-between mb-6">
-        <h1 class="text-3xl font-bold">Bomberman</h1>
+    <div class="container mx-auto max-w-3xl p-8">
+      <div class="flex items-center justify-between mb-8">
+        <div>
+          <h1 class="text-3xl font-bold">Bomberman</h1>
+          <p class="text-sm text-base-content/50">Classic bomb battle arena</p>
+        </div>
         <button class="btn btn-primary" onClick={() => setShowCreateModal(true)}>
           Create Room
         </button>
       </div>
       <Show
         when={rooms().length > 0}
-        fallback={<p class="text-center text-gray-500 py-8">No active rooms. Create one to start!</p>}
+        fallback={<div class="text-center py-16"><div class="text-4xl mb-4">💣</div><p class="text-base-content/50">No active rooms. Create one to start!</p></div>}
       >
         <div class="grid gap-3">
           <For each={rooms()}>
             {(room) => (
-              <div class="flex items-center gap-4 p-3 bg-base-200 rounded pixel-border">
+              <div class="flex items-center gap-4 p-4 bg-base-200 rounded-xl pixel-border hover:bg-base-300 transition-colors cursor-pointer" onClick={() => navigate(`/bomberman/room/${room.gameId}`)}>
+                <div class="w-10 h-10 rounded-full bg-base-300 flex items-center justify-center text-lg">💣</div>
                 <div class="flex-1">
-                  <span class="font-bold">{room.roomName}</span>
-                  <span class="text-sm text-gray-500 ml-2">by {room.hostName}</span>
+                  <div class="font-bold">{room.roomName}</div>
+                  <div class="text-xs text-base-content/50">Host: {room.hostName}</div>
                 </div>
-                <span class="badge">
-                  {room.playerCount}/{room.maxPlayers}
+                <span class="badge badge-outline">{room.playerCount}/{room.maxPlayers}</span>
+                <span class={room.phase === "playing" ? "badge badge-warning badge-sm" : "badge badge-success badge-sm"}>
+                  {room.phase === "playing" ? "In Game" : "Lobby"}
                 </span>
-                <span class={room.phase === "playing" ? "badge badge-warning" : "badge badge-success"}>
-                  {room.phase === "playing" ? "Playing" : "Lobby"}
-                </span>
-                <button class="btn btn-sm btn-primary" onClick={() => navigate(`/bomberman/room/${room.gameId}`)}>
-                  Join
-                </button>
+                <button class="btn btn-sm btn-primary" onClick={(e) => { e.stopPropagation(); navigate(`/bomberman/room/${room.gameId}`); }}>Join</button>
               </div>
             )}
           </For>
