@@ -7,38 +7,38 @@ import { cookieScheme } from "../../routes/user";
 
 export const bombermanManager = new BombermanManager();
 
+function getUserIdFromCookie(cookie: Record<string, unknown>): string | null {
+  const sid = (cookie["sid"] as { value?: string } | undefined)?.value;
+  if (!sid) return null;
+  const session = sessionService.get(sid);
+  return session?.userId ?? null;
+}
+
 export function bombermanRoutes(app: Elysia) {
   return app
     .use(authPlugin)
     .post(
       "/room/create",
-      async ({ body, cookie: { sid }, set }) => {
-        const session = sid?.value ? sessionService.get(sid.value) : undefined;
-        if (!session) {
-          set.status = 401;
-          return { success: false, error: "Please log in first" };
-        }
-        const user = await userService.findById(session.userId);
+      async ({ body, cookie, set }) => {
+        const userId = getUserIdFromCookie(cookie);
+        if (!userId) { set.status = 401; return { success: false, error: "Please log in first" }; }
+        const user = await userService.findById(userId);
         const creatorName = user?.username ?? "Unknown";
-        const service = bombermanManager.createGame(body.roomName, session.userId, creatorName);
+        const service = bombermanManager.createGame(body.roomName, userId, creatorName);
         return { success: true, data: { gameId: service.gameId } };
       },
       { body: t.Object({ roomName: t.String(), password: t.Optional(t.String()) }), cookie: cookieScheme },
     )
-    .get("/room/list", async () => {
-      return { success: true, data: [] };
+    .get("/room/list", async ({ cookie, set }) => {
+      const userId = getUserIdFromCookie(cookie);
+      if (!userId) { set.status = 401; return { success: false, error: "Please log in first" }; }
+      return { success: true, data: bombermanManager.getRoomListSummary() };
     })
-    .get("/room/connect/:gameId", async ({ params }) => {
+    .get("/room/connect/:gameId", async ({ params, cookie, set }) => {
+      const userId = getUserIdFromCookie(cookie);
+      if (!userId) { set.status = 401; return { success: false, error: "Please log in first" }; }
       const service = bombermanManager.getGame(params.gameId);
       if (!service) return { success: false, message: "Game not found" };
-      return {
-        success: true,
-        data: {
-          gameId: params.gameId,
-          playerId: "",
-          phase: "pregame",
-          domains: { primary: `room-${params.gameId}`, chat: `chat-${params.gameId}` },
-        },
-      };
+      return service.prepConnectionForPlayer(userId);
     });
 }
