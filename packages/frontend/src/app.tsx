@@ -27,6 +27,7 @@ import NotfoundPage from "./routes/[...404]";
 import GeneraleHub from "./routes/games/generale/routes/index";
 import { BombermanHub } from "~/routes/games/bomberman/hub";
 import { BombermanRoom } from "~/routes/games/bomberman/room";
+import BombermanLayout from "~/routes/games/bomberman/components/BombermanLayout";
 import MapEditorPage from "./routes/map-editor";
 import MapPreviewPage from "./routes/map-preview";
 import MapsPage from "./routes/maps";
@@ -190,8 +191,10 @@ export default function App() {
                 </Route>
 
                 {/* Bomberman routes */}
-                <Route path="/bomberman" component={BombermanHub} />
-                <Route path="/bomberman/room/:id" component={BombermanRoom} />
+                <Route path="/bomberman" component={BombermanLayout}>
+                  <Route path="/" component={BombermanHub} />
+                  <Route path="/room/:id" component={BombermanRoom} />
+                </Route>
 
                 {/* Generale game routes */}
                 <Route path="/generale/room/:id" component={RoomRoute} />
