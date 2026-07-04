@@ -183,32 +183,32 @@ export function tick(state: BombermanState, queues: Record<PlayerId, BombermanOp
   for (const [pid, ops] of Object.entries(queues)) {
     const player = next.players[pid];
     if (!player?.alive) continue;
-    const op = ops[ops.length - 1];
-    if (!op) continue;
+    if (ops.length === 0) continue;
 
-    switch (op.type) {
-      case "MOVE":
-        movePlayer(player, op.direction, next);
-        break;
-      case "PLACE_BOMB":
-        placeBomb(player, next);
-        break;
-      case "DETONATE": {
-        const remoteBombs = next.bombs.filter((b) => b.playerId === pid);
-        if (remoteBombs.length > 0) {
-          const first = remoteBombs[0];
-          if (first) first.fuse = 0;
+    // Last MOVE wins (1 tile per tick is standard Bomberman)
+    const moveOps = ops.filter((o) => o.type === "MOVE");
+    const lastMove = moveOps.length > 0 ? moveOps[moveOps.length - 1] : undefined;
+    if (lastMove) movePlayer(player, lastMove.direction, next);
+
+    // Process all BOMB/DETONATE/SURRENDER actions
+    for (const op of ops) {
+      switch (op.type) {
+        case "PLACE_BOMB":
+          placeBomb(player, next);
+          break;
+        case "DETONATE": {
+          const remoteBombs = next.bombs.filter((b) => b.playerId === pid);
+          if (remoteBombs.length > 0) {
+            const first = remoteBombs[0];
+            if (first) first.fuse = 0;
+          }
+          break;
         }
-        break;
+        case "SURRENDER": {
+          if (player) player.alive = false;
+          break;
+        }
       }
-      case "SURRENDER": {
-        const player = next.players[pid];
-        if (player) player.alive = false;
-        break;
-      }
-      // NOOP and unknown: no action
-      default:
-        break;
     }
   }
 

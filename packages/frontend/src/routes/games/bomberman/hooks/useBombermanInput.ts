@@ -5,31 +5,64 @@ export function useBombermanInput(onAction: (op: BombermanOperation) => void) {
   const [showVirtualControls, setShowVirtualControls] = createSignal(false);
   setShowVirtualControls(window.matchMedia("(pointer: coarse)").matches);
 
-  const keyMap: Record<string, BombermanOperation> = {
-    ArrowUp: { type: "MOVE", direction: "up" },
-    ArrowDown: { type: "MOVE", direction: "down" },
-    ArrowLeft: { type: "MOVE", direction: "left" },
-    ArrowRight: { type: "MOVE", direction: "right" },
-    w: { type: "MOVE", direction: "up" },
-    s: { type: "MOVE", direction: "down" },
-    a: { type: "MOVE", direction: "left" },
-    d: { type: "MOVE", direction: "right" },
-    " ": { type: "PLACE_BOMB" },
-    e: { type: "DETONATE" },
-    Escape: { type: "SURRENDER" } as BombermanOperation,
-  };
+  const held = new Set<string>();
+  let lastSent: string | null = null;
+  let interval: ReturnType<typeof setInterval> | null = null;
 
-  const onKeyDown = (e: KeyboardEvent) => {
-    const key = e.key === "Spacebar" ? " " : e.key;
-    const op = keyMap[key];
-    if (op) {
-      e.preventDefault();
-      onAction(op);
+  function sendCurrentDirection() {
+    let dir: "up" | "down" | "left" | "right" | null = null;
+    if (held.has("ArrowUp") || held.has("w")) dir = "up";
+    else if (held.has("ArrowDown") || held.has("s")) dir = "down";
+    else if (held.has("ArrowLeft") || held.has("a")) dir = "left";
+    else if (held.has("ArrowRight") || held.has("d")) dir = "right";
+
+    const key = dir ?? "none";
+    if (key !== lastSent) {
+      lastSent = key;
+      if (dir) onAction({ type: "MOVE", direction: dir });
     }
-  };
+  }
+
+  function onKeyDown(e: KeyboardEvent) {
+    const key = e.key === "Spacebar" ? " " : e.key;
+
+    if (key === " " || key === "Spacebar") {
+      e.preventDefault();
+      onAction({ type: "PLACE_BOMB" });
+      return;
+    }
+    if (key === "e" || key === "E") {
+      e.preventDefault();
+      onAction({ type: "DETONATE" });
+      return;
+    }
+    if (key === "Escape") {
+      e.preventDefault();
+      onAction({ type: "SURRENDER" } as BombermanOperation);
+      return;
+    }
+
+    held.add(key);
+    sendCurrentDirection();
+  }
+
+  function onKeyUp(e: KeyboardEvent) {
+    const key = e.key === "Spacebar" ? " " : e.key;
+    held.delete(key);
+    sendCurrentDirection();
+  }
 
   window.addEventListener("keydown", onKeyDown);
-  onCleanup(() => window.removeEventListener("keydown", onKeyDown));
+  window.addEventListener("keyup", onKeyUp);
+
+  // Poll direction at tick rate to ensure moves aren't missed
+  interval = setInterval(sendCurrentDirection, 200);
+
+  onCleanup(() => {
+    window.removeEventListener("keydown", onKeyDown);
+    window.removeEventListener("keyup", onKeyUp);
+    if (interval) clearInterval(interval);
+  });
 
   return { showVirtualControls };
 }
