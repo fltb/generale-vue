@@ -182,7 +182,10 @@ export function tick(state: BombermanState, queues: Record<PlayerId, BombermanOp
 
   for (const [pid, ops] of Object.entries(queues)) {
     const player = next.players[pid];
-    if (!player?.alive) continue;
+    if (!player?.alive) {
+      queues[pid] = [];
+      continue;
+    }
     if (ops.length === 0) continue;
 
     // Last MOVE wins (1 tile per tick is standard Bomberman)
@@ -205,11 +208,14 @@ export function tick(state: BombermanState, queues: Record<PlayerId, BombermanOp
           break;
         }
         case "SURRENDER": {
-          if (player) player.alive = false;
+          player.alive = false;
           break;
         }
       }
     }
+
+    // Remove consumed ops from persistent queue (keep only unconsumed, if any)
+    queues[pid] = [];
   }
 
   for (const bomb of next.bombs) bomb.fuse--;

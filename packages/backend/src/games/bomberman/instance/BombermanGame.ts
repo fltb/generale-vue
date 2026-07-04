@@ -97,8 +97,8 @@ export class BombermanGame {
         if (!this.queues[bot.playerId]) this.queues[bot.playerId] = [];
         this.queues[bot.playerId]?.push(action);
       }
+      // tick() consumes ops from the persistent queue — only removes what was processed
       this.state = tick(this.state, this.queues);
-      for (const pid of Object.keys(this.queues)) this.queues[pid] = [];
 
       for (const cb of this.onTickCallbacks) {
         try {
