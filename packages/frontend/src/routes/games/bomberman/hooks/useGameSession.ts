@@ -1,11 +1,5 @@
-import type { BombermanOperation } from "@generale/types";
-
+// Deprecated: room.tsx now uses useSyncedState directly for game state sync.
+// This file kept as placeholder for future game-specific logic.
 export function useBombermanGameSession() {
-  // Simplified stub — connects to game domain via SubConnectorClient
-  // Full implementation requires the actual WS connection manager
-  function enqueueOp(_op: BombermanOperation) {
-    // Will be wired to the game domain's send mechanism
-  }
-
-  return { enqueueOp };
+  return { deprecated: true };
 }
