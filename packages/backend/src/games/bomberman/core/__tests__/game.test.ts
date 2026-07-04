@@ -15,8 +15,8 @@ function makeBaseState(): BombermanState {
       ),
     },
     players: {
-      p1: { playerId: "p1", alive: true, x: 1, y: 1, bombMax: 1, bombActive: 0, blastRadius: 2, speed: 1, items: [] },
-      p2: { playerId: "p2", alive: true, x: 3, y: 3, bombMax: 1, bombActive: 0, blastRadius: 2, speed: 1, items: [] },
+      p1: { playerId: "p1", name: "Alice", alive: true, x: 1, y: 1, bombMax: 1, bombActive: 0, blastRadius: 2, speed: 1, items: [] },
+      p2: { playerId: "p2", name: "Bob", alive: true, x: 3, y: 3, bombMax: 1, bombActive: 0, blastRadius: 2, speed: 1, items: [] },
     },
     bombs: [],
     explosions: [],
@@ -125,5 +125,23 @@ describe("tick - round timer and shrink", () => {
     state.config.shrinkEnabled = true;
     const result = tick(state, { p1: [], p2: [] });
     expect((result as any).roundTimer).toBe(3);
+  });
+});
+
+describe("tick - SURRENDER", () => {
+  it("marks player as dead on surrender", () => {
+    const state = makeBaseState();
+    const result = tick(state, { p1: [{ type: "SURRENDER" }], p2: [] });
+    expect(result.players.p1!.alive).toBe(false);
+    expect(result.players.p2!.alive).toBe(true);
+  });
+
+  it("surrender triggers game end when only one player remains alive", () => {
+    const state = makeBaseState();
+    state.players.p1!.alive = false;
+    state.players.p2!.x = 3;
+    const result = tick(state, { p1: [{ type: "SURRENDER" }], p2: [{ type: "MOVE", direction: "left" }] });
+    expect(result.players.p1!.alive).toBe(false);
+    expect(result.status).toBe(GameStatus.Ended);
   });
 });

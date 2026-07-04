@@ -10,7 +10,7 @@ describe("HUD", () => {
 
   it("renders alive count", () => {
     render(() => <HUD timeLeft={0} aliveCount={1} totalPlayers={4} />);
-    expect(screen.getByText("1/4")).toBeInTheDocument();
+    expect(screen.getByText("Alive: 1/4")).toBeInTheDocument();
   });
 
   it("renders zero time as 0:00", () => {

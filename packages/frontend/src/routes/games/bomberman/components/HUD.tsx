@@ -12,8 +12,10 @@ export function HUD(props: HUDProps) {
   return (
     <div class="fixed top-0 left-0 right-0 flex justify-between text-white text-sm font-mono p-3 pointer-events-none z-50">
       <div class="bg-black/60 px-3 py-1 rounded">{timeStr}</div>
-      <div class="bg-black/60 px-3 py-1 rounded">
-        {props.aliveCount}/{props.totalPlayers}
+      <div class="bg-black/60 px-3 py-1 rounded flex items-center gap-2">
+        <span>
+          Alive: {props.aliveCount}/{props.totalPlayers}
+        </span>
       </div>
     </div>
   );

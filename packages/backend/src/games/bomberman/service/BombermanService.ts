@@ -94,6 +94,20 @@ export class BombermanService {
     this.game = new BombermanGame(config, roomPlayers);
     const g = this.game;
 
+    // Add a test bot if only 1 human player (for solo testing)
+    if (roomPlayers.length === 1) {
+      const botId = `bot-${this.gameId}`;
+      const dirs: Array<"up" | "down" | "left" | "right"> = ["up", "down", "left", "right"];
+      g.addBot(botId, () => {
+        const roll = Math.random();
+        const dir = dirs[Math.floor(Math.random() * dirs.length)];
+        if (!dir) return { type: "NOOP" };
+        if (roll < 0.7) return { type: "MOVE", direction: dir };
+        if (roll < 0.85) return { type: "NOOP" };
+        return { type: "PLACE_BOMB" };
+      });
+    }
+
     g.onTick((state) => {
       for (const [, conn] of this.gameConnectors) {
         try {
