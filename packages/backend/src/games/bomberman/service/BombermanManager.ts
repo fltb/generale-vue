@@ -1,17 +1,32 @@
 import { BombermanService } from "./BombermanService";
 import { registerDomainHandler } from "../../../plugins/websocket";
+import { defaultBombermanConfig } from "../settings";
+import type { SubConnector } from "../../../plugins/websocket";
 
 export class BombermanManager {
   private services = new Map<string, BombermanService>();
+  private lobbyConnectors: SubConnector[] = [];
 
   constructor() {
-    registerDomainHandler("lobby-bomberman", () => {});
+    registerDomainHandler("lobby-bomberman", (connector) => {
+      const ctx = connector.context as any;
+      if (!ctx.userid) { connector.close(4001, "Not authenticated"); return; }
+      this.lobbyConnectors.push(connector);
+      connector.onClose(() => {
+        const idx = this.lobbyConnectors.indexOf(connector);
+        if (idx >= 0) this.lobbyConnectors.splice(idx, 1);
+      });
+      connector.send({ type: "ROOM_LIST_UPDATE", payload: this.getRoomListSummary() });
+    });
   }
 
-  createGame(_roomName: string): BombermanService {
-    const id = `bomb_${Date.now()}`;
-    const service = new BombermanService(id);
+  createGame(roomName: string, creatorId: string, creatorName: string): BombermanService {
+    const id = `bomb_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    const config = defaultBombermanConfig();
+    const service = new BombermanService(id, roomName, config, creatorId, creatorName);
+    service.registerHandlers();
     this.services.set(id, service);
+    this.broadcastLobbyUpdate();
     return service;
   }
 
@@ -21,9 +36,22 @@ export class BombermanManager {
 
   removeGame(id: string): void {
     const service = this.services.get(id);
-    if (service) {
-      service.destroy();
-      this.services.delete(id);
+    if (service) { service.destroy(); this.services.delete(id); this.broadcastLobbyUpdate(); }
+  }
+
+  getRoomListSummary() {
+    const result = [];
+    for (const svc of this.services.values()) {
+      if (!svc) continue;
+      result.push(svc.getSummary());
+    }
+    return result;
+  }
+
+  broadcastLobbyUpdate(): void {
+    const list = this.getRoomListSummary();
+    for (const conn of this.lobbyConnectors) {
+      try { conn.send({ type: "ROOM_LIST_UPDATE", payload: list }); } catch {}
     }
   }
 }

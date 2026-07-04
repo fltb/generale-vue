@@ -14,6 +14,7 @@ export class BombermanGame {
   private destroyed = false;
   private tickTimerId: ReturnType<typeof setInterval> | null = null;
   private onEndCallbacks: Array<(result: BombermanGameEndResult) => void> = [];
+  private onTickCallbacks: Array<(state: BombermanState) => void> = [];
   private queues: Record<PlayerId, BombermanOperation[]> = {};
   private bots: Array<{ playerId: PlayerId; getAction: (state: BombermanState) => BombermanOperation }> = [];
 
@@ -28,43 +29,26 @@ export class BombermanGame {
       const spawn = spawns[i]!;
       const pid = playerIds[i]!;
       players[pid] = {
-        playerId: pid,
-        alive: true,
-        x: spawn.x,
-        y: spawn.y,
-        bombMax: config.bombLimit,
-        bombActive: 0,
-        blastRadius: config.blastRadius,
-        speed: 1,
-        items: [],
+        playerId: pid, alive: true, x: spawn.x, y: spawn.y,
+        bombMax: config.bombLimit, bombActive: 0, blastRadius: config.blastRadius,
+        speed: 1, items: [],
       };
     }
 
     this.state = {
-      status: GameStatus.Playing,
-      tick: 0,
-      map,
-      players: players,
-      bombs: [],
-      explosions: [],
-      items: [],
-      config,
+      status: GameStatus.Playing, tick: 0, map, players,
+      bombs: [], explosions: [], items: [], config, bombIdCounter: 0,
     };
 
     for (const pid of playerIds) this.queues[pid] = [];
   }
 
   addBot(playerId: PlayerId, getAction: (state: BombermanState) => BombermanOperation): void {
+    const spawns = getSpawnPositions(Object.keys(this.state.players).length + 1, this.state.config.mapWidth, this.state.config.mapHeight);
+    const spawn = spawns[Object.keys(this.state.players).length]!;
     this.state.players[playerId] = {
-      playerId,
-      alive: true,
-      x: 1,
-      y: 1,
-      bombMax: 1,
-      bombActive: 0,
-      blastRadius: 1,
-      speed: 1,
-      items: [],
+      playerId, alive: true, x: spawn.x, y: spawn.y,
+      bombMax: 1, bombActive: 0, blastRadius: 1, speed: 1, items: [],
     };
     this.bots.push({ playerId, getAction });
     this.queues[playerId] = [];
@@ -77,7 +61,7 @@ export class BombermanGame {
 
   startTicking(): void {
     if (this.tickTimerId) return;
-    const interval = 1000 / this.state.config.tickRate;
+    const intervalMs = 1000 / this.state.config.tickRate;
     this.tickTimerId = setInterval(() => {
       for (const bot of this.bots) {
         const action = bot.getAction(this.state);
@@ -85,29 +69,29 @@ export class BombermanGame {
         this.queues[bot.playerId]!.push(action);
       }
       this.state = tick(this.state, this.queues);
-      for (const pid of Object.keys(this.queues)) {
-        this.queues[pid] = [];
+      for (const pid of Object.keys(this.queues)) this.queues[pid] = [];
+
+      for (const cb of this.onTickCallbacks) {
+        try { cb(this.state); } catch {}
       }
+
       if (this.state.status === GameStatus.Ended) {
         this.stopTicking();
         this.triggerEnd();
       }
-    }, interval);
+    }, intervalMs);
   }
 
   stopTicking(): void {
-    if (this.tickTimerId) {
-      clearInterval(this.tickTimerId);
-      this.tickTimerId = null;
-    }
+    if (this.tickTimerId) { clearInterval(this.tickTimerId); this.tickTimerId = null; }
   }
 
-  getState(): BombermanState {
-    return this.state;
-  }
+  getState(): BombermanState { return this.state; }
+
+  onTick(cb: (state: BombermanState) => void): void { this.onTickCallbacks.push(cb); }
 
   private triggerEnd(): void {
-    const alive = Object.values(this.state.players).filter((p: BombermanPlayer) => p.alive);
+    const alive = Object.values(this.state.players).filter((p) => p.alive);
     const result: BombermanGameEndResult = {
       winnerId: alive.length === 1 ? alive[0]!.playerId : null,
       reason: alive.length <= 1 ? "last_alive" : "timeout",
@@ -116,14 +100,13 @@ export class BombermanGame {
     for (const cb of this.onEndCallbacks) cb(result);
   }
 
-  onEnd(cb: (result: BombermanGameEndResult) => void): void {
-    this.onEndCallbacks.push(cb);
-  }
+  onEnd(cb: (result: BombermanGameEndResult) => void): void { this.onEndCallbacks.push(cb); }
 
   destroy(): void {
     if (this.destroyed) return;
     this.destroyed = true;
     this.stopTicking();
     this.onEndCallbacks = [];
+    this.onTickCallbacks = [];
   }
 }
