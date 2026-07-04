@@ -18,6 +18,7 @@ export function BombermanRoom() {
   const [playerId, setPlayerId] = createSignal("");
   const [phase, setPhase] = createSignal<"loading" | "lobby" | "playing" | "ended" | "error">("loading");
   const [error, setError] = createSignal("");
+  const [showSettings, setShowSettings] = createSignal(false);
   const [gameOver, setGameOver] = createSignal<{
     rankings: { playerId: string; rank: number }[];
     winnerId: string | null;
@@ -143,6 +144,52 @@ export function BombermanRoom() {
           <p class="text-sm text-gray-500 mb-4">
             Players: {roomSync.state().players?.length ?? 0}/{roomSync.state().maxPlayers}
           </p>
+          {isHost() && (
+            <div class="mb-4">
+              <button class="btn btn-sm btn-ghost" onClick={() => setShowSettings(!showSettings())}>
+                {showSettings() ? "Hide" : "Show"} Settings
+              </button>
+              <Show when={showSettings()}>
+                <div class="grid grid-cols-2 gap-3 mt-2 p-3 bg-base-300 rounded">
+                  <div>
+                    <label class="label text-xs"><span class="label-text">Players</span></label>
+                    <select class="select select-sm w-full" value={roomSync.state().maxPlayers} onChange={(e) => {
+                      roomSync.dispatch({ type: "CHANGE_CONFIG", payload: { playerLimit: Number(e.currentTarget.value) } } as any);
+                    }}>
+                      {[2, 3, 4].map((n) => <option value={n}>{n}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label class="label text-xs"><span class="label-text">Round Time (s)</span></label>
+                    <select class="select select-sm w-full" value={roomSync.state().config?.roundTimeSec ?? 180} onChange={(e) => {
+                      roomSync.dispatch({ type: "CHANGE_CONFIG", payload: { roundTimeSec: Number(e.currentTarget.value) } } as any);
+                    }}>
+                      {[60, 120, 180, 300, 600].map((n) => <option value={n}>{n}s</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label class="label text-xs"><span class="label-text">Map Size</span></label>
+                    <select class="select select-sm w-full" value={roomSync.state().config?.mapWidth ?? 11} onChange={(e) => {
+                      const v = Number(e.currentTarget.value);
+                      roomSync.dispatch({ type: "CHANGE_CONFIG", payload: { mapWidth: v, mapHeight: v } } as any);
+                    }}>
+                      <option value={9}>Small (9x9)</option>
+                      <option value={11}>Medium (11x11)</option>
+                      <option value={15}>Large (15x15)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label class="label text-xs"><span class="label-text">Bombs</span></label>
+                    <select class="select select-sm w-full" value={roomSync.state().config?.bombLimit ?? 1} onChange={(e) => {
+                      roomSync.dispatch({ type: "CHANGE_CONFIG", payload: { bombLimit: Number(e.currentTarget.value) } } as any);
+                    }}>
+                      {[1, 2, 3].map((n) => <option value={n}>{n}</option>)}
+                    </select>
+                  </div>
+                </div>
+              </Show>
+            </div>
+          )}
           <div class="grid gap-2 mb-4">
             {(roomSync.state().players ?? []).map((p) => (
               <div class="flex items-center gap-2 p-2 bg-base-200 rounded pixel-border">
