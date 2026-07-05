@@ -56,7 +56,7 @@ export function useBombermanInput(onAction: (op: BombermanOperation) => void) {
   window.addEventListener("keyup", onKeyUp);
 
   // Poll direction at tick rate to ensure moves aren't missed
-  interval = setInterval(sendCurrentDirection, 200);
+  interval = setInterval(sendCurrentDirection, 50);
 
   onCleanup(() => {
     window.removeEventListener("keydown", onKeyDown);

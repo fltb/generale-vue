@@ -40,8 +40,8 @@ export function validateBombermanConfig(config: unknown): string | null {
   if (c.playerLimit !== undefined && (c.playerLimit < 2 || c.playerLimit > 4)) {
     return "playerLimit must be between 2 and 4";
   }
-  if (c.tickRate !== undefined && (c.tickRate < 2 || c.tickRate > 15)) {
-    return "tickRate must be between 2 and 15";
+  if (c.tickRate !== undefined && (c.tickRate < 8 || c.tickRate > 20)) {
+    return "tickRate must be between 8 and 20";
   }
   return null;
 }
