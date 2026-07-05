@@ -66,9 +66,25 @@ describe("tick - bomb placement", () => {
   it("prevents placing bomb when at limit", () => {
     const state = makeBaseState();
     state.players.p1!.bombMax = 1;
-    state.players.p1!.bombActive = 1;
+    // Place a real bomb so bombActive reflects actual count
+    state.bombs = [{ id: "b1", playerId: "p1", x: 1, y: 1, fuse: 3, blastRadius: 2 }];
     const result = tick(state, { p1: [{ type: "PLACE_BOMB" }], p2: [] });
+    expect(result.bombs).toHaveLength(1);
+  });
+
+  it("bomb places and active count reflects reality", () => {
+    const state = makeBaseState();
+    const result = tick(state, { p1: [{ type: "PLACE_BOMB" }], p2: [] });
+    expect(result.bombs).toHaveLength(1);
+    expect(result.players.p1!.bombActive).toBe(1);
+  });
+
+  it("bombActive recalc resets after bomb explodes", () => {
+    const state = makeBaseState();
+    state.bombs = [{ id: "b1", playerId: "p1", x: 1, y: 1, fuse: 1, blastRadius: 2 }];
+    const result = tick(state, { p1: [], p2: [] });
     expect(result.bombs).toHaveLength(0);
+    expect(result.players.p1!.bombActive).toBe(0);
   });
 });
 
@@ -105,6 +121,64 @@ describe("tick - bomb explosion", () => {
     state.players.p2!.alive = false;
     const result = tick(state, { p1: [], p2: [] });
     expect(result.status).toBe(GameStatus.Ended);
+  });
+});
+
+describe("tick - bomb blocking", () => {
+  it("blocks movement into bomb tile", () => {
+    const state = makeBaseState();
+    state.bombs = [{ id: "b1", playerId: "p2", x: 2, y: 1, fuse: 5, blastRadius: 1 }];
+    const result = tick(state, { p1: [{ type: "MOVE", direction: "right" }], p2: [] });
+    expect(result.players.p1!.x).toBe(1);
+    expect(result.players.p1!.y).toBe(1);
+  });
+
+  it("KICK item allows kicking bombs instead of blocking", () => {
+    const state = makeBaseState();
+    state.players.p1!.items = ["KICK" as any];
+    state.bombs = [{ id: "b1", playerId: "p2", x: 2, y: 1, fuse: 5, blastRadius: 1 }];
+    const result = tick(state, { p1: [{ type: "MOVE", direction: "right" }], p2: [] });
+    // Player moves into the bomb tile, bomb gets kicked further right
+    expect(result.players.p1!.x).toBe(2);
+    const kickedBomb = result.bombs.find((b) => b.id === "b1");
+    expect(kickedBomb!.x).toBeGreaterThan(2); // kicked away
+  });
+
+  it("SPIRIT item allows walking through bombs", () => {
+    const state = makeBaseState();
+    state.players.p1!.items = ["SPIRIT" as any];
+    state.bombs = [{ id: "b1", playerId: "p2", x: 2, y: 1, fuse: 5, blastRadius: 1 }];
+    const result = tick(state, { p1: [{ type: "MOVE", direction: "right" }], p2: [] });
+    expect(result.players.p1!.x).toBe(2);
+    expect(result.players.p1!.y).toBe(1);
+    // Bomb stays put
+    expect(result.bombs[0]!.x).toBe(2);
+  });
+});
+
+describe("tick - speed stat", () => {
+  it("speed=1 moves one tile per tick", () => {
+    const state = makeBaseState();
+    state.players.p1!.speed = 1;
+    const result = tick(state, { p1: [{ type: "MOVE", direction: "right" }], p2: [] });
+    expect(result.players.p1!.x).toBe(2);
+  });
+
+  it("speed=2 moves two tiles per tick", () => {
+    const state = makeBaseState();
+    state.players.p1!.speed = 2;
+    const result = tick(state, { p1: [{ type: "MOVE", direction: "right" }], p2: [] });
+    expect(result.players.p1!.x).toBe(3);
+  });
+
+  it("speed=2 stops at wall after first tile", () => {
+    const state = makeBaseState();
+    state.players.p1!.speed = 2;
+    state.players.p1!.x = 2;
+    state.players.p1!.y = 1;
+    state.map.tiles[1]![4] = { type: "hard_wall" };
+    const result = tick(state, { p1: [{ type: "MOVE", direction: "right" }], p2: [] });
+    expect(result.players.p1!.x).toBe(3); // stopped at wall before tile 4
   });
 });
 
