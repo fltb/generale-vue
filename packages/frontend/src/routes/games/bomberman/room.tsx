@@ -47,6 +47,7 @@ export function BombermanRoom() {
       if (e.type === BombermanPreGameServerEventType.GAME_ENDED) {
         setGameOver({ rankings: e.rankings, winnerId: e.winnerId });
         setPhase("ended");
+        gameSync.disconnect();
       }
       if (e.type === BombermanPreGameServerEventType.KICKED) {
         setError("You were kicked from the room");

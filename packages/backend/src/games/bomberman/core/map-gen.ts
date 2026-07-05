@@ -69,9 +69,10 @@ export function generateBombermanMap(w: number, h: number): BombermanMap {
     cur = target;
   }
 
-  // Randomly remove additional soft walls (40%) for variety
+  // Randomly remove additional soft walls (30-60%) for variety each game
+  const removalRate = 0.3 + Math.random() * 0.3;
   for (const c of candidates) {
-    if (map.tiles[c.y]![c.x]!.type === "soft_wall" && Math.random() < 0.4) {
+    if (map.tiles[c.y]![c.x]!.type === "soft_wall" && Math.random() < removalRate) {
       map.tiles[c.y]![c.x] = { type: "empty" };
     }
   }

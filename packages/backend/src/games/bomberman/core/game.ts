@@ -75,9 +75,9 @@ function moveOneTile(
     if (hasSpirit) {
       // walk through bombs ghost-style
     } else if (player.items.includes("KICK" as ItemType)) {
-      // kick the bomb forward one tile
+      // kick the bomb forward, then step onto the tile
       kickBomb(state, nx, ny, d.dx, d.dy);
-      return { moved: true, kicked: true };
+      // fall through to move
     } else {
       return { moved: false, kicked: false };
     }

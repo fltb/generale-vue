@@ -1,7 +1,9 @@
 import { describe, it, expect } from "vitest";
+import { describe, it, expect } from "vitest";
 import { tick } from "../game";
 import type { BombermanState, BombermanOperation } from "@generale/types";
 import { GameStatus } from "@generale/types";
+import { generateBombermanMap } from "../map-gen";
 
 function makeBaseState(): BombermanState {
   return {
@@ -136,12 +138,14 @@ describe("tick - bomb blocking", () => {
   it("KICK item allows kicking bombs instead of blocking", () => {
     const state = makeBaseState();
     state.players.p1!.items = ["KICK" as any];
+    // Place a hard wall 3 tiles away so bomb stops at x=3
+    state.map.tiles[1]![4] = { type: "hard_wall" };
     state.bombs = [{ id: "b1", playerId: "p2", x: 2, y: 1, fuse: 5, blastRadius: 1 }];
     const result = tick(state, { p1: [{ type: "MOVE", direction: "right" }], p2: [] });
-    // Player moves into the bomb tile, bomb gets kicked further right
     expect(result.players.p1!.x).toBe(2);
     const kickedBomb = result.bombs.find((b) => b.id === "b1");
-    expect(kickedBomb!.x).toBeGreaterThan(2); // kicked away
+    expect(kickedBomb).toBeDefined();
+    expect(kickedBomb!.x).toBe(3); // kicked to wall at x=4, stops at x=3
   });
 
   it("SPIRIT item allows walking through bombs", () => {
@@ -217,5 +221,70 @@ describe("tick - SURRENDER", () => {
     const result = tick(state, { p1: [{ type: "SURRENDER" }], p2: [{ type: "MOVE", direction: "left" }] });
     expect(result.players.p1!.alive).toBe(false);
     expect(result.status).toBe(GameStatus.Ended);
+  });
+});
+
+describe("tick - continuous held-key movement", () => {
+  it("same direction persists across multiple ticks", () => {
+    const state = makeBaseState();
+    // Player at (1,1). Move right 3 ticks in a row.
+    let result = tick(state, { p1: [{ type: "MOVE", direction: "right" }], p2: [] });
+    expect(result.players.p1!.x).toBe(2);
+    result = tick(result, { p1: [{ type: "MOVE", direction: "right" }], p2: [] });
+    expect(result.players.p1!.x).toBe(3);
+    result = tick(result, { p1: [{ type: "MOVE", direction: "right" }], p2: [] });
+    expect(result.players.p1!.x).toBe(4);
+  });
+
+  it("holding direction moves continuously tick after tick", () => {
+    const state = makeBaseState();
+    // Tick 1: move right
+    let result = tick(state, { p1: [{ type: "MOVE", direction: "right" }], p2: [] });
+    expect(result.players.p1!.x).toBe(2);
+    // Tick 2: same direction, move again
+    result = tick(result, { p1: [{ type: "MOVE", direction: "right" }], p2: [] });
+    expect(result.players.p1!.x).toBe(3);
+    // Tick 3
+    result = tick(result, { p1: [{ type: "MOVE", direction: "right" }], p2: [] });
+    expect(result.players.p1!.x).toBe(4);
+  });
+
+  it("speed=2 doubles movement per tick", () => {
+    const state = makeBaseState();
+    state.players.p1!.speed = 2;
+    // Move right: should move 2 tiles
+    const result = tick(state, { p1: [{ type: "MOVE", direction: "right" }], p2: [] });
+    expect(result.players.p1!.x).toBe(3);
+  });
+});
+
+describe("tick - game end and restart", () => {
+  it("game properly ends and new game starts fresh", () => {
+    const state = makeBaseState();
+    // Kill p2 to end the game
+    state.players.p2!.alive = false;
+    const ended = tick(state, { p1: [], p2: [] });
+    expect(ended.status).toBe(GameStatus.Ended);
+
+    // Fresh state for restart: re-enable p2, new map
+    const fresh = makeBaseState();
+    fresh.players.p2!.alive = true;
+    const restarted = tick(fresh, { p1: [], p2: [] });
+    expect(restarted.status).toBe(GameStatus.Playing);
+    expect(restarted.players.p2!.alive).toBe(true);
+    expect(restarted.tick).toBe(1);
+  });
+});
+
+describe("map-gen — variety", () => {
+  it("two maps with same dimensions differ", () => {
+    const map1 = generateBombermanMap(15, 13);
+    const map2 = generateBombermanMap(15, 13);
+    // Serialize and compare
+    const s1 = JSON.stringify(map1.tiles);
+    const s2 = JSON.stringify(map2.tiles);
+    // With random soft wall removal, maps should almost always differ
+    // (hard walls are fixed, only soft walls vary)
+    expect(s1).not.toBe(s2);
   });
 });
