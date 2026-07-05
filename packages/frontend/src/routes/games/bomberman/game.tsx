@@ -1,5 +1,5 @@
 import { Application } from "solid-pixi";
-import { createSignal, createMemo, onMount } from "solid-js";
+import { createSignal, createMemo, onMount, onCleanup, Show } from "solid-js";
 import type { BombermanState, BombermanOperation } from "@generale/types";
 import { GameStatus } from "@generale/types";
 import { useBombermanInput } from "./hooks/useBombermanInput";
@@ -21,12 +21,27 @@ export function BombermanGame(props: BombermanGameProps) {
   const [showScoreboard, setShowScoreboard] = createSignal(false);
   const [rankings, setRankings] = createSignal<{ name: string; rank: number; score: number }[]>([]);
   const [showControls, setShowControls] = createSignal(true);
+  const [connectionOk, setConnectionOk] = createSignal(true);
 
   const state = createMemo(() => props.initialState);
 
   onMount(() => {
     setTimeout(() => setShowControls(false), 6000);
   });
+
+  // Tick-health monitor: if state stops updating for >1500ms, show warning
+  let lastTick = Date.now();
+  let monitorTimer: ReturnType<typeof setInterval> | null = null;
+  onMount(() => {
+    monitorTimer = setInterval(() => {
+      const s = state();
+      const currentTick = s?.tick ?? -1;
+      const now = Date.now();
+      if (currentTick > 0) lastTick = now;
+      setConnectionOk(now - lastTick < 1500);
+    }, 500);
+  });
+  onCleanup(() => { if (monitorTimer) clearInterval(monitorTimer); });
 
   createMemo(() => {
     const s = state();
@@ -62,6 +77,13 @@ export function BombermanGame(props: BombermanGameProps) {
         aliveCount={players().filter((p) => p.alive).length}
         totalPlayers={players().length}
       />
+
+      <Show when={!connectionOk()}>
+        <div class="fixed bottom-20 left-1/2 -translate-x-1/2 bg-red-900/90 text-white px-4 py-2 rounded z-40 text-sm font-bold pointer-events-none animate-pulse">
+          Connection lost — reconnecting...
+        </div>
+      </Show>
+
       {showControls() && (
         <div class="fixed bottom-20 left-1/2 -translate-x-1/2 bg-black/80 text-white px-6 py-4 rounded-lg z-40 text-sm text-center pointer-events-none transition-opacity duration-500">
           <div class="font-bold mb-2">Controls</div>
