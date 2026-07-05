@@ -57,6 +57,13 @@ export function BombermanGame(props: BombermanGameProps) {
   });
 
   const players = createMemo(() => Object.values(state().players ?? {}));
+  const myPlayer = createMemo(() => props.playerId ? state().players?.[props.playerId] : null);
+  const myStats = createMemo(() => {
+    const p = myPlayer();
+    if (!p) return undefined;
+    return { bombMax: p.bombMax, bombActive: p.bombActive, blastRadius: p.blastRadius, speed: p.speed };
+  });
+  const myItems = createMemo(() => myPlayer()?.items ?? []);
 
   return (
     <div class="relative w-full h-screen overflow-hidden bg-gray-900">
@@ -76,6 +83,8 @@ export function BombermanGame(props: BombermanGameProps) {
         timeLeft={state().roundTimer ?? 0}
         aliveCount={players().filter((p) => p.alive).length}
         totalPlayers={players().length}
+        playerStats={myStats()}
+        playerItems={myItems()}
       />
 
       <Show when={!connectionOk()}>
