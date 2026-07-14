@@ -12,8 +12,10 @@ import { createSignal, createMemo, onMount, onCleanup, Show } from "solid-js";
 import { ProtectedRoute } from "~/components/ProtectedRoute";
 import { useSyncedState } from "~/hooks/useSyncedState";
 import { BombermanGame } from "./game";
+import { useT } from "~/i18n/useT";
 
 export function BombermanRoom() {
+  const { t } = useT();
   const params = useParams();
   const navigate = useNavigate();
   const [playerId, setPlayerId] = createSignal("");
@@ -55,16 +57,16 @@ export function BombermanRoom() {
         gameSync.disconnect();
       }
       if (e.type === BombermanPreGameServerEventType.KICKED) {
-        setError("You were kicked from the room");
+        setError(t("You have been kicked from the room"));
         setPhase("error");
       }
       if (e.type === BombermanPreGameServerEventType.ROOM_DISBANDED) {
-        setError("Room has been disbanded");
+        setError(t("The room has been disbanded"));
         setPhase("error");
       }
     },
     onConnectionClosed: () => {
-      setError("Connection lost");
+      setError(t("bomberman.connectionLost"));
       setPhase("error");
     },
     autoOpen: false,
@@ -86,7 +88,7 @@ export function BombermanRoom() {
         data?: { playerId: string; phase: string };
       } = await res.json();
       if (!(d.success && d.data)) {
-        setError(d.message || "Failed to connect");
+        setError(d.message || t("Failed to connect"));
         setPhase("error");
         return;
       }
@@ -99,7 +101,7 @@ export function BombermanRoom() {
         roomSync.connect();
       }
     } catch {
-      setError("Network error");
+      setError(t("Network error"));
       setPhase("error");
     }
   });
@@ -135,7 +137,7 @@ export function BombermanRoom() {
         <div class="p-8 text-center">
           <div class="alert alert-error mb-4">{error()}</div>
           <button type="button" class="btn" onClick={() => navigate("/bomberman")}>
-            Back to Lobby
+            {t("bomberman.backToLobby")}
           </button>
         </div>
       </Show>
@@ -143,30 +145,32 @@ export function BombermanRoom() {
       <Show when={phase() === "lobby"}>
         <div class="container mx-auto p-4 max-w-2xl">
           <div class="flex items-center gap-3 mb-4">
-            <h1 class="text-2xl font-bold">{roomSync.state().roomName || "Bomberman Room"}</h1>
+            <h1 class="text-2xl font-bold">{roomSync.state().roomName || t("bomberman.title")}</h1>
             <span class="badge badge-outline text-xs font-mono">{params.id}</span>
           </div>
 
           <p class="text-sm text-gray-500 mb-4">
-            Players: {roomSync.state().players?.length ?? 0}/{roomSync.state().maxPlayers}{" "}
-            {(roomSync.state().players?.length ?? 0) < 2 && <span class="text-warning">(need 2+ to start)</span>}
+            {t("bomberman.players")}: {roomSync.state().players?.length ?? 0}/{roomSync.state().maxPlayers}{" "}
+            {(roomSync.state().players?.length ?? 0) < 2 && (
+              <span class="text-warning">({t("bomberman.needMin")})</span>
+            )}
           </p>
 
           {isHost() && (
             <div class="mb-4">
               <button type="button" class="btn btn-sm btn-ghost" onClick={() => setShowSettings(!showSettings())}>
                 <svg class="w-4 h-4 mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <title>Settings</title>
+                  <title>{t("bomberman.settings")}</title>
                   <circle cx="12" cy="12" r="3" />
                   <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
                 </svg>
-                {showSettings() ? "Hide" : "Show"} Settings
+                {showSettings() ? `${t("bomberman.settings")} ▾` : t("bomberman.settings")}
               </button>
               <Show when={showSettings()}>
                 <div class="grid grid-cols-2 gap-3 mt-2 p-4 bg-base-300 rounded">
                   <div>
                     <div class="label text-xs">
-                      <span class="label-text">Max Players</span>
+                      <span class="label-text">{t("bomberman.maxPlayers")}</span>
                     </div>
                     <select
                       class="select select-sm w-full"
@@ -185,7 +189,7 @@ export function BombermanRoom() {
                   </div>
                   <div>
                     <div class="label text-xs">
-                      <span class="label-text">Round Time</span>
+                      <span class="label-text">{t("bomberman.roundTimeSec")}</span>
                     </div>
                     <select
                       class="select select-sm w-full"
@@ -204,7 +208,7 @@ export function BombermanRoom() {
                   </div>
                   <div>
                     <div class="label text-xs">
-                      <span class="label-text">Map Size</span>
+                      <span class="label-text">{t("bomberman.mapSize")}</span>
                     </div>
                     <select
                       class="select select-sm w-full"
@@ -217,14 +221,14 @@ export function BombermanRoom() {
                         } as BombermanPreGameClientDispatch);
                       }}
                     >
-                      <option value={9}>Small (9x9)</option>
-                      <option value={11}>Medium (11x11)</option>
-                      <option value={15}>Large (15x15)</option>
+                      <option value={9}>{t("bomberman.small")} (9x9)</option>
+                      <option value={11}>{t("bomberman.medium")} (11x11)</option>
+                      <option value={15}>{t("bomberman.large")} (15x15)</option>
                     </select>
                   </div>
                   <div>
                     <div class="label text-xs">
-                      <span class="label-text">Bombs</span>
+                      <span class="label-text">{t("bomberman.bombLimit")}</span>
                     </div>
                     <select
                       class="select select-sm w-full"
@@ -255,12 +259,14 @@ export function BombermanRoom() {
                 <div class="flex-1">
                   <div class="font-bold">
                     {p.name}
-                    {p.isHost && <span class="text-xs text-warning ml-1">HOST</span>}
+                    {p.isHost && <span class="text-xs text-warning ml-1">{t("bomberman.host")}</span>}
                   </div>
-                  <div class="text-xs text-base-content/50">{p.ready ? "Ready" : "Not Ready"}</div>
+                  <div class="text-xs text-base-content/50">
+                    {p.ready ? t("bomberman.ready") : t("bomberman.notReady")}
+                  </div>
                 </div>
                 <span class={p.ready ? "badge badge-success badge-sm" : "badge badge-ghost badge-sm"}>
-                  {p.ready ? "Ready" : "Wait"}
+                  {p.ready ? t("bomberman.ready") : t("bomberman.wait")}
                 </span>
                 {isHost() && p.id !== playerId() && (
                   <button
@@ -270,7 +276,7 @@ export function BombermanRoom() {
                       roomSync.dispatch({ type: "KICK_PLAYER", targetId: p.id } as BombermanPreGameClientDispatch)
                     }
                   >
-                    Kick
+                    {t("bomberman.kick")}
                   </button>
                 )}
               </div>
@@ -279,26 +285,26 @@ export function BombermanRoom() {
 
           <div class="flex gap-2 items-center">
             {selfPlayer()?.isHost ? (
-              <span class="badge badge-success badge-lg">Host (Ready)</span>
+              <span class="badge badge-success badge-lg">{t("bomberman.hostReady")}</span>
             ) : selfPlayer()?.ready ? (
               <button
                 type="button"
                 class="btn btn-sm btn-outline"
                 onClick={() => roomSync.dispatch({ type: "UNREADY" })}
               >
-                Unready
+                {t("bomberman.unready")}
               </button>
             ) : (
               <button type="button" class="btn btn-sm btn-primary" onClick={() => roomSync.dispatch({ type: "READY" })}>
-                Ready
+                {t("bomberman.ready")}
               </button>
             )}
             {isHost() && (
               <>
                 <button type="button" class="btn btn-success" disabled={!allReady()} onClick={startGame}>
-                  Start Game
+                  {t("bomberman.startGame")}
                 </button>
-                {!allReady() && <span class="text-xs text-base-content/50">Need all players ready (min 2)</span>}
+                {!allReady() && <span class="text-xs text-base-content/50">{t("bomberman.needAllReady")}</span>}
               </>
             )}
           </div>
@@ -320,12 +326,16 @@ export function BombermanRoom() {
       <Show when={phase() === "ended"}>
         <div class="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
           <div class="bg-base-200 p-8 rounded pixel-border text-center">
-            <h2 class="text-2xl font-bold mb-4">Game Over</h2>
+            <h2 class="text-2xl font-bold mb-4">{t("bomberman.gameOver")}</h2>
             {gameOver() && (
               <div class="mb-4">
                 {(() => {
                   const winnerName = gameOver()!.rankings.find((r) => r.playerId === gameOver()!.winnerId)?.name;
-                  return <p class="text-lg mb-2">Winner: {winnerName ?? "Draw"}</p>;
+                  return (
+                    <p class="text-lg mb-2">
+                      {t("bomberman.winner")}: {winnerName ?? t("bomberman.draw")}
+                    </p>
+                  );
                 })()}
                 {(gameOver()!.rankings ?? []).map((r) => (
                   <p>
@@ -336,10 +346,10 @@ export function BombermanRoom() {
             )}
             <div class="flex gap-2 justify-center">
               <button type="button" class="btn btn-primary" onClick={() => setPhase("lobby")}>
-                Play Again
+                {t("bomberman.playAgain")}
               </button>
               <button type="button" class="btn btn-outline" onClick={() => navigate("/bomberman")}>
-                Back to Lobby
+                {t("bomberman.backToLobby")}
               </button>
             </div>
           </div>

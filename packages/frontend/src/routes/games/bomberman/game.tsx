@@ -12,6 +12,7 @@ import { Scoreboard } from "./components/Scoreboard";
 import { Countdown } from "~/ui/Countdown";
 import { sfx } from "~/ui/sound";
 import { formatKey } from "./utils";
+import { useT } from "~/i18n/useT";
 
 interface BombermanGameProps {
   initialState: BombermanState;
@@ -21,6 +22,7 @@ interface BombermanGameProps {
 }
 
 export function BombermanGame(props: BombermanGameProps) {
+  const { t } = useT();
   const { showVirtualControls } = useBombermanInput(props.onAction);
   const { settings: gameSettings } = useGameSettings(bombermanSettingsSchema);
   const [showScoreboard, setShowScoreboard] = createSignal(false);
@@ -180,7 +182,7 @@ export function BombermanGame(props: BombermanGameProps) {
 
       <Show when={!connectionOk()}>
         <div class="fixed bottom-20 left-1/2 -translate-x-1/2 bg-red-900/90 text-white px-4 py-2 rounded z-40 text-sm font-bold pointer-events-none animate-pulse">
-          Connection lost — reconnecting...
+          {t("bomberman.connectionLost")}
         </div>
       </Show>
 
@@ -189,17 +191,17 @@ export function BombermanGame(props: BombermanGameProps) {
         return (
           showControls() && (
             <div class="fixed bottom-20 left-1/2 -translate-x-1/2 bg-black/80 text-white px-6 py-4 rounded-lg z-40 text-sm text-center pointer-events-none transition-opacity duration-500">
-              <div class="font-bold mb-2">Controls</div>
+              <div class="font-bold mb-2">{t("bomberman.controls")}</div>
               <div class="grid grid-cols-2 gap-x-6 gap-y-1">
-                <span class="text-left">Move</span>
+                <span class="text-left">{t("bomberman.move")}</span>
                 <span class="text-right font-mono">
                   {formatKey(kb.up)}/{formatKey(kb.down)}/{formatKey(kb.left)}/{formatKey(kb.right)}
                 </span>
-                <span class="text-left">Place Bomb</span>
+                <span class="text-left">{t("bomberman.placeBomb")}</span>
                 <span class="text-right font-mono">{formatKey(kb.placeBomb)}</span>
-                <span class="text-left">Action</span>
+                <span class="text-left">{t("bomberman.action")}</span>
                 <span class="text-right font-mono">{formatKey(kb.action)}</span>
-                <span class="text-left">Detonate</span>
+                <span class="text-left">{t("bomberman.detonate")}</span>
                 <span class="text-right font-mono">{formatKey(kb.detonate)}</span>
               </div>
             </div>
@@ -227,15 +229,15 @@ export function BombermanGame(props: BombermanGameProps) {
             class="fixed top-4 right-4 z-30 btn btn-sm btn-outline btn-error"
             onClick={() => setShowSurrenderConfirm(true)}
           >
-            Surrender
+            {t("bomberman.surrender")}
           </button>
           {showSurrenderConfirm() && (
             <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
               <div class="bg-base-200 p-6 rounded-lg text-center">
-                <p class="mb-4">Are you sure you want to surrender?</p>
+                <p class="mb-4">{t("bomberman.areYouSure")}</p>
                 <div class="flex gap-3 justify-center">
                   <button type="button" class="btn btn-outline" onClick={() => setShowSurrenderConfirm(false)}>
-                    Cancel
+                    {t("bomberman.cancel")}
                   </button>
                   <button
                     type="button"
@@ -245,7 +247,7 @@ export function BombermanGame(props: BombermanGameProps) {
                       setShowSurrenderConfirm(false);
                     }}
                   >
-                    Yes, Surrender
+                    {t("bomberman.yesSurrender")}
                   </button>
                 </div>
               </div>

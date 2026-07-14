@@ -1,3 +1,5 @@
+import { useT } from "~/i18n/useT";
+
 interface HUDProps {
   timeLeft: number;
   aliveCount: number;
@@ -24,6 +26,7 @@ const ITEM_INFO: Record<string, { label: string; desc: string; color: string }> 
 };
 
 export function HUD(props: HUDProps) {
+  const { t } = useT();
   const minutes = Math.floor(props.timeLeft / 60);
   const seconds = props.timeLeft % 60;
   const timeStr = `${minutes}:${seconds.toString().padStart(2, "0")}`;
@@ -34,7 +37,7 @@ export function HUD(props: HUDProps) {
       <div class="flex justify-between text-white text-sm font-mono p-3">
         <div class="bg-black/60 px-3 py-1 rounded">{timeStr}</div>
         <div class="bg-black/60 px-3 py-1 rounded">
-          Alive: {props.aliveCount}/{props.totalPlayers}
+          {t("bomberman.alive")}: {props.aliveCount}/{props.totalPlayers}
         </div>
       </div>
 
@@ -43,7 +46,7 @@ export function HUD(props: HUDProps) {
         <div class="fixed bottom-20 left-4 bg-black/70 text-white rounded-lg p-3 text-sm font-mono pointer-events-none">
           <div class="flex gap-3 mb-2">
             <span>
-              Bombs: {props.playerStats.bombActive}/{props.playerStats.bombMax}
+              {t("bomberman.bombLimit")}: {props.playerStats.bombActive}/{props.playerStats.bombMax}
             </span>
             <span>Fire: {props.playerStats.blastRadius}</span>
             <span>Speed: {props.playerStats.speed}</span>

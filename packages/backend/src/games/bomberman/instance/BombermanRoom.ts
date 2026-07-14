@@ -29,6 +29,7 @@ export class BombermanRoom {
   private version = 0;
   private destroyed = false;
   private hostReclaimTimer: ReturnType<typeof setTimeout> | undefined;
+  private bannedPlayers = new Map<PlayerId, number>();
   private creatorId: PlayerId;
   private creatorName: string;
   private roomPassword: string | undefined;
@@ -60,6 +61,11 @@ export class BombermanRoom {
     // Existing player can always rejoin
     const existing = this.state.players.find((p) => p.id === playerId);
     if (existing) return { success: true };
+    // Ban check for kicked players
+    const banExpiry = this.bannedPlayers.get(playerId);
+    if (banExpiry && Date.now() < banExpiry) {
+      return { success: false, message: "You are banned from this room" };
+    }
     // First player (creator) skips password
     if (this.state.players.length === 0) return { success: true };
     // Password check for new players
@@ -92,6 +98,11 @@ export class BombermanRoom {
 
     const existing = this.state.players.find((p) => p.id === user.id);
     if (existing) {
+      // If a disconnected host reconnects, cancel the reclaim timer
+      if (this.hostReclaimTimer) {
+        clearTimeout(this.hostReclaimTimer);
+        this.hostReclaimTimer = undefined;
+      }
       this.connectors.set(user.id, connector);
       this.wireConnector(user.id, connector);
       this.version++;
@@ -227,6 +238,7 @@ export class BombermanRoom {
         if (!player.isHost) return;
         if (evt.targetId === pid) return;
         {
+          this.bannedPlayers.set(evt.targetId, Date.now() + 60000);
           const targetConn = this.connectors.get(evt.targetId);
           if (targetConn) {
             targetConn.send({
@@ -237,6 +249,10 @@ export class BombermanRoom {
           }
           this.removePlayer(evt.targetId);
         }
+        break;
+      case "DISBAND_ROOM":
+        if (!player.isHost) return;
+        this.disband();
         break;
       case "START_GAME":
         if (!player.isHost) return;
@@ -276,6 +292,29 @@ export class BombermanRoom {
     }
     this.version++;
     this.broadcastState();
+  }
+
+  /** Disband the room — closes all connectors and fires disbanded callback */
+  private disband(): void {
+    this.destroyed = true;
+    this.state.phase = "disbanded";
+    if (this.hostReclaimTimer) {
+      clearTimeout(this.hostReclaimTimer);
+      this.hostReclaimTimer = undefined;
+    }
+    for (const [, c] of this.connectors) {
+      try {
+        c.send({
+          type: SyncedGameServerEventType.CUSTOM,
+          payload: { type: BombermanPreGameServerEventType.ROOM_DISBANDED, reason: "Room has been disbanded." },
+        });
+        c.close();
+      } catch {
+        // ignore send failures
+      }
+    }
+    this.connectors.clear();
+    this.onDisbandedCallback?.();
   }
 
   sendState(pid: PlayerId, forceSnapshot: boolean): void {
@@ -342,5 +381,6 @@ export class BombermanRoom {
     if (this.hostReclaimTimer) clearTimeout(this.hostReclaimTimer);
     for (const c of this.connectors.values()) c.close();
     this.connectors.clear();
+    this.bannedPlayers.clear();
   }
 }

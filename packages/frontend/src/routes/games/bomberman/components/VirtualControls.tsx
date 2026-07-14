@@ -1,10 +1,12 @@
 import type { BombermanOperation } from "@generale/types";
+import { useT } from "~/i18n/useT";
 
 interface VirtualControlsProps {
   onAction: (op: BombermanOperation) => void;
 }
 
 export function VirtualControls(props: VirtualControlsProps) {
+  const { t } = useT();
   return (
     <div class="fixed bottom-4 left-4 right-4 flex justify-between pointer-events-none z-50">
       <div class="pointer-events-auto grid grid-cols-3 gap-1">
@@ -74,7 +76,7 @@ export function VirtualControls(props: VirtualControlsProps) {
               props.onAction({ type: "ACTION" });
             }}
           >
-            A
+            {t("bomberman.action")}
           </button>
           <button
             type="button"
@@ -84,7 +86,7 @@ export function VirtualControls(props: VirtualControlsProps) {
               props.onAction({ type: "DETONATE" });
             }}
           >
-            Det
+            {t("bomberman.detonate")}
           </button>
         </div>
         <button
@@ -95,7 +97,7 @@ export function VirtualControls(props: VirtualControlsProps) {
             props.onAction({ type: "SURRENDER" });
           }}
         >
-          Surrender
+          {t("bomberman.surrender")}
         </button>
       </div>
     </div>

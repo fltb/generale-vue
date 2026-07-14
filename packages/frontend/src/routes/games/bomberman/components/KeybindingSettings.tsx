@@ -2,21 +2,22 @@ import { createSignal, createEffect, For, Show, onCleanup } from "solid-js";
 import type { Component } from "solid-js";
 import { useGameSettings } from "~/hooks/useGameSettings";
 import { bombermanSettingsSchema, BOMBERMAN_SETTINGS_DEFAULTS, type BombermanKeybindings } from "@generale/types";
+import { useT } from "~/i18n/useT";
 import { formatKey } from "../utils";
 
-const ACTION_LABELS: Record<keyof BombermanKeybindings, string> = {
-  up: "Move Up",
-  down: "Move Down",
-  left: "Move Left",
-  right: "Move Right",
-  placeBomb: "Place Bomb",
-  action: "Action (Pick up / Throw / Punch)",
-  detonate: "Detonate Remote",
-  surrender: "Surrender",
-};
-
 export const KeybindingSettings: Component = () => {
+  const { t } = useT();
   const { settings, update } = useGameSettings(bombermanSettingsSchema);
+  const ACTION_LABELS: Record<keyof BombermanKeybindings, string> = {
+    up: `${t("bomberman.move")} Up`,
+    down: `${t("bomberman.move")} Down`,
+    left: `${t("bomberman.move")} Left`,
+    right: `${t("bomberman.move")} Right`,
+    placeBomb: t("bomberman.placeBomb"),
+    action: t("bomberman.action"),
+    detonate: t("bomberman.detonate"),
+    surrender: t("bomberman.surrender"),
+  };
   const [listeningKey, setListeningKey] = createSignal<keyof BombermanKeybindings | null>(null);
 
   // Window-level keydown capture while listening for a rebind
@@ -55,9 +56,9 @@ export const KeybindingSettings: Component = () => {
   return (
     <div class="space-y-3">
       <div class="flex items-center justify-between">
-        <h3 class="text-lg font-bold">Keybindings</h3>
+        <h3 class="text-lg font-bold">{t("bomberman.keybindings")}</h3>
         <button type="button" class="btn btn-sm btn-ghost" onClick={resetToDefaults}>
-          Reset to Defaults
+          {t("bomberman.resetToDefaults")}
         </button>
       </div>
       <div class="grid grid-cols-2 gap-2">
@@ -77,7 +78,9 @@ export const KeybindingSettings: Component = () => {
                   </button>
                 }
               >
-                <span class="btn btn-sm btn-warning font-mono min-w-[60px] animate-pulse">Press key...</span>
+                <span class="btn btn-sm btn-warning font-mono min-w-[60px] animate-pulse">
+                  {t("bomberman.pressKey")}
+                </span>
               </Show>
             </div>
           )}

@@ -11,7 +11,7 @@ describe("Scoreboard", () => {
 
   it("renders GAME OVER heading", () => {
     render(() => <Scoreboard players={players} onBackToRoom={() => {}} />);
-    expect(screen.getByText("GAME OVER")).toBeInTheDocument();
+    expect(screen.getByText("bomberman.gameOver")).toBeInTheDocument();
   });
 
   it("renders all players", () => {
@@ -30,6 +30,6 @@ describe("Scoreboard", () => {
 
   it("renders back to room button", () => {
     render(() => <Scoreboard players={players} onBackToRoom={() => {}} />);
-    expect(screen.getByText("Back to Room")).toBeInTheDocument();
+    expect(screen.getByText("bomberman.backToRoom")).toBeInTheDocument();
   });
 });

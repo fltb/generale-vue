@@ -1,5 +1,6 @@
 import { createEffect, createSignal } from "solid-js";
 import { Input, Select } from "~/ui";
+import { useT } from "~/i18n/useT";
 
 export interface BombermanRoomFilter {
   roomName?: string;
@@ -15,6 +16,7 @@ interface RoomFilterProps {
 }
 
 export function RoomFilter(props: RoomFilterProps) {
+  const { t } = useT();
   const [local, setLocal] = createSignal<BombermanRoomFilter>(props.value);
   let timer: ReturnType<typeof setTimeout>;
 
@@ -29,7 +31,7 @@ export function RoomFilter(props: RoomFilterProps) {
     <div class="flex flex-wrap gap-2 items-end mb-4">
       <Input
         size="sm"
-        placeholder="Room name..."
+        placeholder={t("bomberman.filterByName")}
         value={local().roomName ?? ""}
         onInput={(e) => {
           const v = (e.target as HTMLInputElement).value;
@@ -48,9 +50,9 @@ export function RoomFilter(props: RoomFilterProps) {
           emit(next);
         }}
       >
-        <option value="all">All Status</option>
-        <option value="lobby">Lobby</option>
-        <option value="playing">Playing</option>
+        <option value="all">{t("bomberman.allStatus")}</option>
+        <option value="lobby">{t("bomberman.lobby")}</option>
+        <option value="playing">{t("bomberman.playing")}</option>
       </Select>
       <Select
         size="sm"
@@ -62,9 +64,9 @@ export function RoomFilter(props: RoomFilterProps) {
           emit(next);
         }}
       >
-        <option value="all">All Rooms</option>
-        <option value="no">Unlocked</option>
-        <option value="yes">Locked</option>
+        <option value="all">{t("bomberman.allRooms")}</option>
+        <option value="no">{t("bomberman.unlocked")}</option>
+        <option value="yes">{t("bomberman.locked")}</option>
       </Select>
     </div>
   );

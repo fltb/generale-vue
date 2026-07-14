@@ -4,6 +4,7 @@ import { ProtectedRoute } from "~/components/ProtectedRoute";
 import { useWS } from "~/hooks/useWebsocket";
 import { Button, Input, Select, Modal, Checkbox, LabelText } from "~/ui";
 import { RoomFilter, type BombermanRoomFilter } from "./components/RoomFilter";
+import { useT } from "~/i18n/useT";
 
 interface RoomSummary {
   gameId: string;
@@ -16,9 +17,9 @@ interface RoomSummary {
 }
 
 const MAP_SIZES = [
-  { label: "Small (9\u00d79)", w: 9, h: 9 },
-  { label: "Medium (11\u00d711)", w: 11, h: 11 },
-  { label: "Large (15\u00d713)", w: 15, h: 13 },
+  { key: "small" as const, w: 9, h: 9 },
+  { key: "medium" as const, w: 11, h: 11 },
+  { key: "large" as const, w: 15, h: 13 },
 ] as const;
 
 function CreateRoomModal(props: {
@@ -26,6 +27,7 @@ function CreateRoomModal(props: {
   onClose: () => void;
   onCreated: (gameId: string, password?: string) => void;
 }) {
+  const { t } = useT();
   const [roomName, setRoomName] = createSignal("");
   const [password, setPassword] = createSignal("");
   const [mapSizeIdx, setMapSizeIdx] = createSignal(2);
@@ -40,7 +42,7 @@ function CreateRoomModal(props: {
   async function handleCreate() {
     const name = roomName().trim();
     if (!name) {
-      setError("Please enter a room name");
+      setError(t("Please enter a room name"));
       return;
     }
     setLoading(true);
@@ -69,7 +71,7 @@ function CreateRoomModal(props: {
       if (pw) sessionStorage.setItem(`bomb_room_pwd_${d.data.gameId}`, pw);
       props.onCreated(d.data.gameId, pw || undefined);
     } else {
-      setError(d.error || "Failed to create room");
+      setError(d.error || t("Failed to create room"));
     }
   }
 
@@ -77,18 +79,18 @@ function CreateRoomModal(props: {
     <Show when={props.open}>
       <Modal boxClass="max-w-md">
         <div class="flex justify-between items-start mb-4">
-          <h2 class="text-xl font-bold">Create Bomberman Room</h2>
+          <h2 class="text-xl font-bold">{t("bomberman.createRoom")}</h2>
           <Button size="sm" variant="ghost" onClick={props.onClose}>
-            Close
+            {t("bomberman.close")}
           </Button>
         </div>
         <div class="space-y-3">
           <div class="block">
-            <LabelText>Room Name</LabelText>
+            <LabelText>{t("bomberman.roomName")}</LabelText>
             <Input
               bordered
               class="w-full"
-              placeholder="My Bomberman Room"
+              placeholder={t("bomberman.roomName")}
               value={roomName()}
               onInput={(e) => setRoomName(e.currentTarget.value)}
               onKeyDown={(e) => {
@@ -97,11 +99,11 @@ function CreateRoomModal(props: {
             />
           </div>
           <div class="block">
-            <LabelText>Password (optional)</LabelText>
+            <LabelText>{t("bomberman.password")}</LabelText>
             <Input
               bordered
               class="w-full"
-              placeholder="Leave empty for public room"
+              placeholder={t("Leave empty for public room")}
               value={password()}
               onInput={(e) => setPassword(e.currentTarget.value)}
               onKeyDown={(e) => {
@@ -111,7 +113,7 @@ function CreateRoomModal(props: {
           </div>
           <div class="grid grid-cols-2 gap-2">
             <div class="block">
-              <LabelText>Map Size</LabelText>
+              <LabelText>{t("bomberman.mapSize")}</LabelText>
               <Select
                 bordered
                 class="w-full"
@@ -119,12 +121,14 @@ function CreateRoomModal(props: {
                 onChange={(e) => setMapSizeIdx(Number(e.currentTarget.value))}
               >
                 {MAP_SIZES.map((s, i) => (
-                  <option value={i}>{s.label}</option>
+                  <option value={i}>
+                    {t(`bomberman.${s.key}`)} ({s.w}\u00d7{s.h})
+                  </option>
                 ))}
               </Select>
             </div>
             <div class="block">
-              <LabelText>Max Players</LabelText>
+              <LabelText>{t("bomberman.maxPlayers")}</LabelText>
               <Select
                 bordered
                 class="w-full"
@@ -137,7 +141,7 @@ function CreateRoomModal(props: {
               </Select>
             </div>
             <div class="block">
-              <LabelText>Round Time</LabelText>
+              <LabelText>{t("bomberman.roundTime")}</LabelText>
               <Select
                 bordered
                 class="w-full"
@@ -146,13 +150,13 @@ function CreateRoomModal(props: {
               >
                 <option value={60}>60s</option>
                 <option value={120}>120s</option>
-                <option value={120}>120s (Default)</option>
+                <option value={120}>120s</option>
                 <option value={180}>180s</option>
                 <option value={300}>300s</option>
               </Select>
             </div>
             <div class="block">
-              <LabelText>Bomb Limit</LabelText>
+              <LabelText>{t("bomberman.bombLimit")}</LabelText>
               <Select
                 bordered
                 class="w-full"
@@ -167,31 +171,31 @@ function CreateRoomModal(props: {
           </div>
           <div class="grid grid-cols-2 gap-2">
             <div class="block">
-              <LabelText>Item Drop Rate</LabelText>
+              <LabelText>{t("bomberman.itemDropRate")}</LabelText>
               <Select
                 bordered
                 class="w-full"
                 value={String(dropRate())}
                 onChange={(e) => setDropRate(Number(e.currentTarget.value))}
               >
-                <option value={0}>None (0%)</option>
-                <option value={0.3}>Low (30%)</option>
-                <option value={0.6}>Medium (60%)</option>
-                <option value={1}>High (100%)</option>
+                <option value={0}>{t("bomberman.none")} (0%)</option>
+                <option value={0.3}>{t("bomberman.low")} (30%)</option>
+                <option value={0.6}>{t("bomberman.medium")} (60%)</option>
+                <option value={1}>{t("bomberman.high")} (100%)</option>
               </Select>
             </div>
             <div class="flex items-center gap-2 mt-6">
               <Checkbox checked={suddenDeath()} onChange={(e) => setSuddenDeath(e.currentTarget.checked)} />
-              <LabelText>Sudden Death</LabelText>
+              <LabelText>{t("bomberman.suddenDeath")}</LabelText>
             </div>
           </div>
           {error() && <div class="alert alert-error text-sm">{error()}</div>}
           <div class="flex gap-2 justify-end pt-2">
             <Button variant="ghost" onClick={props.onClose} disabled={loading()}>
-              Cancel
+              {t("bomberman.cancel")}
             </Button>
             <Button variant="primary" onClick={handleCreate} disabled={loading()}>
-              {loading() ? "Creating..." : "Create"}
+              {loading() ? t("Creating...") : t("bomberman.create")}
             </Button>
           </div>
         </div>
@@ -201,6 +205,7 @@ function CreateRoomModal(props: {
 }
 
 export function BombermanHub() {
+  const { t } = useT();
   const navigate = useNavigate();
   const ws = useWS();
   const [rooms, setRooms] = createSignal<RoomSummary[]>([]);
@@ -259,11 +264,10 @@ export function BombermanHub() {
       <div class="container mx-auto max-w-3xl p-8">
         <div class="flex items-center justify-between mb-8">
           <div>
-            <h1 class="text-3xl font-bold">Bomberman</h1>
-            <p class="text-sm text-base-content/50">Classic bomb battle arena</p>
+            <h1 class="text-3xl font-bold">{t("bomberman.title")}</h1>
           </div>
           <button type="button" class="btn btn-primary" onClick={() => setShowCreateModal(true)}>
-            Create Room
+            {t("bomberman.createRoom")}
           </button>
         </div>
         <RoomFilter value={filter()} onChange={(f) => setFilter(f)} />
@@ -272,7 +276,7 @@ export function BombermanHub() {
           fallback={
             <div class="text-center py-16">
               <div class="text-4xl mb-4">💣</div>
-              <p class="text-base-content/50">No active rooms. Create one to start!</p>
+              <p class="text-base-content/50">{t("No active rooms. Create one to start!")}</p>
             </div>
           }
         >
@@ -295,7 +299,9 @@ export function BombermanHub() {
                       {room.roomName}
                       {room.hasPassword ? <span class="text-xs text-warning ml-1">🔒</span> : null}
                     </div>
-                    <div class="text-xs text-base-content/50">Host: {room.hostName}</div>
+                    <div class="text-xs text-base-content/50">
+                      {t("Host:")} {room.hostName}
+                    </div>
                   </div>
                   <span class="badge badge-outline">
                     {room.playerCount}/{room.maxPlayers}
@@ -303,7 +309,7 @@ export function BombermanHub() {
                   <span
                     class={room.phase === "playing" ? "badge badge-warning badge-sm" : "badge badge-success badge-sm"}
                   >
-                    {room.phase === "playing" ? "In Game" : "Lobby"}
+                    {room.phase === "playing" ? t("bomberman.playing") : t("bomberman.lobby")}
                   </span>
                   <button
                     type="button"
@@ -313,7 +319,7 @@ export function BombermanHub() {
                       navigate(`/bomberman/room/${room.gameId}`);
                     }}
                   >
-                    Join
+                    {t("Join")}
                   </button>
                 </div>
               )}

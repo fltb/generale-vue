@@ -112,7 +112,8 @@ export type BombermanPreGameClientAction =
   | { type: "UNREADY"; optimisticId: number }
   | { type: "CHANGE_CONFIG"; optimisticId: number; payload: Partial<BombermanConfig> }
   | { type: "KICK_PLAYER"; optimisticId: number; targetId: string }
-  | { type: "START_GAME"; optimisticId: number };
+  | { type: "START_GAME"; optimisticId: number }
+  | { type: "DISBAND_ROOM"; optimisticId: number };
 
 /** Dispatch-friendly version — same as above without optimisticId (useSyncedState auto-generates it).
  *  Explicit union avoids TypeScript Omit not distributing over discriminated unions. */
@@ -121,7 +122,8 @@ export type BombermanPreGameClientDispatch =
   | { type: "UNREADY" }
   | { type: "CHANGE_CONFIG"; payload: Partial<BombermanConfig> }
   | { type: "KICK_PLAYER"; targetId: string }
-  | { type: "START_GAME" };
+  | { type: "START_GAME" }
+  | { type: "DISBAND_ROOM" };
 
 export enum BombermanPreGameServerEventType {
   KICKED = "kicked",

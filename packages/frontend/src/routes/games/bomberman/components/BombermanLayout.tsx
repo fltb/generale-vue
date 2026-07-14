@@ -14,7 +14,7 @@ interface Props {
 export default function BombermanLayout(props: Props) {
   const auth = useAuth();
   const navigate = useNavigate();
-  const { locale, setLocale } = useT();
+  const { t, locale, setLocale } = useT();
   const [open, setOpen] = createSignal(false);
   const [showSettings, setShowSettings] = createSignal(false);
 
@@ -46,7 +46,7 @@ export default function BombermanLayout(props: Props) {
           <A
             href="/"
             class="text-base-content/40 hover:text-base-content flex items-center gap-1 px-1"
-            aria-label="Back to Platform"
+            aria-label={t("Back to Platform")}
           >
             <svg
               class="w-4 h-4"
@@ -65,7 +65,7 @@ export default function BombermanLayout(props: Props) {
           <span class="text-base-content/15 select-none">|</span>
           <A href="/bomberman" class="flex items-center gap-2 text-primary">
             <LogoIcon size={28} />
-            <span class="font-semibold text-primary text-sm tracking-wide">Bomberman</span>
+            <span class="font-semibold text-primary text-sm tracking-wide">{t("bomberman.title")}</span>
           </A>
         </div>
         <div class="flex items-center gap-3">
@@ -74,7 +74,7 @@ export default function BombermanLayout(props: Props) {
             type="button"
             onClick={() => setShowSettings(true)}
             class="btn btn-sm btn-ghost btn-square"
-            aria-label="Settings"
+            aria-label={t("bomberman.settings")}
           >
             <svg
               class="w-5 h-5"
@@ -112,7 +112,7 @@ export default function BombermanLayout(props: Props) {
             when={auth.user}
             fallback={
               <A href="/login" class="px-3 py-1 rounded bg-base-300 hover:bg-base-300/80 text-sm">
-                Login
+                {t("Login")}
               </A>
             }
           >
@@ -139,14 +139,14 @@ export default function BombermanLayout(props: Props) {
                 }`}
               >
                 <A href="/profile" class="block px-4 py-2 text-sm hover:bg-sky-100" onClick={() => setOpen(false)}>
-                  Profile
+                  {t("Profile")}
                 </A>
                 <button
                   type="button"
                   onClick={handleLogout}
                   class="w-full text-left px-4 py-2 text-sm hover:bg-sky-100"
                 >
-                  Logout
+                  {t("Logout")}
                 </button>
               </div>
             </div>
@@ -163,7 +163,7 @@ export default function BombermanLayout(props: Props) {
               type="button"
               class="btn btn-sm btn-ghost btn-square"
               onClick={() => setShowSettings(false)}
-              aria-label="Close settings"
+              aria-label={t("bomberman.close")}
             >
               <svg
                 class="w-4 h-4"

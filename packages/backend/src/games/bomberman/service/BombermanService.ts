@@ -1,15 +1,19 @@
 import type {
   BombermanConfig,
   BombermanOperation,
+  ChatClientToServer,
+  ChatServerToClient,
   GameId,
   BombermanPreGameClientAction,
   BombermanPreGameServerEvent,
   BombermanRoomState,
+  ServerSyncConnector,
   SyncedStateServerEvent,
 } from "@generale/types";
 import { SyncedStateServerEventType, BombermanPreGameServerEventType } from "@generale/types";
 import type { SubConnector } from "../../../plugins/websocket";
 import { registerDomainHandler, unregisterDomainHandler } from "../../../plugins/websocket";
+import { GameChatInstance } from "../../../game/instance/GameChatInstance";
 import { BombermanGame } from "../instance/BombermanGame";
 import { BombermanRoom } from "../instance/BombermanRoom";
 
@@ -19,6 +23,7 @@ export class BombermanService {
   private room: BombermanRoom;
   private game: BombermanGame | null = null;
   private destroyed = false;
+  private chat: GameChatInstance;
   private gameConnectors = new Map<string, SubConnector>();
   private disconnectTimers = new Map<string, ReturnType<typeof setTimeout>>();
   public onDisband?: () => void;
@@ -34,6 +39,7 @@ export class BombermanService {
   ) {
     this.gameId = gameId;
     this.roomName = roomName;
+    this.chat = new GameChatInstance();
     this.room = new BombermanRoom(roomName, config, creatorId, creatorName, password);
     this.room.onGameStart(() => this.startGame());
     this.room.onDisbanded(() => {
@@ -106,7 +112,21 @@ export class BombermanService {
       });
     });
 
-    registerDomainHandler(`chat-${this.gameId}`, () => {});
+    registerDomainHandler(`chat-${this.gameId}`, (connector) => {
+      const { userid, username } = connector.context;
+      if (!(userid && username)) {
+        connector.close(4001, "Missing auth");
+        return;
+      }
+      const res = this.chat.addPlayer(
+        { id: userid, name: username },
+        connector as unknown as ServerSyncConnector<ChatClientToServer, ChatServerToClient>,
+      );
+      if (!res.success) {
+        connector.close(4003, res.message);
+        return;
+      }
+    });
   }
 
   startGame(): void {
@@ -209,6 +229,7 @@ export class BombermanService {
     unregisterDomainHandler(`room-${this.gameId}`);
     unregisterDomainHandler(`game-${this.gameId}`);
     unregisterDomainHandler(`chat-${this.gameId}`);
+    this.chat.destroy();
     this.room.destroy();
     this.game?.destroy();
     this.onDisband?.();

@@ -19,6 +19,15 @@ export default defineConfig({
       reporter: ["text", "json", "html"],
       include: ["src/**/*.ts"],
       exclude: ["src/**/*.test.ts", "src/**/__tests__/**"],
+      thresholds: {
+        // Game core + service files must maintain minimum coverage
+        "src/games/bomberman/**/*.ts": {
+          lines: 50,
+          branches: 40,
+          functions: 40,
+          statements: 50,
+        },
+      },
     },
   },
   resolve: {

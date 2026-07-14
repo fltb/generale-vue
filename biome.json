@@ -50,7 +50,9 @@
       "correctness": {
         "noInvalidUseBeforeDeclaration": "error",
         "noSwitchDeclarations": "error",
-        "noUndeclaredVariables": "error"
+        "noUndeclaredVariables": "error",
+        "noUnusedImports": "warn",
+        "noUnusedVariables": "warn"
       },
       "style": {
         "noDefaultExport": "off",

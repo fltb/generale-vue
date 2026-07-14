@@ -10,7 +10,7 @@ describe("HUD", () => {
 
   it("renders alive count", () => {
     render(() => <HUD timeLeft={0} aliveCount={1} totalPlayers={4} />);
-    expect(screen.getByText("Alive: 1/4")).toBeInTheDocument();
+    expect(screen.getByText((t) => t.includes("1/4") && t.includes("bomberman.alive"))).toBeInTheDocument();
   });
 
   it("renders zero time as 0:00", () => {
@@ -27,7 +27,7 @@ describe("HUD", () => {
         playerStats={{ bombMax: 3, bombActive: 1, blastRadius: 2, speed: 1 }}
       />
     ));
-    expect(screen.getByText("Bombs: 1/3")).toBeInTheDocument();
+    expect(screen.getByText((t) => t.includes("1/3") && t.includes("bomberman.bombLimit"))).toBeInTheDocument();
     expect(screen.getByText("Fire: 2")).toBeInTheDocument();
     expect(screen.getByText("Speed: 1")).toBeInTheDocument();
   });
@@ -48,7 +48,7 @@ describe("HUD", () => {
 
   it("hides inventory when no stats provided", () => {
     render(() => <HUD timeLeft={0} aliveCount={1} totalPlayers={4} />);
-    expect(screen.queryByText("Bombs:")).not.toBeInTheDocument();
+    expect(screen.queryByText((t) => t.includes("bomberman.bombLimit"))).not.toBeInTheDocument();
     expect(screen.queryByText("Fire:")).not.toBeInTheDocument();
   });
 });
