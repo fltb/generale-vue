@@ -278,11 +278,14 @@ export function BombermanHub() {
           <div class="grid gap-3">
             <For each={filteredRooms()}>
               {(room) => (
+                // biome-ignore lint/a11y/useSemanticElements: compound card with nested interactive buttons
                 <div
                   role="button"
                   class="flex items-center gap-4 p-4 bg-base-200 rounded-xl pixel-border hover:bg-base-300 transition-colors cursor-pointer"
                   onClick={() => navigate(`/bomberman/room/${room.gameId}`)}
-                  onKeyDown={(e) => { if (e.key === "Enter") navigate(`/bomberman/room/${room.gameId}`); }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") navigate(`/bomberman/room/${room.gameId}`);
+                  }}
                   tabIndex={0}
                 >
                   <div class="w-10 h-10 rounded-full bg-base-300 flex items-center justify-center text-lg">💣</div>

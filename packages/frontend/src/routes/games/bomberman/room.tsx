@@ -133,7 +133,7 @@ export function BombermanRoom() {
       <Show when={phase() === "error"}>
         <div class="p-8 text-center">
           <div class="alert alert-error mb-4">{error()}</div>
-          <button class="btn" onClick={() => navigate("/bomberman")}>
+          <button type="button" class="btn" onClick={() => navigate("/bomberman")}>
             Back to Lobby
           </button>
         </div>
@@ -153,8 +153,9 @@ export function BombermanRoom() {
 
           {isHost() && (
             <div class="mb-4">
-              <button class="btn btn-sm btn-ghost" onClick={() => setShowSettings(!showSettings())}>
+              <button type="button" class="btn btn-sm btn-ghost" onClick={() => setShowSettings(!showSettings())}>
                 <svg class="w-4 h-4 mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <title>Settings</title>
                   <circle cx="12" cy="12" r="3" />
                   <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
                 </svg>
@@ -163,9 +164,9 @@ export function BombermanRoom() {
               <Show when={showSettings()}>
                 <div class="grid grid-cols-2 gap-3 mt-2 p-4 bg-base-300 rounded">
                   <div>
-                    <label class="label text-xs">
+                    <div class="label text-xs">
                       <span class="label-text">Max Players</span>
-                    </label>
+                    </div>
                     <select
                       class="select select-sm w-full"
                       value={roomSync.state().maxPlayers}
@@ -182,9 +183,9 @@ export function BombermanRoom() {
                     </select>
                   </div>
                   <div>
-                    <label class="label text-xs">
+                    <div class="label text-xs">
                       <span class="label-text">Round Time</span>
-                    </label>
+                    </div>
                     <select
                       class="select select-sm w-full"
                       value={roomSync.state().config?.roundTimeSec ?? 180}
@@ -277,22 +278,18 @@ export function BombermanRoom() {
               <button
                 type="button"
                 class="btn btn-sm btn-outline"
-                onClick={() => roomSync.dispatch({ type: "UNREADY" } as any)}
+                onClick={() => roomSync.dispatch({ type: "UNREADY" })}
               >
                 Unready
               </button>
             ) : (
-              <button
-                type="button"
-                class="btn btn-sm btn-primary"
-                onClick={() => roomSync.dispatch({ type: "READY" } as any)}
-              >
+              <button type="button" class="btn btn-sm btn-primary" onClick={() => roomSync.dispatch({ type: "READY" })}>
                 Ready
               </button>
             )}
             {isHost() && (
               <>
-                <button class="btn btn-success" disabled={!allReady()} onClick={startGame}>
+                <button type="button" class="btn btn-success" disabled={!allReady()} onClick={startGame}>
                   Start Game
                 </button>
                 {!allReady() && <span class="text-xs text-base-content/50">Need all players ready (min 2)</span>}
@@ -331,7 +328,7 @@ export function BombermanRoom() {
                 ))}
               </div>
             )}
-            <button class="btn btn-primary" onClick={() => navigate("/bomberman")}>
+            <button type="button" class="btn btn-primary" onClick={() => navigate("/bomberman")}>
               Back to Lobby
             </button>
           </div>

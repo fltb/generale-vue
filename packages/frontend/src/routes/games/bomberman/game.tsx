@@ -42,9 +42,14 @@ export function BombermanGame(props: BombermanGameProps) {
     const scaleH = (window.innerHeight * 0.8) / (rows * TILE_SIZE);
     setGameScale(Math.max(1, Math.min(scaleW, scaleH, 3)));
   }
-  onMount(() => { calculateScale(); window.addEventListener("resize", calculateScale); });
+  onMount(() => {
+    calculateScale();
+    window.addEventListener("resize", calculateScale);
+  });
   onCleanup(() => window.removeEventListener("resize", calculateScale));
-  createEffect(() => { if (state()?.map?.tiles) calculateScale(); });
+  createEffect(() => {
+    if (state()?.map?.tiles) calculateScale();
+  });
 
   // ── Countdown ──
   const [countdownDone, setCountdownDone] = createSignal(false);

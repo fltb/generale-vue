@@ -1,5 +1,5 @@
 import type { BombermanPlayer, Bomb, Explosion, Item } from "@generale/types";
-import { Graphics as PIXIGraphics, Texture } from "pixi.js";
+import type { Graphics as PIXIGraphics, Texture } from "pixi.js";
 import { For, Show, createEffect, createMemo, createSignal } from "solid-js";
 import { Container, Graphics as PGraphics, Sprite } from "solid-pixi";
 import { useSprites, type PlayerTextures } from "../hooks/useSprites";
@@ -139,8 +139,7 @@ interface NonSpritedItemsProps {
 }
 
 function NonSpritedItems(props: NonSpritedItemsProps) {
-  const dotItems = () =>
-    props.allItems.filter((item) => !props.spritesheet.items[item.type]);
+  const dotItems = () => props.allItems.filter((item) => !props.spritesheet.items[item.type]);
 
   return (
     <For each={dotItems()}>

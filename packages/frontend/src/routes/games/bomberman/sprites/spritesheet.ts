@@ -119,7 +119,15 @@ export const EXPLOSION_UP_END = tid(209); // (208, 208)
 export const EXPLOSION_DOWN_END = tid(239); // (208, 240)
 
 /** All explosion textures, useful for cycle animation */
-export const EXPLOSION_ALL = [EXPLOSION_CENTER, EXPLOSION_H_MID, EXPLOSION_V_MID, EXPLOSION_LEFT_END, EXPLOSION_RIGHT_END, EXPLOSION_UP_END, EXPLOSION_DOWN_END];
+export const EXPLOSION_ALL = [
+  EXPLOSION_CENTER,
+  EXPLOSION_H_MID,
+  EXPLOSION_V_MID,
+  EXPLOSION_LEFT_END,
+  EXPLOSION_RIGHT_END,
+  EXPLOSION_UP_END,
+  EXPLOSION_DOWN_END,
+];
 
 // ─── Tiles ───
 export const SOFT_WALL = tid(204); // crate/box (128, 208)

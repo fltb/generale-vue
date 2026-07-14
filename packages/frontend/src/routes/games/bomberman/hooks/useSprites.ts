@@ -75,9 +75,7 @@ function loadSpritesheet(): Promise<BombermanSpritesheet> {
       bombs: BOMB_FRAMES.map((f) => createTexture(tex, f)),
       explosions: EXPLOSION_ALL.map((f) => createTexture(tex, f)),
       players: ALL_PLAYER_FRAMES.map((pf) => createPlayerTextures(tex, pf)),
-      items: Object.fromEntries(
-        Object.entries(ITEM_FRAMES).map(([k, v]) => [k, createTexture(tex, v)]),
-      ),
+      items: Object.fromEntries(Object.entries(ITEM_FRAMES).map(([k, v]) => [k, createTexture(tex, v)])),
     };
   });
 

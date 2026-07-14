@@ -25,22 +25,13 @@ export function MapLayer(props: MapLayerProps) {
                   return (
                     <Container x={xi * TILE_SIZE} y={yi * TILE_SIZE}>
                       {/* Floor tile (always present) */}
-                      <Sprite
-                        texture={floorTex}
-                        scale={{ x: TILE_SIZE / 16, y: TILE_SIZE / 16 }}
-                      />
+                      <Sprite texture={floorTex} scale={{ x: TILE_SIZE / 16, y: TILE_SIZE / 16 }} />
                       {/* Wall overlay */}
                       <Show when={tile.type === "hard_wall"}>
-                        <Sprite
-                          texture={s().walls.hard}
-                          scale={{ x: TILE_SIZE / 16, y: TILE_SIZE / 16 }}
-                        />
+                        <Sprite texture={s().walls.hard} scale={{ x: TILE_SIZE / 16, y: TILE_SIZE / 16 }} />
                       </Show>
                       <Show when={tile.type === "soft_wall"}>
-                        <Sprite
-                          texture={s().walls.soft}
-                          scale={{ x: TILE_SIZE / 16, y: TILE_SIZE / 16 }}
-                        />
+                        <Sprite texture={s().walls.soft} scale={{ x: TILE_SIZE / 16, y: TILE_SIZE / 16 }} />
                       </Show>
                     </Container>
                   );
