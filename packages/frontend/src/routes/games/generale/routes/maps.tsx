@@ -231,12 +231,12 @@ function MapCard(props: {
           </div>
           <div class="flex gap-1 shrink-0">
             <Show when={m.isDraft}>
-              <Badge variant="warning" class="badge-xs">
+              <Badge variant="warning" size="xs">
                 {t("Draft")}
               </Badge>
             </Show>
             <Show when={m.isPublic && !m.isDraft}>
-              <Badge variant="success" class="badge-xs">
+              <Badge variant="success" size="xs">
                 {t("Public")}
               </Badge>
             </Show>

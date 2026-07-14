@@ -73,7 +73,7 @@ export default function BombermanLayout(props: Props) {
           <Button
             size="sm"
             variant="ghost"
-            class="btn-square"
+            square
             onClick={() => setShowSettings(true)}
             aria-label={t("bomberman.settings")}
           >
@@ -163,7 +163,7 @@ export default function BombermanLayout(props: Props) {
             <Button
               size="sm"
               variant="ghost"
-              class="btn-square"
+              square
               onClick={() => setShowSettings(false)}
               aria-label={t("bomberman.close")}
             >

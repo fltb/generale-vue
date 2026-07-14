@@ -6,6 +6,7 @@ import { createMemo, createSignal, Show } from "solid-js";
 import { useT } from "../i18n/useT";
 import { resetPasswordApi } from "~/api/accountApi";
 import type { ApiError } from "~/api/base";
+import { Button, Input, Alert } from "~/ui";
 
 export default function ResetPasswordPage() {
   const nav = useNavigate();
@@ -54,42 +55,42 @@ export default function ResetPasswordPage() {
       <Show
         when={token()}
         fallback={
-          <div class="alert alert-error">{t("Missing token in link, please restart the password reset process.")}</div>
+          <Alert variant="error">{t("Missing token in link, please restart the password reset process.")}</Alert>
         }
       >
         <Show
           when={!mutation.isSuccess || mutation.data?.valid === false}
           fallback={
             <div class="space-y-4">
-              <div class="alert alert-success">{mutation.data?.message ?? t("Password has been reset")}</div>
-              <button type="button" class="btn btn-primary" onClick={() => nav("/login")}>
+              <Alert variant="success">{mutation.data?.message ?? t("Password has been reset")}</Alert>
+              <Button variant="primary" onClick={() => nav("/login")}>
                 {t("Go to login")}
-              </button>
+              </Button>
             </div>
           }
         >
           <form class="flex flex-col gap-2" onSubmit={submit}>
-            <input
+            <Input
               type="password"
-              class="input input-bordered"
+              bordered
               placeholder={t("New password (min 8 characters)")}
               value={newPassword()}
               onInput={(e) => setNewPassword((e.target as HTMLInputElement).value)}
               required
               minLength={8}
             />
-            <input
+            <Input
               type="password"
-              class="input input-bordered"
+              bordered
               placeholder={t("Confirm new password")}
               value={confirm()}
               onInput={(e) => setConfirm((e.target as HTMLInputElement).value)}
               required
               minLength={8}
             />
-            <button class="btn btn-primary" type="submit" disabled={mutation.isPending}>
+            <Button variant="primary" type="submit" disabled={mutation.isPending}>
               {mutation.isPending ? t("Submitting...") : t("Reset Password")}
-            </button>
+            </Button>
             <Show when={localErr()}>
               <p class="text-error text-sm">{localErr()}</p>
             </Show>

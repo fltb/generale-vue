@@ -11,7 +11,7 @@ import {
 } from "@generale/types";
 import { type Component, createSignal, For, Show } from "solid-js";
 import { MapSelector } from "~/components/map-editor/MapSelector";
-import { Button, Input, Textarea } from "~/ui";
+import { Alert, Button, Input, Textarea } from "~/ui";
 import { useT } from "~/i18n/useT";
 
 export interface PreGameMapSettingFormProps {
@@ -138,9 +138,9 @@ export const PreGameMapSettingForm: Component<PreGameMapSettingFormProps> = (pro
       <div class="p-4 bg-base-100 rounded-lg shadow-sm space-y-3">
         {/* --- Imported: locked --- */}
         <Show when={isImported()}>
-          <div class="alert alert-info text-sm py-2">
+          <Alert variant="info" class="text-sm py-2">
             <span>{t("Custom map selected. Random generation parameters disabled.")}</span>
-          </div>
+          </Alert>
           <div class="flex items-end gap-2">
             <div class="flex-1">
               <MapSelector

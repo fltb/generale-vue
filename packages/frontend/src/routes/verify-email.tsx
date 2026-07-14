@@ -6,6 +6,7 @@ import { createEffect, createMemo, createSignal, Show } from "solid-js";
 import { useT } from "../i18n/useT";
 import type { ApiError } from "~/api/base";
 import { useAuth } from "~/hooks/useAuth";
+import { Alert } from "~/ui";
 
 /**
  * 注册邮箱验证页：用户从邮件点过来，URL 带 token。
@@ -47,13 +48,13 @@ export default function VerifyEmailPage() {
       <Meta property="og:type" content="website" />
       <h1 class="text-2xl mb-4">{t("Verify your email address")}</h1>
 
-      <Show when={token()} fallback={<div class="alert alert-error">{t("Missing token in link.")}</div>}>
+      <Show when={token()} fallback={<Alert variant="error">{t("Missing token in link.")}</Alert>}>
         <Show when={mutation.isPending}>
           <div>{t("Verifying...")}</div>
         </Show>
         <Show when={mutation.isSuccess}>
           <div class="space-y-3">
-            <div class="alert alert-success">{mutation.data?.message ?? t("Email verified successfully")}</div>
+            <Alert variant="success">{mutation.data?.message ?? t("Email verified successfully")}</Alert>
             <p class="text-sm opacity-70">{t("Redirecting to login page...")}</p>
             <A href="/login" class="link">
               {t("Login now")}
@@ -62,7 +63,7 @@ export default function VerifyEmailPage() {
         </Show>
         <Show when={mutation.isError}>
           <div class="space-y-3">
-            <div class="alert alert-error">{mutation.error?.message ?? t("Verification failed")}</div>
+            <Alert variant="error">{mutation.error?.message ?? t("Verification failed")}</Alert>
             <A href="/login" class="link">
               {t("Back to login")}
             </A>

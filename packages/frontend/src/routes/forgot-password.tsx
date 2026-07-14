@@ -6,6 +6,7 @@ import { createSignal, Show } from "solid-js";
 import { useT } from "../i18n/useT";
 import { forgotPasswordApi } from "~/api/accountApi";
 import type { ApiError } from "~/api/base";
+import { Button, Input, Alert } from "~/ui";
 
 export default function ForgotPasswordPage() {
   const nav = useNavigate();
@@ -38,33 +39,33 @@ export default function ForgotPasswordPage() {
         when={!mutation.isSuccess}
         fallback={
           <div class="space-y-4">
-            <div class="alert alert-success">{mutation.data?.message ?? t("Reset link sent")}</div>
+            <Alert variant="success">{mutation.data?.message ?? t("Reset link sent")}</Alert>
             <p class="text-sm opacity-70">
               {t(
                 "Check your email (including spam) and click the link to set a new password. The link expires in 10 minutes.",
               )}
             </p>
             <div class="flex gap-2">
-              <button type="button" class="btn btn-ghost btn-sm" onClick={() => nav("/login")}>
+              <Button size="sm" variant="ghost" onClick={() => nav("/login")}>
                 {t("Back to login")}
-              </button>
+              </Button>
             </div>
           </div>
         }
       >
         <form class="flex flex-col gap-2" onSubmit={submit}>
           <p class="text-sm opacity-70">{t("Enter the email you registered with and we'll send a reset link.")}</p>
-          <input
+          <Input
             type="email"
-            class="input input-bordered"
+            bordered
             placeholder={t("Email")}
             value={email()}
             onInput={(e) => setEmail((e.target as HTMLInputElement).value)}
             required
           />
-          <button class="btn btn-primary" type="submit" disabled={mutation.isPending}>
+          <Button variant="primary" type="submit" disabled={mutation.isPending}>
             {mutation.isPending ? t("Sending...") : t("Send reset link")}
-          </button>
+          </Button>
           <Show when={mutation.isError}>
             <p class="text-error text-sm">{mutation.error?.message ?? t("Sending failed")}</p>
           </Show>

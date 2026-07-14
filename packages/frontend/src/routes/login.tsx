@@ -3,6 +3,7 @@ import { A, useNavigate } from "@solidjs/router";
 import { createSignal, Show } from "solid-js";
 import { useT } from "../i18n/useT";
 import { useAuth } from "~/hooks/useAuth";
+import { Button, Input, Alert } from "~/ui";
 
 type Tab = "login" | "register";
 
@@ -104,28 +105,28 @@ export default function LoginPage() {
 
       <Show when={tab() === "login"}>
         <form onSubmit={handleLogin} class="flex flex-col gap-2">
-          <input
+          <Input
             data-testid="login-username"
             placeholder={t("Username or email")}
             value={loginUsername()}
             onInput={(e) => setLoginUsername(e.currentTarget.value)}
-            class="input input-bordered"
+            bordered
             autocomplete="username"
             required
           />
-          <input
+          <Input
             data-testid="login-password"
             type="password"
             placeholder={t("Password")}
             value={loginPassword()}
             onInput={(e) => setLoginPassword(e.currentTarget.value)}
-            class="input input-bordered"
+            bordered
             autocomplete="current-password"
             required
           />
-          <button data-testid="login-submit" type="submit" class="btn btn-primary" disabled={loginLoading()}>
+          <Button data-testid="login-submit" type="submit" variant="primary" disabled={loginLoading()}>
             {loginLoading() ? t("Logging in...") : t("Login")}
-          </button>
+          </Button>
         </form>
         <p class="mt-2 text-red-500">{loginError()}</p>
         <p class="mt-2 text-sm">
@@ -147,56 +148,53 @@ export default function LoginPage() {
             when={!regSent()}
             fallback={
               <div class="space-y-3">
-                <div class="alert alert-success">
-                  {regMessage() || t("Verification link sent, please check your email")}
-                </div>
+                <Alert variant="success">{regMessage() || t("Verification link sent, please check your email")}</Alert>
                 <p class="text-sm opacity-70">
                   {t(
                     "Check your email (including spam) and click the link to activate your account. The link expires in 10 minutes.",
                   )}
                 </p>
                 <div class="flex gap-2">
-                  <button type="button" class="btn btn-ghost btn-sm" onClick={() => switchTo("login")}>
+                  <Button size="sm" variant="ghost" onClick={() => switchTo("login")}>
                     {t("Back to login")}
-                  </button>
-                  <button
-                    type="button"
-                    class="btn btn-sm"
+                  </Button>
+                  <Button
+                    size="sm"
                     onClick={() => {
                       setRegSent(false);
                       setRegMessage("");
                     }}
                   >
                     {t("Re-enter registration info")}
-                  </button>
+                  </Button>
                 </div>
               </div>
             }
           >
             <form onSubmit={handleRegister} class="flex flex-col gap-2">
-              <input
+              <Input
                 placeholder={t("Username")}
                 value={regUsername()}
                 onInput={(e) => setRegUsername(e.currentTarget.value)}
-                class="input input-bordered"
+                bordered
                 autocomplete="username"
                 required
               />
-              <input
+              <Input
                 placeholder={t("Email")}
                 value={regEmail()}
                 onInput={(e) => setRegEmail(e.currentTarget.value)}
-                class="input input-bordered"
+                bordered
                 type="email"
                 autocomplete="email"
                 required
               />
-              <input
+              <Input
                 type="password"
                 placeholder={t("Password")}
                 value={regPassword()}
                 onInput={(e) => setRegPassword(e.currentTarget.value)}
-                class="input input-bordered"
+                bordered
                 autocomplete="new-password"
                 required
               />
@@ -214,9 +212,9 @@ export default function LoginPage() {
                   </A>
                 </span>
               </label>
-              <button type="submit" class="btn btn-primary" disabled={regLoading() || !regAcceptedTerms()}>
+              <Button type="submit" variant="primary" disabled={regLoading() || !regAcceptedTerms()}>
                 {regLoading() ? t("Submitting...") : t("Register")}
-              </button>
+              </Button>
               <Show when={regMessage()}>
                 <p class="mt-2 text-sm text-error">{regMessage()}</p>
               </Show>

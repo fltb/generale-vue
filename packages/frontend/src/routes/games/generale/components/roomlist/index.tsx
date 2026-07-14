@@ -6,7 +6,7 @@ import { getGameInfoApi } from "~/routes/games/generale/api/gameApi";
 import { useGameListQuery } from "~/hooks/useGameListQuery";
 import { useLobbyRealtime } from "~/hooks/useLobbyRealtime";
 import { useT } from "~/i18n/useT";
-import { Alert, Badge, Button, Card, Modal, Spinner } from "~/ui";
+import { Alert, Badge, Button, Card, CardBody, CardTitle, CardActions, Modal, Spinner } from "~/ui";
 import CreateRoomModal from "./CreateRoomModal";
 import RoomFilter from "./RoomFilter";
 
@@ -117,13 +117,13 @@ export function RoomList() {
                 const status = g.status ?? "lobby";
                 return (
                   <Card class="bg-base-100 shadow-md">
-                    <div class="card-body">
+                    <CardBody>
                       <div class="flex items-start justify-between">
                         <div>
-                          <h3 class="card-title">
+                          <CardTitle>
                             {g.roomName ?? g.id}
                             <span class="text-sm ml-2 text-muted">({g.id})</span>
-                          </h3>
+                          </CardTitle>
 
                           <p class="text-sm text-muted">
                             <span class="mr-3">
@@ -172,7 +172,7 @@ export function RoomList() {
                         </div>
                       </div>
 
-                      <div class="card-actions justify-end mt-3">
+                      <CardActions class="justify-end mt-3">
                         <Button variant="ghost" size="sm" onClick={() => openDetails(g.id)}>
                           {t("Details")}
                         </Button>
@@ -185,8 +185,8 @@ export function RoomList() {
                         >
                           {t("Join")}
                         </Button>
-                      </div>
-                    </div>
+                      </CardActions>
+                    </CardBody>
                   </Card>
                 );
               }}
@@ -257,7 +257,7 @@ export function RoomList() {
                             <li class="text-sm flex items-center gap-2">
                               <span class="font-medium">{p.name}</span>
                               <Show when={p.isHost}>
-                                <Badge variant="neutral" class="badge-xs">
+                                <Badge variant="neutral" size="xs">
                                   {t("Host")}
                                 </Badge>
                               </Show>

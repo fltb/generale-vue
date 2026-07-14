@@ -9,7 +9,7 @@ import { A } from "@solidjs/router";
 import { type Component, createMemo, createSignal, For, Show } from "solid-js";
 import Avatar from "~/components/Avatar";
 import { useT } from "~/i18n/useT";
-import { alertDialog, Badge, Button, confirmDialog } from "~/ui";
+import { alertDialog, Badge, Button, confirmDialog, Input, Select } from "~/ui";
 import { playerColorCss } from "~/utils/playerColor";
 import { resolveDisplayNames } from "~/utils/playerDisplay";
 
@@ -235,8 +235,10 @@ const PlayerCard: Component<{
 
             {/* host 快速移队：下拉列出所有队伍。ffa 时不渲染 */}
             <Show when={props.onChangeTeam && !props.hideTeamPicker}>
-              <select
-                class="select select-xs select-bordered mt-1"
+              <Select
+                size="xs"
+                bordered
+                class="mt-1"
                 value={p().teamId ?? ""}
                 onChange={(e) => props.onChangeTeam?.(p().id, e.currentTarget.value)}
                 aria-label={t("Move to team")}
@@ -244,7 +246,7 @@ const PlayerCard: Component<{
               >
                 <option value="">{t("Ungrouped")}</option>
                 <For each={props.teams ?? []}>{(t) => <option value={t.id}>{t.name ?? t.id}</option>}</For>
-              </select>
+              </Select>
             </Show>
           </div>
         </Show>
@@ -331,8 +333,9 @@ const TeamGroup: Component<{
 
         <div class="flex items-center gap-2">
           <Show when={editing()}>
-            <input
-              class="input input-sm input-bordered"
+            <Input
+              size="sm"
+              bordered
               value={editName()}
               onInput={(e) => setEditName((e.target as HTMLInputElement).value)}
             />
@@ -438,8 +441,9 @@ export const PlayerList: Component<PlayerListProps> = (props) => {
     <div data-testid="player-list" class="space-y-5">
       <Show when={!isFfa() && props.selfId === props.hostId}>
         <div class="flex gap-2 items-center mb-2">
-          <input
-            class="input input-sm input-bordered"
+          <Input
+            size="sm"
+            bordered
             placeholder={t("New team name")}
             value={newTeamName()}
             onInput={(e) => setNewTeamName((e.target as HTMLInputElement).value)}

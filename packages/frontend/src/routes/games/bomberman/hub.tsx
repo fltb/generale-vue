@@ -310,7 +310,7 @@ export function BombermanHub() {
                   <Badge variant="outline">
                     {room.playerCount}/{room.maxPlayers}
                   </Badge>
-                  <Badge variant={room.phase === "playing" ? "warning" : "success"} class="badge-sm">
+                  <Badge variant={room.phase === "playing" ? "warning" : "success"} size="sm">
                     {room.phase === "playing" ? t("bomberman.playing") : t("bomberman.lobby")}
                   </Badge>
                   <Button

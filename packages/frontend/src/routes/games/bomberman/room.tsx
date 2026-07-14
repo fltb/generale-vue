@@ -272,7 +272,7 @@ export function BombermanRoom() {
                     {p.ready ? t("bomberman.ready") : t("bomberman.notReady")}
                   </div>
                 </div>
-                <Badge variant={p.ready ? "success" : "neutral"} class={`badge-sm${!p.ready ? " badge-ghost" : ""}`}>
+                <Badge variant={p.ready ? "success" : "neutral"} size="sm" ghost={!p.ready}>
                   {p.ready ? t("bomberman.ready") : t("bomberman.wait")}
                 </Badge>
                 {isHost() && p.id !== playerId() && (
@@ -293,7 +293,7 @@ export function BombermanRoom() {
 
           <div class="flex gap-2 items-center">
             {selfPlayer()?.isHost ? (
-              <Badge variant="success" class="badge-lg">
+              <Badge variant="success" size="lg">
                 {t("bomberman.hostReady")}
               </Badge>
             ) : selfPlayer()?.ready ? (

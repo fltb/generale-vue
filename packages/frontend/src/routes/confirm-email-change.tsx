@@ -7,6 +7,7 @@ import { useT } from "../i18n/useT";
 import { confirmEmailChangeApi } from "~/api/accountApi";
 import type { ApiError } from "~/api/base";
 import { useAuth } from "~/hooks/useAuth";
+import { Alert } from "~/ui";
 
 /**
  * 邮箱变更确认页：用户从邮件点过来，URL 带 token。
@@ -55,13 +56,13 @@ export default function ConfirmEmailChangePage() {
       <Meta property="og:type" content="website" />
       <h1 class="text-2xl mb-4">{t("Confirm Email Change")}</h1>
 
-      <Show when={token()} fallback={<div class="alert alert-error">{t("Missing token in link.")}</div>}>
+      <Show when={token()} fallback={<Alert variant="error">{t("Missing token in link.")}</Alert>}>
         <Show when={mutation.isPending}>
           <div>{t("Confirming...")}</div>
         </Show>
         <Show when={mutation.isSuccess}>
           <div class="space-y-3">
-            <div class="alert alert-success">{mutation.data?.message ?? t("Email updated")}</div>
+            <Alert variant="success">{mutation.data?.message ?? t("Email updated")}</Alert>
             <p class="text-sm opacity-70">{t("Redirecting to profile page...")}</p>
             <A href="/profile" class="link">
               {t("Go to profile")}
@@ -70,7 +71,7 @@ export default function ConfirmEmailChangePage() {
         </Show>
         <Show when={mutation.isError}>
           <div class="space-y-3">
-            <div class="alert alert-error">{mutation.error?.message ?? t("Confirmation failed")}</div>
+            <Alert variant="error">{mutation.error?.message ?? t("Confirmation failed")}</Alert>
             <A href="/profile" class="link">
               {t("Back to profile")}
             </A>

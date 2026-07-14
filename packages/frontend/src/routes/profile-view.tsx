@@ -1,6 +1,6 @@
 import type { ErrorResp, ProfileRespBody } from "@generale/types/dist/api";
 import { Title, Meta } from "@solidjs/meta";
-import { A, useNavigate, useParams } from "@solidjs/router";
+import { useNavigate, useParams } from "@solidjs/router";
 import { useQuery } from "@tanstack/solid-query";
 import { createMemo, Show } from "solid-js";
 import { useT } from "../i18n/useT";
@@ -8,6 +8,7 @@ import { ApiError } from "~/api/base";
 import { getProfileApi } from "~/api/profileApi";
 import Avatar from "~/components/Avatar";
 import { useAuth } from "~/hooks/useAuth";
+import { Button, Alert, Card } from "~/ui";
 
 /**
  * 公开 profile 查看页：`/profile/:userId`
@@ -50,9 +51,9 @@ export default function PublicProfilePage() {
       <Meta property="og:description" content={t("View player profile.")} />
       <Meta property="og:image" content="/og-image.svg" />
       <Meta property="og:type" content="website" />
-      <button type="button" class="btn btn-sm btn-ghost" onClick={() => nav(-1)}>
+      <Button size="sm" variant="ghost" onClick={() => nav(-1)}>
         {t("← Back")}
-      </button>
+      </Button>
 
       <Show when={!query.isLoading} fallback={<div class="p-4 opacity-70">{t("Loading...")}</div>}>
         <Show
@@ -60,10 +61,10 @@ export default function PublicProfilePage() {
           fallback={
             <Show
               when={notFound()}
-              fallback={<div class="alert alert-error">{query.error?.message ?? t("Failed to load profile")}</div>}
+              fallback={<Alert variant="error">{query.error?.message ?? t("Failed to load profile")}</Alert>}
             >
               {/* 404 专用 UI：明确说找不到，并显示用户输入的标识符方便检查拼写 */}
-              <div class="card bg-base-200 p-8 flex flex-col items-center text-center space-y-3">
+              <Card class="bg-base-200 p-8 flex flex-col items-center text-center space-y-3">
                 <div class="text-5xl">🤷</div>
                 <h1 class="text-2xl font-bold">{t("User not found")}</h1>
                 <p class="opacity-70">
@@ -71,28 +72,28 @@ export default function PublicProfilePage() {
                   <span class="font-mono bg-base-300 px-2 py-0.5 rounded">{params.userId}</span>
                 </p>
                 <p class="text-sm opacity-60">{t("Check the username or ID for typos.")}</p>
-                <A href="/" class="btn btn-primary btn-sm">
+                <Button variant="primary" size="sm" onClick={() => nav("/")}>
                   {t("Back to Home")}
-                </A>
-              </div>
+                </Button>
+              </Card>
             </Show>
           }
         >
-          <section class="card bg-base-200 p-6 flex flex-col items-center text-center space-y-3">
+          <Card class="bg-base-200 p-6 flex flex-col items-center text-center space-y-3">
             <Avatar src={data()?.avatarUrl ?? "/api/avatars/default/original.webp"} size={128} alt={displayName()} />
             <h1 class="text-2xl font-bold">{displayName()}</h1>
             <Show when={data()?.bio}>
               <p class="opacity-80 whitespace-pre-wrap">{data()?.bio}</p>
             </Show>
-          </section>
+          </Card>
 
           <Show when={isSelf()}>
-            <div class="alert alert-info">
+            <Alert variant="info">
               <span>{t("This is your public profile — want to edit your display name / avatar / bio?")}</span>
-              <A href="/profile" class="btn btn-sm btn-primary">
+              <Button size="sm" variant="primary" onClick={() => nav("/profile")}>
                 {t("Go to edit")}
-              </A>
-            </div>
+              </Button>
+            </Alert>
           </Show>
         </Show>
       </Show>

@@ -8,7 +8,16 @@
 export { Alert, type AlertProps, type AlertVariant } from "./Alert";
 export { Badge, type BadgeProps, type BadgeVariant } from "./Badge";
 export { Button, type ButtonProps, type ButtonSize, type ButtonVariant } from "./Button";
-export { Card, type CardProps } from "./Card";
+export {
+  Card,
+  CardBody,
+  type CardBodyProps,
+  CardTitle,
+  type CardTitleProps,
+  CardActions,
+  type CardActionsProps,
+  type CardProps,
+} from "./Card";
 export { Checkbox, type CheckboxProps } from "./Checkbox";
 export { Collapse, CollapseContent, type CollapseProps, CollapseTitle } from "./Collapse";
 export { Confetti, type ConfettiProps } from "./Confetti";

@@ -20,6 +20,7 @@ import Avatar from "~/components/Avatar";
 import { ProtectedRoute } from "~/components/ProtectedRoute";
 import { useAuth } from "~/hooks/useAuth";
 import { useGlobalSettings } from "~/hooks/useGlobalSettings";
+import { Button, Input, Select, Textarea, Card } from "~/ui";
 
 const ACCEPTED_MIME = "image/png,image/jpeg,image/webp";
 
@@ -223,7 +224,7 @@ export default function ProfilePage() {
             <h1 class="text-2xl font-bold">{t("Profile")}</h1>
 
             {/* ---------- Avatar ---------- */}
-            <section class="card bg-base-200 p-4 space-y-3">
+            <Card class="bg-base-200 p-4 space-y-3">
               <h2 class="text-lg font-semibold">{t("Avatar")}</h2>
               <div class="flex items-center gap-4">
                 <Avatar src={currentAvatarSrc() ?? ""} alt={auth.user?.displayName || auth.user?.username} size={96} />
@@ -236,18 +237,18 @@ export default function ProfilePage() {
                   />
                   <div class="text-xs opacity-60">{t("Supports PNG/JPG/WebP, max 2 MB")}</div>
                   <div class="flex gap-2">
-                    <button
-                      type="button"
-                      class="btn btn-sm btn-primary"
+                    <Button
+                      size="sm"
+                      variant="primary"
                       disabled={!pendingFile() || uploadMutation.isPending}
                       onClick={submitAvatar}
                     >
                       {uploadMutation.isPending ? t("Uploading...") : t("Upload new avatar")}
-                    </button>
+                    </Button>
                     <Show when={pendingFile()}>
-                      <button
-                        type="button"
-                        class="btn btn-sm btn-ghost"
+                      <Button
+                        size="sm"
+                        variant="ghost"
                         onClick={() => {
                           const p = pendingPreviewUrl();
                           if (p) URL.revokeObjectURL(p);
@@ -256,7 +257,7 @@ export default function ProfilePage() {
                         }}
                       >
                         {t("Cancel")}
-                      </button>
+                      </Button>
                     </Show>
                   </div>
                   <Show when={uploadMutation.isError}>
@@ -264,26 +265,28 @@ export default function ProfilePage() {
                   </Show>
                 </div>
               </div>
-            </section>
+            </Card>
 
             {/* ---------- Settings ---------- */}
-            <section class="card bg-base-200 p-4 space-y-3">
+            <Card class="bg-base-200 p-4 space-y-3">
               <h2 class="text-lg font-semibold">{t("Settings")}</h2>
               <label class="flex items-center gap-3">
                 <span class="label-text w-20">{t("Language")}</span>
-                <select
-                  class="select select-bordered select-sm flex-1"
+                <Select
+                  size="sm"
+                  bordered
+                  class="flex-1"
                   value={settings().locale}
                   onChange={(e) => handleLanguageChange(e.currentTarget.value)}
                 >
                   <option value="en">English</option>
                   <option value="zh-CN">简体中文</option>
-                </select>
+                </Select>
               </label>
-            </section>
+            </Card>
 
             {/* ---------- Account Info + Change Username ---------- */}
-            <section class="card bg-base-200 p-4 space-y-3">
+            <Card class="bg-base-200 p-4 space-y-3">
               <h2 class="text-lg font-semibold">{t("Account")}</h2>
 
               <div class="flex items-end gap-3 flex-wrap">
@@ -300,8 +303,9 @@ export default function ProfilePage() {
                       </span>
                     </Show>
                   </span>
-                  <input
-                    class="input input-bordered w-full"
+                  <Input
+                    bordered
+                    class="w-full"
                     maxLength={50}
                     placeholder={auth.user?.username}
                     value={unInput()}
@@ -314,14 +318,15 @@ export default function ProfilePage() {
                     </span>
                   </Show>
                 </label>
-                <button
-                  type="button"
-                  class="btn btn-sm btn-primary shrink-0"
+                <Button
+                  size="sm"
+                  variant="primary"
+                  class="shrink-0"
                   disabled={!usernameCanChange().can || unMutation.isPending || !unInput().trim()}
                   onClick={submitUsername}
                 >
                   {unMutation.isPending ? t("Submitting...") : t("Change")}
-                </button>
+                </Button>
               </div>
               <Show when={unMutation.isSuccess}>
                 <span class="text-success text-sm">{t("Username changed")}</span>
@@ -337,16 +342,17 @@ export default function ProfilePage() {
                 <span class="opacity-60 mr-2">{t("Email")}</span>
                 <span>{auth.user?.email}</span>
               </p>
-            </section>
+            </Card>
 
             {/* ---------- Editable Info ---------- */}
-            <section class="card bg-base-200 p-4 space-y-3">
+            <Card class="bg-base-200 p-4 space-y-3">
               <h2 class="text-lg font-semibold">{t("Profile")}</h2>
 
               <label class="block">
                 <span class="label-text">{t("Display Name")}</span>
-                <input
-                  class="input input-bordered w-full"
+                <Input
+                  bordered
+                  class="w-full"
                   maxLength={50}
                   placeholder={t("Leave empty to show username")}
                   value={effectiveDisplayName()}
@@ -356,8 +362,9 @@ export default function ProfilePage() {
 
               <label class="block">
                 <span class="label-text">{t("Bio")}</span>
-                <textarea
-                  class="textarea textarea-bordered w-full"
+                <Textarea
+                  bordered
+                  class="w-full"
                   maxLength={500}
                   rows={3}
                   value={effectiveBio()}
@@ -367,14 +374,9 @@ export default function ProfilePage() {
               </label>
 
               <div class="flex gap-2 items-center">
-                <button
-                  type="button"
-                  class="btn btn-primary"
-                  disabled={patchMutation.isPending}
-                  onClick={submitProfile}
-                >
+                <Button variant="primary" disabled={patchMutation.isPending} onClick={submitProfile}>
                   {patchMutation.isPending ? t("Saving...") : t("Save Changes")}
-                </button>
+                </Button>
                 <Show when={patchMutation.isSuccess}>
                   <span class="text-success text-sm">{t("Saved")}</span>
                 </Show>
@@ -382,10 +384,10 @@ export default function ProfilePage() {
                   <span class="text-error text-sm">{patchMutation.error?.message ?? t("Save failed")}</span>
                 </Show>
               </div>
-            </section>
+            </Card>
 
             {/* ---------- Change Password ---------- */}
-            <section class="card bg-base-200 p-4 space-y-3">
+            <Card class="bg-base-200 p-4 space-y-3">
               <h2 class="text-lg font-semibold">{t("Change Password")}</h2>
               {/* Hidden username input: helps password managers associate the new password */}
               <input
@@ -396,34 +398,37 @@ export default function ProfilePage() {
                 tabIndex={-1}
                 value={auth.user?.username ?? auth.user?.email ?? ""}
               />
-              <input
+              <Input
                 type="password"
-                class="input input-bordered w-full"
+                bordered
+                class="w-full"
                 placeholder={t("Current password")}
                 value={pwCurrent()}
                 onInput={(e) => setPwCurrent((e.target as HTMLInputElement).value)}
                 autocomplete="current-password"
               />
-              <input
+              <Input
                 type="password"
-                class="input input-bordered w-full"
+                bordered
+                class="w-full"
                 placeholder={t("New password (min 8 characters)")}
                 value={pwNew()}
                 onInput={(e) => setPwNew((e.target as HTMLInputElement).value)}
                 autocomplete="new-password"
               />
-              <input
+              <Input
                 type="password"
-                class="input input-bordered w-full"
+                bordered
+                class="w-full"
                 placeholder={t("Confirm new password")}
                 value={pwConfirm()}
                 onInput={(e) => setPwConfirm((e.target as HTMLInputElement).value)}
                 autocomplete="new-password"
               />
               <div class="flex gap-2 items-center">
-                <button type="button" class="btn btn-primary" disabled={pwMutation.isPending} onClick={submitPassword}>
+                <Button variant="primary" disabled={pwMutation.isPending} onClick={submitPassword}>
                   {pwMutation.isPending ? t("Submitting...") : t("Update Password")}
-                </button>
+                </Button>
                 <Show when={pwMutation.isSuccess}>
                   <span class="text-success text-sm">{pwMutation.data?.message ?? t("Password updated")}</span>
                 </Show>
@@ -434,33 +439,35 @@ export default function ProfilePage() {
                   <span class="text-error text-sm">{pwMutation.error?.message ?? t("Update failed")}</span>
                 </Show>
               </div>
-            </section>
+            </Card>
 
             {/* ---------- Change Email ---------- */}
-            <section class="card bg-base-200 p-4 space-y-3">
+            <Card class="bg-base-200 p-4 space-y-3">
               <h2 class="text-lg font-semibold">{t("Change Email")}</h2>
               <p class="text-sm opacity-70">
                 {t("A confirmation link will be sent to your new email. The old email will also be notified.")}
               </p>
-              <input
+              <Input
                 type="email"
-                class="input input-bordered w-full"
+                bordered
+                class="w-full"
                 placeholder={t("New email")}
                 value={emNew()}
                 onInput={(e) => setEmNew((e.target as HTMLInputElement).value)}
               />
-              <input
+              <Input
                 type="password"
-                class="input input-bordered w-full"
+                bordered
+                class="w-full"
                 placeholder={t("Current password (verify identity)")}
                 value={emCurrent()}
                 onInput={(e) => setEmCurrent((e.target as HTMLInputElement).value)}
                 autocomplete="current-password"
               />
               <div class="flex gap-2 items-center">
-                <button type="button" class="btn btn-primary" disabled={emMutation.isPending} onClick={submitEmail}>
+                <Button variant="primary" disabled={emMutation.isPending} onClick={submitEmail}>
                   {emMutation.isPending ? t("Sending...") : t("Send confirmation email")}
-                </button>
+                </Button>
                 <Show when={emMutation.isSuccess}>
                   <span class="text-success text-sm">{emMutation.data?.message ?? t("Confirmation email sent")}</span>
                 </Show>
@@ -468,13 +475,13 @@ export default function ProfilePage() {
                   <span class="text-error text-sm">{emMutation.error?.message ?? t("Sending failed")}</span>
                 </Show>
               </div>
-            </section>
+            </Card>
 
             {/* ---------- Logout ---------- */}
             <div class="flex justify-end">
-              <button type="button" class="btn btn-outline" onClick={auth.logout}>
+              <Button outline onClick={auth.logout}>
                 {t("Logout")}
-              </button>
+              </Button>
             </div>
           </div>
         </Show>

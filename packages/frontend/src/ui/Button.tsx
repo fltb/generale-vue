@@ -27,6 +27,7 @@ export interface ButtonProps extends JSX.ButtonHTMLAttributes<HTMLButtonElement>
   active?: boolean;
   outline?: boolean;
   circle?: boolean;
+  square?: boolean;
   block?: boolean;
   /** 设为 true 关闭点击音效（默认开） */
   silent?: boolean;
@@ -58,6 +59,7 @@ export const Button: Component<ButtonProps> = (props) => {
     "active",
     "outline",
     "circle",
+    "square",
     "block",
     "class",
     "silent",
@@ -72,6 +74,7 @@ export const Button: Component<ButtonProps> = (props) => {
       local.active ? "btn-active" : "",
       local.outline ? "btn-outline" : "",
       local.circle ? "btn-circle" : "",
+      local.square ? "btn-square" : "",
       local.block ? "btn-block" : "",
       local.class ?? "",
     ]

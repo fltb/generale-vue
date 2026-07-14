@@ -128,7 +128,7 @@ export const GameWithSync: Component<GameWithSyncProps> = (props) => {
             when={!props.spectate}
             fallback={
               <>
-                <Badge variant="info" class="badge-xs" data-testid="spectator-badge">
+                <Badge variant="info" size="xs" data-testid="spectator-badge">
                   {t("Spectating")}
                 </Badge>
                 <Button size="xs" variant="ghost" onClick={() => props.onLeaveSpectate?.()}>
