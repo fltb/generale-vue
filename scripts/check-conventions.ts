@@ -107,12 +107,13 @@ function readLines(file: string): string[] {
 
 // 4. DaisyUI outside ~/ui (warning only)
 {
-  const daisyRe = /\b(?:btn|badge|card|modal|alert|select|input|table|tooltip|menu|navbar|divider|collapse|dropdown|toggle|textarea|kbd)\b(?:-|$)/;
+  // Only match actual DaisyUI component patterns (word-modifier), not Tailwind utilities
+  const daisyRe = /\b(?:btn|badge|card|modal|alert|select|input|table|tooltip|menu|navbar|divider|collapse|dropdown|toggle|textarea|kbd)-(?:primary|secondary|accent|info|success|warning|error|ghost|outline|sm|md|lg|xs|xl|bordered|circle|square|block|wide|link|glass|neutral|dash|soft|active|body|title|actions)/;
   let bomb = 0;
   let other = 0;
   for (const f of walkFiles(join(ROOT, "packages/frontend/src/routes"), ".tsx")) {
     for (const line of readLines(f)) {
-      if (/class="[^"]*"/.test(line) && daisyRe.test(line)) {
+      if (daisyRe.test(line)) {
         if (f.includes("/bomberman/")) bomb++;
         else other++;
       }
