@@ -4,11 +4,7 @@ export interface GlobalSettings {
   soundMuted: boolean;
 }
 
-export const GLOBAL_SETTINGS_KEYS: readonly (keyof GlobalSettings)[] = [
-  "locale",
-  "theme",
-  "soundMuted",
-] as const;
+export const GLOBAL_SETTINGS_KEYS: readonly (keyof GlobalSettings)[] = ["locale", "theme", "soundMuted"] as const;
 
 export const GLOBAL_SETTINGS_DEFAULTS: GlobalSettings = {
   locale: "en",
@@ -17,10 +13,7 @@ export const GLOBAL_SETTINGS_DEFAULTS: GlobalSettings = {
 };
 
 /** DB stores everything as text. This maps typed value to string. */
-export function serializeGlobalSetting<K extends keyof GlobalSettings>(
-  key: K,
-  value: GlobalSettings[K],
-): string {
+export function serializeGlobalSetting<K extends keyof GlobalSettings>(key: K, value: GlobalSettings[K]): string {
   if (key === "soundMuted") return value ? "1" : "0";
   return String(value);
 }

@@ -100,7 +100,9 @@ export function BombermanGame(props: BombermanGameProps) {
       setConnectionOk(now - lastTick < 1500);
     }, 500);
   });
-  onCleanup(() => { if (monitorTimer) clearInterval(monitorTimer); });
+  onCleanup(() => {
+    if (monitorTimer) clearInterval(monitorTimer);
+  });
 
   createMemo(() => {
     const s = state();
@@ -116,7 +118,7 @@ export function BombermanGame(props: BombermanGameProps) {
   });
 
   const players = createMemo(() => Object.values(state().players ?? {}));
-  const myPlayer = createMemo(() => props.playerId ? state().players?.[props.playerId] : null);
+  const myPlayer = createMemo(() => (props.playerId ? state().players?.[props.playerId] : null));
   const myStats = createMemo(() => {
     const p = myPlayer();
     if (!p) return undefined;
@@ -126,9 +128,7 @@ export function BombermanGame(props: BombermanGameProps) {
 
   return (
     <div class="relative w-full h-screen overflow-hidden bg-gray-900">
-      {!countdownDone() && (
-        <Countdown from={3} onDone={() => setCountdownDone(true)} />
-      )}
+      {!countdownDone() && <Countdown from={3} onDone={() => setCountdownDone(true)} />}
       <div class="absolute inset-0">
         <Application resizeTo={window}>
           <MapLayer tiles={state().map?.tiles ?? []} />
@@ -157,21 +157,33 @@ export function BombermanGame(props: BombermanGameProps) {
 
       {(() => {
         const kb = gameSettings().keybindings;
-        return showControls() && (
-          <div class="fixed bottom-20 left-1/2 -translate-x-1/2 bg-black/80 text-white px-6 py-4 rounded-lg z-40 text-sm text-center pointer-events-none transition-opacity duration-500">
-            <div class="font-bold mb-2">Controls</div>
-            <div class="grid grid-cols-2 gap-x-6 gap-y-1">
-              <span class="text-left">Move</span><span class="text-right font-mono">{formatKey(kb.up)}/{formatKey(kb.down)}/{formatKey(kb.left)}/{formatKey(kb.right)}</span>
-              <span class="text-left">Place Bomb</span><span class="text-right font-mono">{formatKey(kb.placeBomb)}</span>
-              <span class="text-left">Action</span><span class="text-right font-mono">{formatKey(kb.action)}</span>
-              <span class="text-left">Detonate</span><span class="text-right font-mono">{formatKey(kb.detonate)}</span>
+        return (
+          showControls() && (
+            <div class="fixed bottom-20 left-1/2 -translate-x-1/2 bg-black/80 text-white px-6 py-4 rounded-lg z-40 text-sm text-center pointer-events-none transition-opacity duration-500">
+              <div class="font-bold mb-2">Controls</div>
+              <div class="grid grid-cols-2 gap-x-6 gap-y-1">
+                <span class="text-left">Move</span>
+                <span class="text-right font-mono">
+                  {formatKey(kb.up)}/{formatKey(kb.down)}/{formatKey(kb.left)}/{formatKey(kb.right)}
+                </span>
+                <span class="text-left">Place Bomb</span>
+                <span class="text-right font-mono">{formatKey(kb.placeBomb)}</span>
+                <span class="text-left">Action</span>
+                <span class="text-right font-mono">{formatKey(kb.action)}</span>
+                <span class="text-left">Detonate</span>
+                <span class="text-right font-mono">{formatKey(kb.detonate)}</span>
+              </div>
             </div>
-          </div>
+          )
         );
       })()}
       {showVirtualControls() && <VirtualControls onAction={props.onAction} />}
       {props.playerId && state().players[props.playerId]?.alive && (
-        <button type="button" class="fixed top-4 right-4 z-30 btn btn-sm btn-outline btn-error" onClick={() => props.onAction({ type: "SURRENDER" } as BombermanOperation)}>
+        <button
+          type="button"
+          class="fixed top-4 right-4 z-30 btn btn-sm btn-outline btn-error"
+          onClick={() => props.onAction({ type: "SURRENDER" } as BombermanOperation)}
+        >
           Surrender
         </button>
       )}

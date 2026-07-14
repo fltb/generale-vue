@@ -131,7 +131,11 @@ export enum BombermanPreGameServerEventType {
 export type BombermanPreGameServerEvent =
   | { type: BombermanPreGameServerEventType.KICKED; reason?: string }
   | { type: BombermanPreGameServerEventType.GAME_STARTED; startedAt: number }
-  | { type: BombermanPreGameServerEventType.GAME_ENDED; rankings: { playerId: string; name: string; rank: number }[]; winnerId: string | null }
+  | {
+      type: BombermanPreGameServerEventType.GAME_ENDED;
+      rankings: { playerId: string; name: string; rank: number }[];
+      winnerId: string | null;
+    }
   | { type: BombermanPreGameServerEventType.ROOM_DISBANDED; reason?: string };
 
 export interface BombermanGameEndResult {

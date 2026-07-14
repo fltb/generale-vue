@@ -104,7 +104,12 @@ export class BombermanRoom {
     }
 
     const isHost = this.state.players.length === 0;
-    const player: BombermanRoomPlayer = { id: user.id, name: isHost ? (user.name || this.creatorName) : user.name, ready: false, isHost };
+    const player: BombermanRoomPlayer = {
+      id: user.id,
+      name: isHost ? user.name || this.creatorName : user.name,
+      ready: isHost,
+      isHost,
+    };
     this.state.players.push(player);
     this.connectors.set(user.id, connector);
     this.wireConnector(user.id, connector);
@@ -175,6 +180,7 @@ export class BombermanRoom {
     const next = this.state.players[0];
     if (!next) return;
     next.isHost = true;
+    next.ready = true;
     this.state.hostId = next.id;
     if (this.hostReclaimTimer) {
       clearTimeout(this.hostReclaimTimer);
@@ -198,10 +204,10 @@ export class BombermanRoom {
 
     switch (evt.type) {
       case "READY":
-        player.ready = true;
+        if (!player.isHost) player.ready = true;
         break;
       case "UNREADY":
-        player.ready = false;
+        if (!player.isHost) player.ready = false;
         break;
       case "CHANGE_CONFIG":
         if (!player.isHost) return;
@@ -217,7 +223,10 @@ export class BombermanRoom {
         {
           const targetConn = this.connectors.get(evt.targetId);
           if (targetConn) {
-            targetConn.send({ type: SyncedGameServerEventType.CUSTOM, payload: { type: BombermanPreGameServerEventType.KICKED, reason: "Kicked by host" } });
+            targetConn.send({
+              type: SyncedGameServerEventType.CUSTOM,
+              payload: { type: BombermanPreGameServerEventType.KICKED, reason: "Kicked by host" },
+            });
             targetConn.close();
           }
           this.removePlayer(evt.targetId);
@@ -226,12 +235,15 @@ export class BombermanRoom {
       case "START_GAME":
         if (!player.isHost) return;
         if (this.state.players.length < 2) return;
-        if (!this.state.players.every((p) => p.ready)) return;
+        if (!this.state.players.filter((p) => !p.isHost).every((p) => p.ready)) return;
         this.state.phase = "playing";
         this.version++;
         this.onGameStartCallback?.(this.state.players.map((p) => p.id));
         for (const [, c] of this.connectors) {
-          c.send({ type: SyncedGameServerEventType.CUSTOM, payload: { type: BombermanPreGameServerEventType.GAME_STARTED, startedAt: Date.now() } });
+          c.send({
+            type: SyncedGameServerEventType.CUSTOM,
+            payload: { type: BombermanPreGameServerEventType.GAME_STARTED, startedAt: Date.now() },
+          });
         }
         break;
     }
@@ -254,7 +266,7 @@ export class BombermanRoom {
   resumeGame(): void {
     this.state.phase = "lobby";
     for (const p of this.state.players) {
-      p.ready = false;
+      if (!p.isHost) p.ready = false;
     }
     this.version++;
     this.broadcastState();
@@ -273,12 +285,22 @@ export class BombermanRoom {
       (state, ver, op) =>
         conn.send({
           type: SyncedStateServerEventType.STATE_UPDATE,
-          payload: { type: SyncedStateServerStateUpdatePayloadType.SNAPSHOT, version: ver, confirmedOp: op, payload: state },
+          payload: {
+            type: SyncedStateServerStateUpdatePayloadType.SNAPSHOT,
+            version: ver,
+            confirmedOp: op,
+            payload: state,
+          },
         }),
       (patches, ver, op) =>
         conn.send({
           type: SyncedStateServerEventType.STATE_UPDATE,
-          payload: { type: SyncedStateServerStateUpdatePayloadType.PATCH, version: ver, confirmedOp: op, payload: patches },
+          payload: {
+            type: SyncedStateServerStateUpdatePayloadType.PATCH,
+            version: ver,
+            confirmedOp: op,
+            payload: patches,
+          },
         }),
     );
   }

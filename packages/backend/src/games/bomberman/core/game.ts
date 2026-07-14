@@ -287,9 +287,7 @@ function handleAction(player: BombermanPlayer, state: BombermanState): void {
   }
   // 2. If has GLOVE and standing on a bomb → pick it up
   if (player.items.includes("GLOVE" as ItemType)) {
-    const bombIdx = state.bombs.findIndex(
-      (b) => b.x === player.x && b.y === player.y,
-    );
+    const bombIdx = state.bombs.findIndex((b) => b.x === player.x && b.y === player.y);
     if (bombIdx >= 0) {
       const bomb = state.bombs[bombIdx];
       if (bomb) {
@@ -370,14 +368,7 @@ function throwCarriedBomb(player: BombermanPlayer, state: BombermanState): void 
   }
 }
 
-function punchBomb(
-  state: BombermanState,
-  bombIdx: number,
-  dx: number,
-  dy: number,
-  bombX: number,
-  bombY: number,
-): void {
+function punchBomb(state: BombermanState, bombIdx: number, dx: number, dy: number, bombX: number, bombY: number): void {
   const bomb = state.bombs[bombIdx];
   if (!bomb) return;
   state.bombs.splice(bombIdx, 1);
@@ -487,7 +478,7 @@ export function tick(state: BombermanState, queues: Record<PlayerId, BombermanOp
       if (bomb.fuse <= 0) {
         // Bomb explodes at carrier's position
         const carrier = next.players[pid];
-        if (carrier && carrier.alive) {
+        if (carrier?.alive) {
           bomb.x = carrier.x;
           bomb.y = carrier.y;
           next.bombs.push(bomb);

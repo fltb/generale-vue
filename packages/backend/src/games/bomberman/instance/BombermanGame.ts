@@ -1,4 +1,11 @@
-import type { BombermanState, BombermanOperation, BombermanPlayer, PlayerId, BombermanConfig, BombermanGameEndResult } from "@generale/types";
+import type {
+  BombermanState,
+  BombermanOperation,
+  BombermanPlayer,
+  PlayerId,
+  BombermanConfig,
+  BombermanGameEndResult,
+} from "@generale/types";
 import { GameStatus } from "@generale/types";
 import { tick } from "../core/game";
 import { generateBombermanMap, getSpawnPositions } from "../core/map-gen";

@@ -1,11 +1,7 @@
 import { createSignal, createEffect, For, Show, onCleanup } from "solid-js";
 import type { Component } from "solid-js";
 import { useGameSettings } from "~/hooks/useGameSettings";
-import {
-  bombermanSettingsSchema,
-  BOMBERMAN_SETTINGS_DEFAULTS,
-  type BombermanKeybindings,
-} from "@generale/types";
+import { bombermanSettingsSchema, BOMBERMAN_SETTINGS_DEFAULTS, type BombermanKeybindings } from "@generale/types";
 import { formatKey } from "../utils";
 
 const ACTION_LABELS: Record<keyof BombermanKeybindings, string> = {
@@ -48,9 +44,7 @@ export const KeybindingSettings: Component = () => {
     }
 
     window.addEventListener("keydown", handler, { capture: true });
-    onCleanup(() =>
-      window.removeEventListener("keydown", handler, { capture: true }),
-    );
+    onCleanup(() => window.removeEventListener("keydown", handler, { capture: true }));
   });
 
   function resetToDefaults() {
@@ -66,11 +60,7 @@ export const KeybindingSettings: Component = () => {
         </button>
       </div>
       <div class="grid grid-cols-2 gap-2">
-        <For
-          each={
-            Object.keys(ACTION_LABELS) as (keyof BombermanKeybindings)[]
-          }
-        >
+        <For each={Object.keys(ACTION_LABELS) as (keyof BombermanKeybindings)[]}>
           {(action) => (
             <div class="flex items-center justify-between p-2 bg-base-200 rounded">
               <span class="text-sm">{ACTION_LABELS[action]}</span>
@@ -86,9 +76,7 @@ export const KeybindingSettings: Component = () => {
                   </button>
                 }
               >
-                <span class="btn btn-sm btn-warning font-mono min-w-[60px] animate-pulse">
-                  Press key...
-                </span>
+                <span class="btn btn-sm btn-warning font-mono min-w-[60px] animate-pulse">Press key...</span>
               </Show>
             </div>
           )}

@@ -42,7 +42,9 @@ export function HUD(props: HUDProps) {
       {props.playerStats && (
         <div class="fixed bottom-20 left-4 bg-black/70 text-white rounded-lg p-3 text-sm font-mono pointer-events-none">
           <div class="flex gap-3 mb-2">
-            <span>Bombs: {props.playerStats.bombActive}/{props.playerStats.bombMax}</span>
+            <span>
+              Bombs: {props.playerStats.bombActive}/{props.playerStats.bombMax}
+            </span>
             <span>Fire: {props.playerStats.blastRadius}</span>
             <span>Speed: {props.playerStats.speed}</span>
           </div>

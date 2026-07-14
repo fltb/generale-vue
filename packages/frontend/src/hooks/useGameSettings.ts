@@ -9,9 +9,7 @@ interface UseGameSettings<T extends object> {
   update: (partial: Partial<T>) => void;
 }
 
-export function useGameSettings<T extends object>(
-  schema: GameSettingsSchema<T>,
-): UseGameSettings<T> {
+export function useGameSettings<T extends object>(schema: GameSettingsSchema<T>): UseGameSettings<T> {
   const auth = useAuth();
   const qc = useQueryClient();
   const queryKey = ["settings", "game", schema.gameType] as const;

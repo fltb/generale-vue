@@ -72,7 +72,10 @@ export function useGlobalSettings(): UseGlobalSettings {
       }));
       // Update localStorage cache
       for (const [k, v] of Object.entries(partial)) {
-        localStorage.setItem(CACHE_PREFIX + k, serializeGlobalSetting(k as keyof GlobalSettings, v as GlobalSettings[keyof GlobalSettings]));
+        localStorage.setItem(
+          CACHE_PREFIX + k,
+          serializeGlobalSetting(k as keyof GlobalSettings, v as GlobalSettings[keyof GlobalSettings]),
+        );
       }
       return { prev };
     },

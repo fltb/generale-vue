@@ -27,10 +27,17 @@ export function bombermanRoutes(app: Elysia) {
         }
         const user = await userService.findById(userId);
         const creatorName = user?.username ?? "Unknown";
-        const service = bombermanManager.createGame(body.roomName, userId, creatorName, body.password);
+        const service = bombermanManager.createGame(body.roomName, userId, creatorName, body.password, body.config);
         return { success: true, data: { gameId: service.gameId } };
       },
-      { body: t.Object({ roomName: t.String(), password: t.Optional(t.String()) }), cookie: cookieScheme },
+      {
+        body: t.Object({
+          roomName: t.String(),
+          password: t.Optional(t.String()),
+          config: t.Optional(t.Record(t.String(), t.Any())),
+        }),
+        cookie: cookieScheme,
+      },
     )
     .get("/room/list", ({ cookie, set }) => {
       const userId = getUserIdFromCookie(cookie);

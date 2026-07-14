@@ -98,7 +98,13 @@ export function EntityLayer(props: EntityLayerProps) {
               "box-shadow": "0 0 4px rgba(255,255,255,0.3)",
             }}
           >
-            {item.type === "BOMB_UP" ? "B+" : item.type === "FIRE_UP" ? "F+" : item.type === "SPEED_UP" ? "S+" : item.type?.charAt(0) ?? "?"}
+            {item.type === "BOMB_UP"
+              ? "B+"
+              : item.type === "FIRE_UP"
+                ? "F+"
+                : item.type === "SPEED_UP"
+                  ? "S+"
+                  : (item.type?.charAt(0) ?? "?")}
           </div>
         )}
       </For>
