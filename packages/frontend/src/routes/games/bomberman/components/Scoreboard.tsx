@@ -1,4 +1,5 @@
 import { useT } from "~/i18n/useT";
+import { Button } from "~/ui";
 
 interface ScoreboardProps {
   players: Array<{ name: string; rank: number }>;
@@ -22,9 +23,9 @@ export function Scoreboard(props: ScoreboardProps) {
             </div>
           ))}
         </div>
-        <button type="button" class="btn btn-primary w-full" onClick={props.onBackToRoom}>
+        <Button variant="primary" class="w-full" onClick={props.onBackToRoom}>
           {t("bomberman.backToRoom")}
-        </button>
+        </Button>
       </div>
     </div>
   );

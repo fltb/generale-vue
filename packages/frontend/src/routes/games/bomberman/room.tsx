@@ -13,6 +13,7 @@ import { ProtectedRoute } from "~/components/ProtectedRoute";
 import { useSyncedState } from "~/hooks/useSyncedState";
 import { BombermanGame } from "./game";
 import { useT } from "~/i18n/useT";
+import { Button, Badge, Alert, Select, Spinner } from "~/ui";
 
 export function BombermanRoom() {
   const { t } = useT();
@@ -129,16 +130,16 @@ export function BombermanRoom() {
     <ProtectedRoute>
       <Show when={phase() === "loading"}>
         <div class="p-8 text-center">
-          <span class="loading loading-spinner loading-lg" />
+          <Spinner size="lg" />
         </div>
       </Show>
 
       <Show when={phase() === "error"}>
         <div class="p-8 text-center">
-          <div class="alert alert-error mb-4">{error()}</div>
-          <button type="button" class="btn" onClick={() => navigate("/bomberman")}>
-            {t("bomberman.backToLobby")}
-          </button>
+          <Alert variant="error" class="mb-4">
+            {error()}
+          </Alert>
+          <Button onClick={() => navigate("/bomberman")}>{t("bomberman.backToLobby")}</Button>
         </div>
       </Show>
 
@@ -146,7 +147,9 @@ export function BombermanRoom() {
         <div class="container mx-auto p-4 max-w-2xl">
           <div class="flex items-center gap-3 mb-4">
             <h1 class="text-2xl font-bold">{roomSync.state().roomName || t("bomberman.title")}</h1>
-            <span class="badge badge-outline text-xs font-mono">{params.id}</span>
+            <Badge variant="outline" class="text-xs font-mono">
+              {params.id}
+            </Badge>
           </div>
 
           <p class="text-sm text-gray-500 mb-4">
@@ -158,22 +161,23 @@ export function BombermanRoom() {
 
           {isHost() && (
             <div class="mb-4">
-              <button type="button" class="btn btn-sm btn-ghost" onClick={() => setShowSettings(!showSettings())}>
+              <Button size="sm" variant="ghost" onClick={() => setShowSettings(!showSettings())}>
                 <svg class="w-4 h-4 mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <title>{t("bomberman.settings")}</title>
                   <circle cx="12" cy="12" r="3" />
                   <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
                 </svg>
                 {showSettings() ? `${t("bomberman.settings")} ▾` : t("bomberman.settings")}
-              </button>
+              </Button>
               <Show when={showSettings()}>
                 <div class="grid grid-cols-2 gap-3 mt-2 p-4 bg-base-300 rounded">
                   <div>
                     <div class="label text-xs">
                       <span class="label-text">{t("bomberman.maxPlayers")}</span>
                     </div>
-                    <select
-                      class="select select-sm w-full"
+                    <Select
+                      size="sm"
+                      class="w-full"
                       value={roomSync.state().maxPlayers}
                       onChange={(e) =>
                         roomSync.dispatch({
@@ -185,14 +189,15 @@ export function BombermanRoom() {
                       {[2, 3, 4].map((n) => (
                         <option value={n}>{n}</option>
                       ))}
-                    </select>
+                    </Select>
                   </div>
                   <div>
                     <div class="label text-xs">
                       <span class="label-text">{t("bomberman.roundTimeSec")}</span>
                     </div>
-                    <select
-                      class="select select-sm w-full"
+                    <Select
+                      size="sm"
+                      class="w-full"
                       value={roomSync.state().config?.roundTimeSec ?? 180}
                       onChange={(e) =>
                         roomSync.dispatch({
@@ -204,14 +209,15 @@ export function BombermanRoom() {
                       {[60, 120, 180, 300, 600].map((n) => (
                         <option value={n}>{n}s</option>
                       ))}
-                    </select>
+                    </Select>
                   </div>
                   <div>
                     <div class="label text-xs">
                       <span class="label-text">{t("bomberman.mapSize")}</span>
                     </div>
-                    <select
-                      class="select select-sm w-full"
+                    <Select
+                      size="sm"
+                      class="w-full"
                       value={roomSync.state().config?.mapWidth ?? 11}
                       onChange={(e) => {
                         const v = Number(e.currentTarget.value);
@@ -224,14 +230,15 @@ export function BombermanRoom() {
                       <option value={9}>{t("bomberman.small")} (9x9)</option>
                       <option value={11}>{t("bomberman.medium")} (11x11)</option>
                       <option value={15}>{t("bomberman.large")} (15x15)</option>
-                    </select>
+                    </Select>
                   </div>
                   <div>
                     <div class="label text-xs">
                       <span class="label-text">{t("bomberman.bombLimit")}</span>
                     </div>
-                    <select
-                      class="select select-sm w-full"
+                    <Select
+                      size="sm"
+                      class="w-full"
                       value={roomSync.state().config?.bombLimit ?? 1}
                       onChange={(e) =>
                         roomSync.dispatch({
@@ -243,7 +250,7 @@ export function BombermanRoom() {
                       {[1, 2, 3].map((n) => (
                         <option value={n}>{n}</option>
                       ))}
-                    </select>
+                    </Select>
                   </div>
                 </div>
               </Show>
@@ -265,19 +272,20 @@ export function BombermanRoom() {
                     {p.ready ? t("bomberman.ready") : t("bomberman.notReady")}
                   </div>
                 </div>
-                <span class={p.ready ? "badge badge-success badge-sm" : "badge badge-ghost badge-sm"}>
+                <Badge variant={p.ready ? "success" : "neutral"} class={`badge-sm${!p.ready ? " badge-ghost" : ""}`}>
                   {p.ready ? t("bomberman.ready") : t("bomberman.wait")}
-                </span>
+                </Badge>
                 {isHost() && p.id !== playerId() && (
-                  <button
-                    type="button"
-                    class="btn btn-xs btn-ghost text-error"
+                  <Button
+                    size="xs"
+                    variant="ghost"
+                    class="text-error"
                     onClick={() =>
                       roomSync.dispatch({ type: "KICK_PLAYER", targetId: p.id } as BombermanPreGameClientDispatch)
                     }
                   >
                     {t("bomberman.kick")}
-                  </button>
+                  </Button>
                 )}
               </div>
             ))}
@@ -285,25 +293,23 @@ export function BombermanRoom() {
 
           <div class="flex gap-2 items-center">
             {selfPlayer()?.isHost ? (
-              <span class="badge badge-success badge-lg">{t("bomberman.hostReady")}</span>
+              <Badge variant="success" class="badge-lg">
+                {t("bomberman.hostReady")}
+              </Badge>
             ) : selfPlayer()?.ready ? (
-              <button
-                type="button"
-                class="btn btn-sm btn-outline"
-                onClick={() => roomSync.dispatch({ type: "UNREADY" })}
-              >
+              <Button size="sm" outline onClick={() => roomSync.dispatch({ type: "UNREADY" })}>
                 {t("bomberman.unready")}
-              </button>
+              </Button>
             ) : (
-              <button type="button" class="btn btn-sm btn-primary" onClick={() => roomSync.dispatch({ type: "READY" })}>
+              <Button size="sm" variant="primary" onClick={() => roomSync.dispatch({ type: "READY" })}>
                 {t("bomberman.ready")}
-              </button>
+              </Button>
             )}
             {isHost() && (
               <>
-                <button type="button" class="btn btn-success" disabled={!allReady()} onClick={startGame}>
+                <Button variant="success" disabled={!allReady()} onClick={startGame}>
                   {t("bomberman.startGame")}
-                </button>
+                </Button>
                 {!allReady() && <span class="text-xs text-base-content/50">{t("bomberman.needAllReady")}</span>}
               </>
             )}
@@ -345,12 +351,12 @@ export function BombermanRoom() {
               </div>
             )}
             <div class="flex gap-2 justify-center">
-              <button type="button" class="btn btn-primary" onClick={() => setPhase("lobby")}>
+              <Button variant="primary" onClick={() => setPhase("lobby")}>
                 {t("bomberman.playAgain")}
-              </button>
-              <button type="button" class="btn btn-outline" onClick={() => navigate("/bomberman")}>
+              </Button>
+              <Button outline onClick={() => navigate("/bomberman")}>
                 {t("bomberman.backToLobby")}
-              </button>
+              </Button>
             </div>
           </div>
         </div>

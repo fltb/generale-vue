@@ -13,6 +13,7 @@ import { Countdown } from "~/ui/Countdown";
 import { sfx } from "~/ui/sound";
 import { formatKey } from "./utils";
 import { useT } from "~/i18n/useT";
+import { Button } from "~/ui";
 
 interface BombermanGameProps {
   initialState: BombermanState;
@@ -209,9 +210,11 @@ export function BombermanGame(props: BombermanGameProps) {
         );
       })()}
       {showVirtualControls() && <VirtualControls onAction={props.onAction} />}
-      <button
-        type="button"
-        class="fixed top-4 right-20 z-30 btn btn-circle btn-sm btn-ghost text-white"
+      <Button
+        size="sm"
+        variant="ghost"
+        circle
+        class="fixed top-4 right-20 z-30 text-white"
         onClick={() => {
           if (controlsAutoHidden()) {
             setShowControls(true);
@@ -221,34 +224,35 @@ export function BombermanGame(props: BombermanGameProps) {
         }}
       >
         ?
-      </button>
+      </Button>
       {props.playerId && state().players[props.playerId]?.alive && (
         <>
-          <button
-            type="button"
-            class="fixed top-4 right-4 z-30 btn btn-sm btn-outline btn-error"
+          <Button
+            size="sm"
+            variant="error"
+            outline
+            class="fixed top-4 right-4 z-30"
             onClick={() => setShowSurrenderConfirm(true)}
           >
             {t("bomberman.surrender")}
-          </button>
+          </Button>
           {showSurrenderConfirm() && (
             <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
               <div class="bg-base-200 p-6 rounded-lg text-center">
                 <p class="mb-4">{t("bomberman.areYouSure")}</p>
                 <div class="flex gap-3 justify-center">
-                  <button type="button" class="btn btn-outline" onClick={() => setShowSurrenderConfirm(false)}>
+                  <Button outline onClick={() => setShowSurrenderConfirm(false)}>
                     {t("bomberman.cancel")}
-                  </button>
-                  <button
-                    type="button"
-                    class="btn btn-error"
+                  </Button>
+                  <Button
+                    variant="error"
                     onClick={() => {
                       props.onAction({ type: "SURRENDER" });
                       setShowSurrenderConfirm(false);
                     }}
                   >
                     {t("bomberman.yesSurrender")}
-                  </button>
+                  </Button>
                 </div>
               </div>
             </div>

@@ -2,7 +2,7 @@ import { useNavigate } from "@solidjs/router";
 import { createSignal, createMemo, onMount, For, Show } from "solid-js";
 import { ProtectedRoute } from "~/components/ProtectedRoute";
 import { useWS } from "~/hooks/useWebsocket";
-import { Button, Input, Select, Modal, Checkbox, LabelText } from "~/ui";
+import { Button, Input, Select, Modal, Checkbox, LabelText, Badge, Alert } from "~/ui";
 import { RoomFilter, type BombermanRoomFilter } from "./components/RoomFilter";
 import { useT } from "~/i18n/useT";
 
@@ -189,7 +189,11 @@ function CreateRoomModal(props: {
               <LabelText>{t("bomberman.suddenDeath")}</LabelText>
             </div>
           </div>
-          {error() && <div class="alert alert-error text-sm">{error()}</div>}
+          {error() && (
+            <Alert variant="error" class="text-sm">
+              {error()}
+            </Alert>
+          )}
           <div class="flex gap-2 justify-end pt-2">
             <Button variant="ghost" onClick={props.onClose} disabled={loading()}>
               {t("bomberman.cancel")}
@@ -266,9 +270,9 @@ export function BombermanHub() {
           <div>
             <h1 class="text-3xl font-bold">{t("bomberman.title")}</h1>
           </div>
-          <button type="button" class="btn btn-primary" onClick={() => setShowCreateModal(true)}>
+          <Button variant="primary" onClick={() => setShowCreateModal(true)}>
             {t("bomberman.createRoom")}
-          </button>
+          </Button>
         </div>
         <RoomFilter value={filter()} onChange={(f) => setFilter(f)} />
         <Show
@@ -303,24 +307,22 @@ export function BombermanHub() {
                       {t("Host:")} {room.hostName}
                     </div>
                   </div>
-                  <span class="badge badge-outline">
+                  <Badge variant="outline">
                     {room.playerCount}/{room.maxPlayers}
-                  </span>
-                  <span
-                    class={room.phase === "playing" ? "badge badge-warning badge-sm" : "badge badge-success badge-sm"}
-                  >
+                  </Badge>
+                  <Badge variant={room.phase === "playing" ? "warning" : "success"} class="badge-sm">
                     {room.phase === "playing" ? t("bomberman.playing") : t("bomberman.lobby")}
-                  </span>
-                  <button
-                    type="button"
-                    class="btn btn-sm btn-primary"
+                  </Badge>
+                  <Button
+                    size="sm"
+                    variant="primary"
                     onClick={(e) => {
                       e.stopPropagation();
                       navigate(`/bomberman/room/${room.gameId}`);
                     }}
                   >
                     {t("Join")}
-                  </button>
+                  </Button>
                 </div>
               )}
             </For>

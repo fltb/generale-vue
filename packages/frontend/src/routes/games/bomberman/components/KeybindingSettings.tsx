@@ -4,6 +4,7 @@ import { useGameSettings } from "~/hooks/useGameSettings";
 import { bombermanSettingsSchema, BOMBERMAN_SETTINGS_DEFAULTS, type BombermanKeybindings } from "@generale/types";
 import { useT } from "~/i18n/useT";
 import { formatKey } from "../utils";
+import { Button } from "~/ui";
 
 export const KeybindingSettings: Component = () => {
   const { t } = useT();
@@ -57,9 +58,9 @@ export const KeybindingSettings: Component = () => {
     <div class="space-y-3">
       <div class="flex items-center justify-between">
         <h3 class="text-lg font-bold">{t("bomberman.keybindings")}</h3>
-        <button type="button" class="btn btn-sm btn-ghost" onClick={resetToDefaults}>
+        <Button size="sm" variant="ghost" onClick={resetToDefaults}>
           {t("bomberman.resetToDefaults")}
-        </button>
+        </Button>
       </div>
       <div class="grid grid-cols-2 gap-2">
         <For each={Object.keys(ACTION_LABELS) as (keyof BombermanKeybindings)[]}>
@@ -69,18 +70,14 @@ export const KeybindingSettings: Component = () => {
               <Show
                 when={listeningKey() === action}
                 fallback={
-                  <button
-                    type="button"
-                    class="btn btn-sm btn-outline font-mono min-w-[60px]"
-                    onClick={() => setListeningKey(action)}
-                  >
+                  <Button size="sm" outline class="font-mono min-w-[60px]" onClick={() => setListeningKey(action)}>
                     {formatKey(settings().keybindings[action])}
-                  </button>
+                  </Button>
                 }
               >
-                <span class="btn btn-sm btn-warning font-mono min-w-[60px] animate-pulse">
+                <Button size="sm" variant="warning" disabled class="font-mono min-w-[60px] animate-pulse">
                   {t("bomberman.pressKey")}
-                </span>
+                </Button>
               </Show>
             </div>
           )}
