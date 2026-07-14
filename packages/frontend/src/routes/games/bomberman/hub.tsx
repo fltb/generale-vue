@@ -30,9 +30,9 @@ function CreateRoomModal(props: {
   const [password, setPassword] = createSignal("");
   const [mapSizeIdx, setMapSizeIdx] = createSignal(2);
   const [maxPlayers, setMaxPlayers] = createSignal(4);
-  const [roundTime, setRoundTime] = createSignal(180);
+  const [roundTime, setRoundTime] = createSignal(120);
   const [bombLimit, setBombLimit] = createSignal(2);
-  const [suddenDeath, setSuddenDeath] = createSignal(false);
+  const [suddenDeath, setSuddenDeath] = createSignal(true);
   const [dropRate, setDropRate] = createSignal(0.6);
   const [loading, setLoading] = createSignal(false);
   const [error, setError] = createSignal("");
@@ -146,7 +146,8 @@ function CreateRoomModal(props: {
               >
                 <option value={60}>60s</option>
                 <option value={120}>120s</option>
-                <option value={180}>180s (Default)</option>
+                <option value={120}>120s (Default)</option>
+                <option value={180}>180s</option>
                 <option value={300}>300s</option>
               </Select>
             </div>

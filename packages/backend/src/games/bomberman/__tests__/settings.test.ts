@@ -8,10 +8,11 @@ describe("defaultBombermanConfig", () => {
     expect(config.mapHeight).toBe(13);
     expect(config.playerLimit).toBe(4);
     expect(config.tickRate).toBe(10);
-    expect(config.bombFuse).toBe(25);
+    expect(config.bombFuse).toBe(20);
     expect(config.bombLimit).toBe(2);
-    expect(config.blastRadius).toBe(1);
-    expect(config.roundTimeSec).toBe(180);
+    expect(config.blastRadius).toBe(2);
+    expect(config.roundTimeSec).toBe(120);
+    expect(config.shrinkEnabled).toBe(true);
     expect(config.itemDropRate).toBe(0.6);
   });
 });
