@@ -1,19 +1,17 @@
 import type { BombermanPlayer, Bomb, Explosion, Item } from "@generale/types";
-import { For, Show } from "solid-js";
+import { Graphics as PIXIGraphics, Texture } from "pixi.js";
+import { For, Show, createEffect, createMemo, createSignal } from "solid-js";
+import { Container, Graphics as PGraphics, Sprite } from "solid-pixi";
+import { useSprites, type PlayerSpriteSet } from "../hooks/useSprites";
+import { TILE_SIZE } from "../sprites/spritesheet";
 
-const TILE_SIZE = 36;
-const PLAYER_COLORS = ["#e74c3c", "#3498db", "#2ecc71", "#f39c12"];
-
-const ITEM_COLORS: Record<string, string> = {
-  BOMB_UP: "#f44",
-  FIRE_UP: "#f80",
-  SPEED_UP: "#4af",
-  KICK: "#a6f",
-  GLOVE: "#ccc",
-  PUNCH: "#fa0",
-  REMOTE: "#0ff",
-  PIERCE: "#fff",
-  SPIRIT: "#f0f",
+// ─── Fallback colors for items without sprites ───
+const ITEM_DOT_COLORS: Record<string, number> = {
+  FIRE_UP: 0xff8800,
+  SPEED_UP: 0x0088cc,
+  PUNCH: 0xcc0000,
+  REMOTE: 0x8800cc,
+  SPIRIT: 0x44cc44,
 };
 
 interface EntityLayerProps {
@@ -23,91 +21,155 @@ interface EntityLayerProps {
   items: Item[];
 }
 
+/** Pick the standing (first) texture from the correct direction set. */
+function getPlayerTexture(spriteSet: PlayerSpriteSet, facing: string): Texture {
+  const key = facing === "right" ? "left" : facing;
+  const dir = key as keyof PlayerSpriteSet;
+  return spriteSet[dir]?.[0] ?? spriteSet.down[0];
+}
+
 export function EntityLayer(props: EntityLayerProps) {
+  const s = useSprites();
+
+  // ── Tick counter for animation ──
+  const [tick, setTick] = createSignal(0);
+  createEffect(() => {
+    // Increment tick on every effect run to drive frame animation
+    setTick((t) => (t + 1) % 1000);
+  });
+
+  // ── Items only with sprites ──
+  const spritedItems = createMemo(() => {
+    const sheet = s();
+    if (!sheet) return [];
+    return props.items.filter((item) => sheet.items[item.type]);
+  });
+
   return (
-    <div class="pointer-events-none">
-      <For each={props.players}>
-        {(player, i) => (
-          <Show when={player.alive}>
-            <div
-              class="absolute rounded-full flex items-center justify-center text-xs font-bold text-white"
-              style={{
-                width: `${TILE_SIZE * 0.6}px`,
-                height: `${TILE_SIZE * 0.6}px`,
-                background: PLAYER_COLORS[i() % PLAYER_COLORS.length],
-                left: `${player.x * TILE_SIZE + TILE_SIZE * 0.2}px`,
-                top: `${player.y * TILE_SIZE + TILE_SIZE * 0.2}px`,
-                border: "2px solid rgba(255,255,255,0.5)",
-                "box-shadow": "0 0 6px rgba(0,0,0,0.5)",
-                transition: "left 0.08s linear, top 0.08s linear",
-              }}
-            >
-              {player.name?.charAt(0).toUpperCase() ?? "?"}
-            </div>
-          </Show>
-        )}
-      </For>
+    <Show when={s()}>
+      {(sprites) => (
+        <Container sortableChildren>
+          {/* ── Items (z=1) ── */}
+          <For each={spritedItems()}>
+            {(item) => (
+              <Sprite
+                texture={sprites().items[item.type]}
+                x={item.x * TILE_SIZE + 2}
+                y={item.y * TILE_SIZE + 2}
+                scale={{ x: (TILE_SIZE / 16) * 0.6, y: (TILE_SIZE / 16) * 0.6 }}
+                zIndex={1}
+              />
+            )}
+          </For>
 
-      <For each={props.bombs}>
-        {(bomb) => (
-          <div
-            class="absolute rounded-full flex items-center justify-center font-bold text-white text-xs"
-            style={{
-              width: `${TILE_SIZE * 0.5}px`,
-              height: `${TILE_SIZE * 0.5}px`,
-              left: `${bomb.x * TILE_SIZE + TILE_SIZE * 0.25}px`,
-              top: `${bomb.y * TILE_SIZE + TILE_SIZE * 0.25}px`,
-              background: bomb.fuse % 2 === 0 ? "#222" : "#e00",
-              border: "1px solid #fff",
-              "box-shadow": bomb.fuse <= 3 ? "0 0 8px #f00" : "0 0 2px rgba(0,0,0,0.5)",
+          {/* ── Bombs (z=2) ── */}
+          <For each={props.bombs}>
+            {(bomb) => {
+              const active = bomb.fuse <= 3 && tick() % 2 === 0;
+              return (
+                <Sprite
+                  texture={active ? sprites().bombs[1] : sprites().bombs[0]}
+                  x={bomb.x * TILE_SIZE + TILE_SIZE / 2}
+                  y={bomb.y * TILE_SIZE + TILE_SIZE / 2}
+                  anchor={{ x: 0.5, y: 0.5 }}
+                  scale={{ x: (TILE_SIZE / 16) * 0.8, y: (TILE_SIZE / 16) * 0.8 }}
+                  zIndex={2}
+                />
+              );
             }}
-          >
-            B
-          </div>
-        )}
-      </For>
+          </For>
 
-      <For each={props.explosions}>
-        {(exp) => (
-          <div
-            class="absolute rounded-sm"
-            style={{
-              width: `${TILE_SIZE}px`,
-              height: `${TILE_SIZE}px`,
-              left: `${exp.x * TILE_SIZE}px`,
-              top: `${exp.y * TILE_SIZE}px`,
-              background: `rgba(255,120,0,${exp.ttl / 8})`,
-              "box-shadow": "inset 0 0 8px #ff0",
+          {/* ── Explosions (z=3) ── */}
+          <For each={props.explosions}>
+            {(exp) => {
+              const frameIdx = Math.min(
+                Math.max(0, Math.floor(((8 - exp.ttl) / 8) * sprites().explosions.length)),
+                sprites().explosions.length - 1,
+              );
+              return (
+                <Sprite
+                  texture={sprites().explosions[frameIdx]}
+                  x={exp.x * TILE_SIZE + TILE_SIZE / 2}
+                  y={exp.y * TILE_SIZE + TILE_SIZE / 2}
+                  anchor={{ x: 0.5, y: 0.5 }}
+                  scale={{ x: TILE_SIZE / 16, y: TILE_SIZE / 16 }}
+                  alpha={Math.max(0.3, exp.ttl / 8)}
+                  zIndex={3}
+                />
+              );
             }}
-          />
-        )}
-      </For>
+          </For>
 
-      <For each={props.items}>
-        {(item) => (
-          <div
-            class="absolute flex items-center justify-center text-xs font-bold"
-            style={{
-              width: `${TILE_SIZE * 0.4}px`,
-              height: `${TILE_SIZE * 0.4}px`,
-              left: `${item.x * TILE_SIZE + TILE_SIZE * 0.3}px`,
-              top: `${item.y * TILE_SIZE + TILE_SIZE * 0.3}px`,
-              background: ITEM_COLORS[item.type] ?? "#ff0",
-              border: "1px solid #fff",
-              "border-radius": "3px",
-              "box-shadow": "0 0 4px rgba(255,255,255,0.3)",
+          {/* ── Players (z=10) ── */}
+          <For each={props.players}>
+            {(player, idx) => {
+              if (!player.alive) return null;
+              const colorIdx = idx() % sprites().players.length;
+              const spriteSet = sprites().players[colorIdx];
+              const tex = getPlayerTexture(spriteSet, player.facing);
+              const flipX = player.facing === "right" ? -1 : 1;
+              return (
+                <Sprite
+                  texture={tex}
+                  x={player.x * TILE_SIZE + TILE_SIZE / 2}
+                  y={player.y * TILE_SIZE + TILE_SIZE / 2}
+                  anchor={{ x: 0.5, y: 0.5 }}
+                  scale={{ x: (TILE_SIZE / 16) * 0.9 * flipX, y: (TILE_SIZE / 16) * 0.9 }}
+                  zIndex={10}
+                />
+              );
             }}
-          >
-            {item.type === "BOMB_UP"
-              ? "B+"
-              : item.type === "FIRE_UP"
-                ? "F+"
-                : item.type === "SPEED_UP"
-                  ? "S+"
-                  : (item.type?.charAt(0) ?? "?")}
-          </div>
-        )}
-      </For>
-    </div>
+          </For>
+
+          {/* ── Non-sprited item dots (z=0, behind items with sprites) ── */}
+          <NonSpritedItems allItems={props.items} spritesheet={sprites()} />
+        </Container>
+      )}
+    </Show>
+  );
+}
+
+// ─── Non-sprited items rendered as colored dots ───
+
+interface NonSpritedItemsProps {
+  allItems: Item[];
+  spritesheet: { items: Record<string, Texture> };
+}
+
+function NonSpritedItems(props: NonSpritedItemsProps) {
+  const dotItems = () =>
+    props.allItems.filter((item) => !props.spritesheet.items[item.type]);
+
+  return (
+    <For each={dotItems()}>
+      {(item) => {
+        const color = ITEM_DOT_COLORS[item.type] ?? 0x888888;
+        return <ItemDot x={item.x} y={item.y} color={color} />;
+      }}
+    </For>
+  );
+}
+
+function ItemDot(props: { x: number; y: number; color: number }) {
+  const [g, setG] = createSignal<PIXIGraphics | undefined>(undefined);
+
+  createEffect(() => {
+    const graphics = g();
+    if (!graphics) return;
+    graphics.clear();
+    graphics.circle(0, 0, TILE_SIZE * 0.15).fill({ color: props.color });
+    graphics.circle(0, 0, TILE_SIZE * 0.15).stroke({ color: 0x000000, width: 1 });
+  });
+
+  return (
+    <PGraphics
+      ref={(inst) => {
+        setG(inst);
+        return () => setG(undefined);
+      }}
+      x={props.x * TILE_SIZE + TILE_SIZE / 2}
+      y={props.y * TILE_SIZE + TILE_SIZE / 2}
+      zIndex={0}
+    />
   );
 }
