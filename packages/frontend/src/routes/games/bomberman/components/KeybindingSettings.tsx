@@ -35,10 +35,11 @@ export const KeybindingSettings: Component = () => {
       }
 
       const key = e.key === "Spacebar" ? " " : e.key;
+      const keyName = action as keyof BombermanKeybindings;
       const newKeybindings = {
         ...settings().keybindings,
-        [action as string]: key,
-      } as BombermanKeybindings;
+        [keyName]: key,
+      } satisfies BombermanKeybindings;
       update({ keybindings: newKeybindings });
       setListeningKey(null);
     }

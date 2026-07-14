@@ -1,5 +1,6 @@
 import type {
   BombermanConfig,
+  BombermanOperation,
   GameId,
   BombermanPreGameClientAction,
   BombermanPreGameServerEvent,
@@ -83,14 +84,14 @@ export class BombermanService {
         const op = {
           type: e["type"],
           ...(e["direction"] ? { direction: e["direction"] } : {}),
-        } as unknown as import("@generale/types").BombermanOperation;
+        } as unknown as BombermanOperation;
         g.handleAction(userid, op, e["optimisticId"] as number | undefined);
       });
       connector.onClose(() => {
         this.gameConnectors.delete(userid);
         const timer = setTimeout(() => {
           if (this.game && !this.gameConnectors.has(userid)) {
-            this.game.handleAction(userid, { type: "SURRENDER" } as import("@generale/types").BombermanOperation);
+            this.game.handleAction(userid, { type: "SURRENDER" });
           }
         }, 30000);
         this.disconnectTimers.set(userid, timer);
@@ -159,7 +160,10 @@ export class BombermanService {
       this.gameConnectors.clear();
     });
 
-    g.startTicking();
+    // 3-second pre-game delay for client countdown sync
+    setTimeout(() => {
+      g.startTicking();
+    }, 3000);
   }
 
   getPhase(): string {

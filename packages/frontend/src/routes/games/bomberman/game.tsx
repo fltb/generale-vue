@@ -27,6 +27,8 @@ export function BombermanGame(props: BombermanGameProps) {
   const [rankings, setRankings] = createSignal<{ name: string; rank: number }[]>([]);
   const [showControls, setShowControls] = createSignal(true);
   const [connectionOk, setConnectionOk] = createSignal(true);
+  const [showSurrenderConfirm, setShowSurrenderConfirm] = createSignal(false);
+  const [controlsAutoHidden, setControlsAutoHidden] = createSignal(false);
 
   const state = createMemo(() => props.initialState);
 
@@ -106,7 +108,10 @@ export function BombermanGame(props: BombermanGameProps) {
   });
 
   onMount(() => {
-    setTimeout(() => setShowControls(false), 6000);
+    setTimeout(() => {
+      setShowControls(false);
+      setControlsAutoHidden(true);
+    }, 6000);
   });
 
   // Tick-health monitor: if state stops updating for >1500ms, show warning
@@ -199,14 +204,51 @@ export function BombermanGame(props: BombermanGameProps) {
         );
       })()}
       {showVirtualControls() && <VirtualControls onAction={props.onAction} />}
+      <button
+        type="button"
+        class="fixed top-4 right-20 z-30 btn btn-circle btn-sm btn-ghost text-white"
+        onClick={() => {
+          if (controlsAutoHidden()) {
+            setShowControls(true);
+          } else {
+            setShowControls(!showControls());
+          }
+        }}
+      >
+        ?
+      </button>
       {props.playerId && state().players[props.playerId]?.alive && (
-        <button
-          type="button"
-          class="fixed top-4 right-4 z-30 btn btn-sm btn-outline btn-error"
-          onClick={() => props.onAction({ type: "SURRENDER" } as BombermanOperation)}
-        >
-          Surrender
-        </button>
+        <>
+          <button
+            type="button"
+            class="fixed top-4 right-4 z-30 btn btn-sm btn-outline btn-error"
+            onClick={() => setShowSurrenderConfirm(true)}
+          >
+            Surrender
+          </button>
+          {showSurrenderConfirm() && (
+            <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+              <div class="bg-base-200 p-6 rounded-lg text-center">
+                <p class="mb-4">Are you sure you want to surrender?</p>
+                <div class="flex gap-3 justify-center">
+                  <button type="button" class="btn btn-outline" onClick={() => setShowSurrenderConfirm(false)}>
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    class="btn btn-error"
+                    onClick={() => {
+                      props.onAction({ type: "SURRENDER" });
+                      setShowSurrenderConfirm(false);
+                    }}
+                  >
+                    Yes, Surrender
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </>
       )}
       {showScoreboard() && <Scoreboard players={rankings()} onBackToRoom={props.onBackToRoom} />}
     </div>

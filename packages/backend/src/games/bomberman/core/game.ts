@@ -1,7 +1,7 @@
 import type { BombermanPlayer, BombermanState, BombermanOperation, Bomb, ItemType, PlayerId } from "@generale/types";
 import { GameStatus } from "@generale/types";
 
-const ITEM_DROP_TABLE: { type: string; weight: number }[] = [
+const ITEM_DROP_TABLE: { type: ItemType; weight: number }[] = [
   { type: "BOMB_UP", weight: 10 },
   { type: "FIRE_UP", weight: 10 },
   { type: "SPEED_UP", weight: 10 },
@@ -27,10 +27,10 @@ function genBombId(s: BombermanState): string {
 }
 
 function cloneState(state: BombermanState): BombermanState {
-  return structuredClone(state) as BombermanState;
+  return structuredClone(state);
 }
 
-function weightedRandom(table: { type: string; weight: number }[]): string {
+function weightedRandom(table: { type: ItemType; weight: number }[]): ItemType {
   const total = table.reduce((s, i) => s + i.weight, 0);
   let r = Math.random() * total;
   for (const item of table) {
@@ -71,10 +71,10 @@ function moveOneTile(
 
   // 3. Bomb blocking (unless SPIRIT or KICK)
   if (hasBombAt(state, nx, ny)) {
-    const hasSpirit = player.items.includes("SPIRIT" as ItemType);
+    const hasSpirit = player.items.includes("SPIRIT");
     if (hasSpirit) {
       // walk through bombs ghost-style
-    } else if (player.items.includes("KICK" as ItemType)) {
+    } else if (player.items.includes("KICK")) {
       // kick the bomb forward, then step onto the tile
       kickBomb(state, nx, ny, d.dx, d.dy);
       // fall through to move
@@ -214,12 +214,12 @@ function explode(bomb: Bomb, state: BombermanState, pierce: boolean): void {
         if (Math.random() < state.config.itemDropRate) {
           let dropTable = ITEM_DROP_TABLE;
           if (state.config.items !== undefined) {
-            const allowed = ITEM_DROP_TABLE.filter((i) => state.config.items.includes(i.type as ItemType));
+            const allowed = ITEM_DROP_TABLE.filter((i) => state.config.items.includes(i.type));
             dropTable = allowed; // could be empty — means no items drop
           }
           if (dropTable.length > 0) {
             const dropType = weightedRandom(dropTable);
-            state.items.push({ x, y, type: dropType as ItemType });
+            state.items.push({ x, y, type: dropType });
           }
         }
         if (!pierce) break;
@@ -241,7 +241,7 @@ function processExplosions(state: BombermanState): void {
       if (exploded.has(bomb.id)) continue;
       exploded.add(bomb.id);
       const hasPierce = Object.values(state.players).some(
-        (p) => p.playerId === bomb.playerId && p.items.includes("PIERCE" as ItemType),
+        (p) => p.playerId === bomb.playerId && p.items.includes("PIERCE"),
       );
       explode(bomb, state, hasPierce);
     }
@@ -286,7 +286,7 @@ function handleAction(player: BombermanPlayer, state: BombermanState): void {
     return;
   }
   // 2. If has GLOVE and standing on a bomb → pick it up
-  if (player.items.includes("GLOVE" as ItemType)) {
+  if (player.items.includes("GLOVE")) {
     const bombIdx = state.bombs.findIndex((b) => b.x === player.x && b.y === player.y);
     if (bombIdx >= 0) {
       const bomb = state.bombs[bombIdx];
@@ -300,7 +300,7 @@ function handleAction(player: BombermanPlayer, state: BombermanState): void {
     }
   }
   // 3. If has PUNCH and adjacent bomb in facing direction → punch it
-  if (player.items.includes("PUNCH" as ItemType)) {
+  if (player.items.includes("PUNCH")) {
     const d = DIRS[player.facing];
     if (d) {
       const adjX = player.x + d.dx;
@@ -449,7 +449,7 @@ export function tick(state: BombermanState, queues: Record<PlayerId, BombermanOp
           handleAction(player, next);
           break;
         case "DETONATE": {
-          const hasRemote = player.items.includes("REMOTE" as ItemType);
+          const hasRemote = player.items.includes("REMOTE");
           if (!hasRemote) break;
           const remoteBombs = next.bombs.filter((b) => b.playerId === pid);
           if (remoteBombs.length > 0) {

@@ -19,7 +19,7 @@ export function defaultBombermanConfig(): BombermanConfig {
     playerLimit: 4,
     tickRate: 10,
     bombFuse: 25,
-    bombLimit: 1,
+    bombLimit: 2,
     blastRadius: 1,
     roundTimeSec: 180,
     shrinkEnabled: false,

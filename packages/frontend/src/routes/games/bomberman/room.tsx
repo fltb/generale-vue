@@ -334,9 +334,14 @@ export function BombermanRoom() {
                 ))}
               </div>
             )}
-            <button type="button" class="btn btn-primary" onClick={() => navigate("/bomberman")}>
-              Back to Lobby
-            </button>
+            <div class="flex gap-2 justify-center">
+              <button type="button" class="btn btn-primary" onClick={() => setPhase("lobby")}>
+                Play Again
+              </button>
+              <button type="button" class="btn btn-outline" onClick={() => navigate("/bomberman")}>
+                Back to Lobby
+              </button>
+            </div>
           </div>
         </div>
       </Show>

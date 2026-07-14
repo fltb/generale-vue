@@ -86,13 +86,6 @@ export type BombermanOperation =
   | { type: "SURRENDER" }
   | { type: "NOOP" };
 
-export interface BombermanBotConfig {
-  playerId: string;
-  spawnX: number;
-  spawnY: number;
-  ai: "random" | "chase" | "patrol" | "boss_charge" | "boss_teleport";
-}
-
 // ─── PreGame Types ───
 
 export type BombermanRoomPhase = "lobby" | "playing" | "disbanded";

@@ -31,7 +31,7 @@ function CreateRoomModal(props: {
   const [mapSizeIdx, setMapSizeIdx] = createSignal(2);
   const [maxPlayers, setMaxPlayers] = createSignal(4);
   const [roundTime, setRoundTime] = createSignal(180);
-  const [bombLimit, setBombLimit] = createSignal(1);
+  const [bombLimit, setBombLimit] = createSignal(2);
   const [suddenDeath, setSuddenDeath] = createSignal(false);
   const [dropRate, setDropRate] = createSignal(0.6);
   const [loading, setLoading] = createSignal(false);
