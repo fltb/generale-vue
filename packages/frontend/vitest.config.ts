@@ -20,5 +20,18 @@ export default defineConfig({
         inline: ["solid-js"],
       },
     },
+    coverage: {
+      provider: "v8",
+      reporter: ["text", "json", "html"],
+      include: ["src/routes/games/bomberman/**/*.tsx", "src/routes/games/bomberman/**/*.ts"],
+      thresholds: {
+        "src/routes/games/bomberman/**/*.{ts,tsx}": {
+          lines: 20,
+          branches: 10,
+          functions: 10,
+          statements: 20,
+        },
+      },
+    },
   },
 });
