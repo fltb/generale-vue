@@ -114,16 +114,19 @@ export function BombermanGame(props: BombermanGameProps) {
     }, 6000);
   });
 
-  // Tick-health monitor: if state stops updating for >1500ms, show warning
+  // Tick-health monitor: starts after countdown, warns if no tick for >3s
   let lastTick = Date.now();
   let monitorTimer: ReturnType<typeof setInterval> | null = null;
-  onMount(() => {
+  createEffect(() => {
+    if (!countdownDone()) return;
+    if (monitorTimer) return; // already running
+    lastTick = Date.now();
     monitorTimer = setInterval(() => {
       const s = state();
       const currentTick = s?.tick ?? -1;
       const now = Date.now();
       if (currentTick > 0) lastTick = now;
-      setConnectionOk(now - lastTick < 1500);
+      setConnectionOk(now - lastTick < 3000);
     }, 500);
   });
   onCleanup(() => {
