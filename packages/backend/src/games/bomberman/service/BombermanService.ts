@@ -28,6 +28,7 @@ export class BombermanService {
   private disconnectTimers = new Map<string, ReturnType<typeof setTimeout>>();
   public onDisband?: () => void;
   public onLobbyUpdate?: () => void;
+  private roomUpdateEmitter?: (gameId: string) => void;
 
   constructor(
     gameId: GameId,
@@ -47,6 +48,7 @@ export class BombermanService {
     });
     this.room.onStateChange(() => {
       this.onLobbyUpdate?.();
+      this.roomUpdateEmitter?.(this.gameId);
     });
   }
 
@@ -188,6 +190,10 @@ export class BombermanService {
     setTimeout(() => {
       g.startTicking();
     }, 3000);
+  }
+
+  public setRoomUpdateEmitter(cb: (gameId: string) => void) {
+    this.roomUpdateEmitter = cb;
   }
 
   getPhase(): string {

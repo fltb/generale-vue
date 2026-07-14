@@ -1,192 +1,73 @@
-import { BombermanPreGameServerEventType } from "@generale/types";
 import type {
-  BombermanRoomState,
-  BombermanPreGameClientAction,
   BombermanPreGameClientDispatch,
-  BombermanPreGameServerEvent,
-  BombermanState,
-  BombermanOperation,
 } from "@generale/types";
 import { useParams, useNavigate } from "@solidjs/router";
-import { createSignal, createMemo, onMount, onCleanup, Show, For, Switch, Match } from "solid-js";
+import { createMemo, createSignal, Show, For, Switch, Match } from "solid-js";
 import { ProtectedRoute } from "~/components/ProtectedRoute";
-import { useSyncedState } from "~/hooks/useSyncedState";
 import { BombermanGame } from "./game";
 import { useT } from "~/i18n/useT";
 import { Button, Badge, Alert, Select, Spinner } from "~/ui";
-
-function applyBombermanEventLocal(
-  state: BombermanState,
-  op: BombermanOperation,
-  localPlayerId: string,
-): BombermanState {
-  const next = JSON.parse(JSON.stringify(state)) as BombermanState;
-
-  // Only predict local player's movement
-  if (op.type === "SET_DIRECTION") {
-    const player = next.players?.[localPlayerId];
-    if (player?.alive) {
-      player.facing = op.direction ?? player.facing;
-      // Optimistic: move 1 tile in direction (server corrects on collision)
-      // This gives instant visual feedback — the server reconciliation handles walls
-      if (op.direction) {
-        if (op.direction === "up") player.y = Math.max(0, player.y - 1);
-        else if (op.direction === "down") player.y = Math.min(state.config.mapHeight - 1, player.y + 1);
-        else if (op.direction === "left") player.x = Math.max(0, player.x - 1);
-        else if (op.direction === "right") player.x = Math.min(state.config.mapWidth - 1, player.x + 1);
-      }
-    }
-  }
-
-  return next;
-}
+import { useBombermanRoomSession } from "./hooks/useBombermanRoomSession";
 
 export function BombermanRoom() {
   const { t } = useT();
   const params = useParams();
   const navigate = useNavigate();
-  const [playerId, setPlayerId] = createSignal("");
-  const [phase, setPhase] = createSignal<"loading" | "lobby" | "playing" | "ended" | "error">("loading");
-  const [error, setError] = createSignal("");
   const [showSettings, setShowSettings] = createSignal(false);
-  const [gameOver, setGameOver] = createSignal<{
-    rankings: { playerId: string; name: string; rank: number }[];
-    winnerId: string | null;
-  } | null>(null);
-
-  const roomDomain = `room-${params.id}`;
-  const gameDomain = `game-${params.id}`;
 
   // Read password from URL search params
   const urlPassword = new URLSearchParams(window.location.search).get("password") || undefined;
 
-  const roomSync = useSyncedState<BombermanRoomState, BombermanPreGameClientAction, BombermanPreGameServerEvent>({
-    domain: roomDomain,
-    initialState: {
-      roomName: "",
-      players: [],
-      config: {} as BombermanRoomState["config"],
-      phase: "lobby",
-      maxPlayers: 4,
-      hostId: "",
-    },
-    applyEvent: (s) => s,
-    openPayload: urlPassword ? { password: urlPassword } : {},
-    onCustomEvent: (evt) => {
-      const e = evt as BombermanPreGameServerEvent;
-      if (e.type === BombermanPreGameServerEventType.GAME_STARTED) {
-        setPhase("playing");
-        setTimeout(() => gameSync.connect(), 500);
-      }
-      if (e.type === BombermanPreGameServerEventType.GAME_ENDED) {
-        setGameOver({ rankings: e.rankings, winnerId: e.winnerId });
-        setPhase("ended");
-        gameSync.disconnect();
-      }
-      if (e.type === BombermanPreGameServerEventType.KICKED) {
-        setError(t("You have been kicked from the room"));
-        setPhase("error");
-      }
-      if (e.type === BombermanPreGameServerEventType.ROOM_DISBANDED) {
-        setError(t("The room has been disbanded"));
-        setPhase("error");
-      }
-    },
-    onConnectionClosed: () => {
-      setError(t("bomberman.connectionLost"));
-      setPhase("error");
-    },
-    autoOpen: false,
-  });
+  const session = useBombermanRoomSession({ id: params.id ?? "", password: urlPassword });
 
-  const gameSync = useSyncedState<BombermanState, BombermanOperation & { optimisticId: number }, never>({
-    domain: gameDomain,
-    initialState: null as unknown as BombermanState,
-    applyEvent: (state, op) => applyBombermanEventLocal(state, op, playerId()),
-    autoOpen: false,
-  });
-
-  onMount(async () => {
-    try {
-      const res = await fetch(`/api/bomberman/room/connect/${params.id}`);
-      const d: {
-        success: boolean;
-        message?: string;
-        data?: { playerId: string; phase: string };
-      } = await res.json();
-      if (!(d.success && d.data)) {
-        setError(d.message || t("Failed to connect"));
-        setPhase("error");
-        return;
-      }
-      setPlayerId(d.data.playerId);
-      if (d.data.phase === "playing") {
-        setPhase("playing");
-        gameSync.connect();
-      } else {
-        setPhase("lobby");
-        roomSync.connect();
-      }
-    } catch {
-      setError(t("Network error"));
-      setPhase("error");
-    }
-  });
-
-  const selfPlayer = createMemo(() => (roomSync.state().players ?? []).find((p) => p.id === playerId()));
+  const selfPlayer = createMemo(
+    () => (session.roomSync.state().players ?? []).find((p) => p.id === session.playerId()),
+  );
   const isHost = createMemo(() => selfPlayer()?.isHost ?? false);
   const allReady = createMemo(() => {
-    const players = roomSync.state().players ?? [];
+    const players = session.roomSync.state().players ?? [];
     return players.length >= 2 && players.every((p) => p.ready);
   });
 
   function startGame() {
-    if (isHost() && allReady()) roomSync.dispatch({ type: "START_GAME" });
+    if (isHost() && allReady()) session.startGame();
   }
 
   const winnerName = createMemo(() => {
-    const go = gameOver();
-    if (!go) return null;
-    return go.rankings.find((r) => r.playerId === go.winnerId)?.name ?? null;
-  });
-  function handleGameAction(op: BombermanOperation) {
-    gameSync.dispatch(op);
-  }
-
-  onCleanup(() => {
-    roomSync.disconnect();
-    gameSync.disconnect();
+    const ge = session.gameEnded();
+    if (!ge) return null;
+    return ge.rankings.find((r) => r.playerId === ge.winnerId)?.name ?? null;
   });
 
   return (
     <ProtectedRoute>
-      <Show when={phase() === "loading"}>
+      <Show when={session.phase() === "loading"}>
         <div class="p-8 text-center">
           <Spinner size="lg" />
         </div>
       </Show>
 
-      <Show when={phase() === "error"}>
+      <Show when={session.phase() === "error"}>
         <div class="p-8 text-center">
           <Alert variant="error" class="mb-4">
-            {error()}
+            {session.error()}
           </Alert>
           <Button onClick={() => navigate("/bomberman")}>{t("bomberman.backToLobby")}</Button>
         </div>
       </Show>
 
-      <Show when={phase() === "lobby"}>
+      <Show when={session.phase() === "lobby"}>
         <div class="container mx-auto p-4 max-w-2xl">
           <div class="flex items-center gap-3 mb-4">
-            <h1 class="text-2xl font-bold">{roomSync.state().roomName || t("bomberman.title")}</h1>
+            <h1 class="text-2xl font-bold">{session.roomSync.state().roomName || t("bomberman.title")}</h1>
             <Badge variant="outline" class="text-xs font-mono">
               {params.id}
             </Badge>
           </div>
 
           <p class="text-sm text-gray-500 mb-4">
-            {t("bomberman.players")}: {roomSync.state().players?.length ?? 0}/{roomSync.state().maxPlayers}{" "}
-            {(roomSync.state().players?.length ?? 0) < 2 && (
+            {t("bomberman.players")}: {session.roomSync.state().players?.length ?? 0}/{session.roomSync.state().maxPlayers}{" "}
+            {(session.roomSync.state().players?.length ?? 0) < 2 && (
               <span class="text-warning">({t("bomberman.needMin")})</span>
             )}
           </p>
@@ -210,9 +91,9 @@ export function BombermanRoom() {
                     <Select
                       size="sm"
                       class="w-full"
-                      value={roomSync.state().maxPlayers}
+                      value={session.roomSync.state().maxPlayers}
                       onChange={(e) =>
-                        roomSync.dispatch({
+                        session.roomSync.dispatch({
                           type: "CHANGE_CONFIG",
                           payload: { playerLimit: Number(e.currentTarget.value) },
                         } as BombermanPreGameClientDispatch)
@@ -230,9 +111,9 @@ export function BombermanRoom() {
                     <Select
                       size="sm"
                       class="w-full"
-                      value={roomSync.state().config?.roundTimeSec ?? 180}
+                      value={session.roomSync.state().config?.roundTimeSec ?? 180}
                       onChange={(e) =>
-                        roomSync.dispatch({
+                        session.roomSync.dispatch({
                           type: "CHANGE_CONFIG",
                           payload: { roundTimeSec: Number(e.currentTarget.value) },
                         } as BombermanPreGameClientDispatch)
@@ -250,10 +131,10 @@ export function BombermanRoom() {
                     <Select
                       size="sm"
                       class="w-full"
-                      value={roomSync.state().config?.mapWidth ?? 11}
+                      value={session.roomSync.state().config?.mapWidth ?? 11}
                       onChange={(e) => {
                         const v = Number(e.currentTarget.value);
-                        roomSync.dispatch({
+                        session.roomSync.dispatch({
                           type: "CHANGE_CONFIG",
                           payload: { mapWidth: v, mapHeight: v },
                         } as BombermanPreGameClientDispatch);
@@ -271,9 +152,9 @@ export function BombermanRoom() {
                     <Select
                       size="sm"
                       class="w-full"
-                      value={roomSync.state().config?.bombLimit ?? 1}
+                      value={session.roomSync.state().config?.bombLimit ?? 1}
                       onChange={(e) =>
-                        roomSync.dispatch({
+                        session.roomSync.dispatch({
                           type: "CHANGE_CONFIG",
                           payload: { bombLimit: Number(e.currentTarget.value) },
                         } as BombermanPreGameClientDispatch)
@@ -290,7 +171,7 @@ export function BombermanRoom() {
           </Show>
 
           <div class="grid gap-2 mb-4">
-            <For each={roomSync.state().players ?? []}>
+            <For each={session.roomSync.state().players ?? []}>
               {(p) => (
                 <div class="flex items-center gap-3 p-3 bg-base-200 rounded pixel-border">
                   <div class="w-10 h-10 rounded-full bg-base-300 flex items-center justify-center text-sm font-bold text-base-content/60">
@@ -310,13 +191,13 @@ export function BombermanRoom() {
                   <Badge variant={p.ready ? "success" : "neutral"} size="sm" ghost={!p.ready}>
                     {p.ready ? t("bomberman.ready") : t("bomberman.wait")}
                   </Badge>
-                  <Show when={isHost() && p.id !== playerId()}>
+                  <Show when={isHost() && p.id !== session.playerId()}>
                     <Button
                       size="xs"
                       variant="ghost"
                       class="text-error"
                       onClick={() =>
-                        roomSync.dispatch({ type: "KICK_PLAYER", targetId: p.id } as BombermanPreGameClientDispatch)
+                        session.roomSync.dispatch({ type: "KICK_PLAYER", targetId: p.id } as BombermanPreGameClientDispatch)
                       }
                     >
                       {t("bomberman.kick")}
@@ -335,12 +216,12 @@ export function BombermanRoom() {
                 </Badge>
               </Match>
               <Match when={selfPlayer()?.ready}>
-                <Button size="sm" outline onClick={() => roomSync.dispatch({ type: "UNREADY" })}>
+                <Button size="sm" outline onClick={() => session.roomSync.dispatch({ type: "UNREADY" })}>
                   {t("bomberman.unready")}
                 </Button>
               </Match>
               <Match when={true}>
-                <Button size="sm" variant="primary" onClick={() => roomSync.dispatch({ type: "READY" })}>
+                <Button size="sm" variant="primary" onClick={() => session.roomSync.dispatch({ type: "READY" })}>
                   {t("bomberman.ready")}
                 </Button>
               </Match>
@@ -357,28 +238,26 @@ export function BombermanRoom() {
         </div>
       </Show>
 
-      <Show when={phase() === "playing" && gameSync.state()}>
+      <Show when={session.phase() === "playing" && session.gameSync.state()}>
         <BombermanGame
-          initialState={gameSync.state()}
-          onAction={handleGameAction}
+          gameSync={session.gameSync}
           onBackToRoom={() => {
-            setPhase("lobby");
-            gameSync.disconnect();
+            // phase will be reset by server event or navigation
           }}
-          playerId={playerId()}
+          playerId={session.playerId()}
         />
       </Show>
 
-      <Show when={phase() === "ended"}>
+      <Show when={session.phase() === "ended"}>
         <div class="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
           <div class="bg-base-200 p-8 rounded pixel-border text-center">
             <h2 class="text-2xl font-bold mb-4">{t("bomberman.gameOver")}</h2>
-            <Show when={gameOver()}>
+            <Show when={session.gameEnded()}>
               <div class="mb-4">
                 <p class="text-lg mb-2">
                   {t("bomberman.winner")}: {winnerName() ?? t("bomberman.draw")}
                 </p>
-                <For each={gameOver()?.rankings ?? []}>
+                <For each={session.gameEnded()?.rankings ?? []}>
                   {(r) => (
                     <p>
                       #{r.rank}: {r.name}
@@ -388,7 +267,7 @@ export function BombermanRoom() {
               </div>
             </Show>
             <div class="flex gap-2 justify-center">
-              <Button variant="primary" onClick={() => setPhase("lobby")}>
+              <Button variant="primary" onClick={() => navigate("/bomberman")}>
                 {t("bomberman.playAgain")}
               </Button>
               <Button outline onClick={() => navigate("/bomberman")}>

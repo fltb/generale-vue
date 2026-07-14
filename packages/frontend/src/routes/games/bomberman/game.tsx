@@ -14,17 +14,20 @@ import { sfx } from "~/ui/sound";
 import { formatKey } from "./utils";
 import { useT } from "~/i18n/useT";
 import { Button } from "~/ui";
+import type { SyncedState } from "./hooks/useBombermanRoomSession";
+import { useBombermanGameSession } from "./hooks/useBombermanGameSession";
+import { computeEndgameResult } from "./hooks/selectors";
 
 interface BombermanGameProps {
-  initialState: BombermanState;
-  onAction: (op: BombermanOperation) => void;
+  gameSync: SyncedState<BombermanState, BombermanOperation>;
   onBackToRoom: () => void;
   playerId?: string;
 }
 
 export function BombermanGame(props: BombermanGameProps) {
   const { t } = useT();
-  const { showVirtualControls } = useBombermanInput(props.onAction);
+  const session = useBombermanGameSession(props.gameSync, () => props.playerId ?? "");
+  const { showVirtualControls } = useBombermanInput(session.onAction);
   const { settings: gameSettings } = useGameSettings(bombermanSettingsSchema);
   const [showScoreboard, setShowScoreboard] = createSignal(false);
   const [rankings, setRankings] = createSignal<{ name: string; rank: number }[]>([]);
@@ -33,7 +36,7 @@ export function BombermanGame(props: BombermanGameProps) {
   const [showSurrenderConfirm, setShowSurrenderConfirm] = createSignal(false);
   const [controlsAutoHidden, setControlsAutoHidden] = createSignal(false);
 
-  const state = createMemo(() => props.initialState);
+  const state = () => session.state();
 
   // ── Scale to fit viewport ──
   const TILE_SIZE = 36;
@@ -147,10 +150,8 @@ export function BombermanGame(props: BombermanGameProps) {
     const s = state();
     if (!s?.players) return;
     if (s.status === GameStatus.Ended) {
-      const allPlayers = Object.values(s.players) as { playerId: string; name: string; alive: boolean }[];
-      const list = allPlayers
-        .sort((a, b) => (a.alive === b.alive ? 0 : a.alive ? -1 : 1))
-        .map((p, i) => ({ name: p.name ?? p.playerId.slice(0, 8), rank: i + 1 }));
+      const result = computeEndgameResult(s);
+      const list = result.rankings.map((r) => ({ name: r.name, rank: r.rank }));
       setRankings(list);
       setShowScoreboard(true);
     }
@@ -223,7 +224,7 @@ export function BombermanGame(props: BombermanGameProps) {
         </div>
       </Show>
       <Show when={showVirtualControls()}>
-        <VirtualControls onAction={props.onAction} />
+        <VirtualControls onAction={session.onAction} />
       </Show>
       <Button
         size="sm"
@@ -262,7 +263,7 @@ export function BombermanGame(props: BombermanGameProps) {
               <Button
                 variant="error"
                 onClick={() => {
-                  props.onAction({ type: "SURRENDER" });
+                  session.onAction({ type: "SURRENDER" });
                   setShowSurrenderConfirm(false);
                 }}
               >

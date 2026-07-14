@@ -1,8 +1,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen } from "@solidjs/testing-library";
-import type { BombermanState } from "@generale/types";
+import type { BombermanState, BombermanOperation } from "@generale/types";
 import { GameStatus, bombermanSettingsSchema } from "@generale/types";
 import { BombermanGame } from "../game";
+import type { SyncedState } from "../hooks/useBombermanRoomSession";
 
 // ─── Mocks ───
 
@@ -147,6 +148,16 @@ function makeState(overrides: Partial<BombermanState> = {}): BombermanState {
   };
 }
 
+function makeGameSync(state: BombermanState): SyncedState<BombermanState, BombermanOperation> {
+  return {
+    state: () => state,
+    dispatch: vi.fn() as any,
+    connect: vi.fn() as any,
+    disconnect: vi.fn() as any,
+    isReady: () => true,
+  };
+}
+
 // ─── Tests ───
 
 describe("BombermanGame", () => {
@@ -164,8 +175,7 @@ describe("BombermanGame", () => {
     const initialState = makeState();
     render(() => (
       <BombermanGame
-        initialState={initialState}
-        onAction={() => {}}
+        gameSync={makeGameSync(initialState)}
         onBackToRoom={() => {}}
         playerId="player1"
       />
@@ -187,8 +197,7 @@ describe("BombermanGame", () => {
   it("renders surrender button when player is alive", () => {
     render(() => (
       <BombermanGame
-        initialState={makeState()}
-        onAction={() => {}}
+        gameSync={makeGameSync(makeState())}
         onBackToRoom={() => {}}
         playerId="player1"
       />
@@ -205,8 +214,7 @@ describe("BombermanGame", () => {
   it("hides surrender button when playerId is missing (spectator)", () => {
     render(() => (
       <BombermanGame
-        initialState={makeState()}
-        onAction={() => {}}
+        gameSync={makeGameSync(makeState())}
         onBackToRoom={() => {}}
       />
     ));
@@ -223,8 +231,7 @@ describe("BombermanGame", () => {
   it("does not show connection-lost during grace period (tick=0)", () => {
     render(() => (
       <BombermanGame
-        initialState={makeState({ tick: 0 })}
-        onAction={() => {}}
+        gameSync={makeGameSync(makeState({ tick: 0 }))}
         onBackToRoom={() => {}}
         playerId="player1"
       />
@@ -244,8 +251,7 @@ describe("BombermanGame", () => {
   it("still shows connection-lost after real tick stops", () => {
     render(() => (
       <BombermanGame
-        initialState={makeState({ tick: 5 })}
-        onAction={() => {}}
+        gameSync={makeGameSync(makeState({ tick: 5 }))}
         onBackToRoom={() => {}}
         playerId="player1"
       />
@@ -268,8 +274,7 @@ describe("BombermanGame", () => {
   it("shows controls help overlay by default", () => {
     render(() => (
       <BombermanGame
-        initialState={makeState()}
-        onAction={() => {}}
+        gameSync={makeGameSync(makeState())}
         onBackToRoom={() => {}}
         playerId="player1"
       />
@@ -286,8 +291,7 @@ describe("BombermanGame", () => {
   it("renders time from state", () => {
     render(() => (
       <BombermanGame
-        initialState={makeState({ roundTimer: 120 })}
-        onAction={() => {}}
+        gameSync={makeGameSync(makeState({ roundTimer: 120 }))}
         onBackToRoom={() => {}}
         playerId="player1"
       />
@@ -302,7 +306,7 @@ describe("BombermanGame", () => {
   it("shows scoreboard when game ends", () => {
     render(() => (
       <BombermanGame
-        initialState={makeState({
+        gameSync={makeGameSync(makeState({
           status: GameStatus.Ended,
           players: {
             player1: {
@@ -319,8 +323,7 @@ describe("BombermanGame", () => {
               items: [],
             },
           },
-        })}
-        onAction={() => {}}
+        }))}
         onBackToRoom={() => {}}
         playerId="player1"
       />

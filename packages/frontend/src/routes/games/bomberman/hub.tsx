@@ -1,5 +1,5 @@
 import { useNavigate } from "@solidjs/router";
-import { createSignal, createMemo, onMount, For, Show } from "solid-js";
+import { createSignal, createMemo, onMount, onCleanup, For, Show } from "solid-js";
 import { ProtectedRoute } from "~/components/ProtectedRoute";
 import { useWS } from "~/hooks/useWebsocket";
 import { Button, Input, Select, Modal, Checkbox, LabelText, Badge, Alert } from "~/ui";
@@ -216,6 +216,19 @@ export function BombermanHub() {
   const [showCreateModal, setShowCreateModal] = createSignal(false);
   const [filter, setFilter] = createSignal<BombermanRoomFilter>({});
 
+  let refreshTimer: ReturnType<typeof setTimeout> | null = null;
+
+  function safeRefresh() {
+    if (refreshTimer) clearTimeout(refreshTimer);
+    refreshTimer = setTimeout(async () => {
+      try {
+        const res = await fetch("/api/bomberman/room/list");
+        const data = await res.json();
+        if (Array.isArray(data)) setRooms(data);
+      } catch { /* ignore */ }
+    }, 500);
+  }
+
   const filteredRooms = createMemo(() => {
     const f = filter();
     return rooms()
@@ -240,8 +253,39 @@ export function BombermanHub() {
       if (ws?.isConnected) {
         const sub = ws.getOrCreateSub("lobby-bomberman");
         sub?.onMessage((msg: unknown) => {
-          const m = msg as { type: string; payload: RoomSummary[] };
-          if (m.type === "ROOM_LIST_UPDATE") setRooms(m.payload);
+          try {
+            const m = msg as { type: string; payload: unknown };
+
+            switch (m.type) {
+              case "LOBBY_LIST": {
+                // Initial full snapshot
+                setRooms(m.payload as RoomSummary[]);
+                break;
+              }
+              case "LOBBY_CREATED": {
+                const created = m.payload as RoomSummary;
+                setRooms((prev) => [created, ...prev]);
+                break;
+              }
+              case "LOBBY_UPDATED": {
+                const updated = m.payload as RoomSummary;
+                setRooms((prev) => prev.map((r) => (r.gameId === updated.gameId ? updated : r)));
+                break;
+              }
+              case "LOBBY_DELETED": {
+                const { id } = m.payload as { id: string };
+                setRooms((prev) => prev.filter((r) => r.gameId !== id));
+                break;
+              }
+              // Keep backward compat for old server messages
+              case "ROOM_LIST_UPDATE": {
+                setRooms(m.payload as RoomSummary[]);
+                break;
+              }
+            }
+          } catch {
+            safeRefresh();
+          }
         });
         ws.openDomain("lobby-bomberman", {});
       } else {
@@ -249,6 +293,13 @@ export function BombermanHub() {
       }
     }
     tryOpenLobby();
+  });
+
+  onCleanup(() => {
+    if (refreshTimer) {
+      clearTimeout(refreshTimer);
+      refreshTimer = null;
+    }
   });
 
   async function fetchAndSetRooms() {
