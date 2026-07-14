@@ -5,55 +5,58 @@ interface VirtualControlsProps {
   onAction: (op: BombermanOperation) => void;
 }
 
+function createDirectionButton(
+  direction: "up" | "down" | "left" | "right",
+  symbol: string,
+  onAction: (op: BombermanOperation) => void,
+) {
+  let interval: ReturnType<typeof setInterval> | null = null;
+
+  return (
+    <button
+      type="button"
+      class="w-14 h-14 bg-gray-700/80 rounded text-white text-2xl active:bg-gray-500 select-none touch-none"
+      onTouchStart={(e) => {
+        e.preventDefault();
+        onAction({ type: "MOVE", direction }); // immediate first move
+        // Then repeat every 80ms to match server tick rate
+        interval = setInterval(() => {
+          onAction({ type: "MOVE", direction });
+        }, 80);
+      }}
+      onTouchEnd={(e) => {
+        e.preventDefault();
+        if (interval) {
+          clearInterval(interval);
+          interval = null;
+        }
+      }}
+      onTouchCancel={(e) => {
+        e.preventDefault();
+        if (interval) {
+          clearInterval(interval);
+          interval = null;
+        }
+      }}
+    >
+      {symbol}
+    </button>
+  );
+}
+
 export function VirtualControls(props: VirtualControlsProps) {
   const { t } = useT();
   return (
     <div class="fixed bottom-4 left-4 right-4 flex justify-between pointer-events-none z-50">
       <div class="pointer-events-auto grid grid-cols-3 gap-1">
         <div />
-        <button
-          type="button"
-          class="w-14 h-14 bg-gray-700/80 rounded text-white text-2xl active:bg-gray-500 select-none touch-none"
-          onTouchStart={(e) => {
-            e.preventDefault();
-            props.onAction({ type: "MOVE", direction: "up" });
-          }}
-        >
-          ▲
-        </button>
+        {createDirectionButton("up", "▲", props.onAction)}
         <div />
-        <button
-          type="button"
-          class="w-14 h-14 bg-gray-700/80 rounded text-white text-2xl active:bg-gray-500 select-none touch-none"
-          onTouchStart={(e) => {
-            e.preventDefault();
-            props.onAction({ type: "MOVE", direction: "left" });
-          }}
-        >
-          ◀
-        </button>
+        {createDirectionButton("left", "◀", props.onAction)}
         <div class="w-14 h-14" />
-        <button
-          type="button"
-          class="w-14 h-14 bg-gray-700/80 rounded text-white text-2xl active:bg-gray-500 select-none touch-none"
-          onTouchStart={(e) => {
-            e.preventDefault();
-            props.onAction({ type: "MOVE", direction: "right" });
-          }}
-        >
-          ▶
-        </button>
+        {createDirectionButton("right", "▶", props.onAction)}
         <div />
-        <button
-          type="button"
-          class="w-14 h-14 bg-gray-700/80 rounded text-white text-2xl active:bg-gray-500 select-none touch-none"
-          onTouchStart={(e) => {
-            e.preventDefault();
-            props.onAction({ type: "MOVE", direction: "down" });
-          }}
-        >
-          ▼
-        </button>
+        {createDirectionButton("down", "▼", props.onAction)}
         <div />
       </div>
       <div class="pointer-events-auto flex flex-col items-center gap-2">
