@@ -117,18 +117,25 @@ export function BombermanGame(props: BombermanGameProps) {
     }, 6000);
   });
 
-  // Tick-health monitor: starts after countdown, warns if no tick for >3s
-  let lastTick = Date.now();
+  // Tick-health monitor: starts after countdown, warns if no tick for >3s.
+  // Server has a 3s pre-game delay — defer checks until the first real tick arrives.
+  let lastTick = -1;
+  let lastSeenTick = -1;
   let monitorTimer: ReturnType<typeof setInterval> | null = null;
   createEffect(() => {
     if (!countdownDone()) return;
     if (monitorTimer) return; // already running
-    lastTick = Date.now();
     monitorTimer = setInterval(() => {
       const s = state();
       const currentTick = s?.tick ?? -1;
       const now = Date.now();
-      if (currentTick > 0) lastTick = now;
+      // Track tick changes — reset timer on each new tick
+      if (currentTick > lastSeenTick) {
+        lastSeenTick = currentTick;
+        if (currentTick > 0) lastTick = now;
+      }
+      // Don't check until we've seen the first real tick
+      if (lastTick < 0) return;
       setConnectionOk(now - lastTick < 3000);
     }, 500);
   });
@@ -149,6 +156,8 @@ export function BombermanGame(props: BombermanGameProps) {
     }
   });
 
+  const mapCols = createMemo(() => state().map?.tiles[0]?.length ?? 0);
+  const mapRows = createMemo(() => state().map?.tiles.length ?? 0);
   const players = createMemo(() => Object.values(state().players ?? {}));
   const myPlayer = createMemo(() => (props.playerId ? state().players?.[props.playerId] : null));
   const myStats = createMemo(() => {
@@ -164,15 +173,22 @@ export function BombermanGame(props: BombermanGameProps) {
         <Countdown from={3} onDone={() => setCountdownDone(true)} />
       </Show>
       <div style={{ transform: `scale(${gameScale()})`, "transform-origin": "center" }}>
-        <Application resizeTo={window} resolution={window.devicePixelRatio} autoDensity>
-          <MapLayer tiles={state().map?.tiles ?? []} />
-          <EntityLayer
-            players={players()}
-            bombs={state().bombs ?? []}
-            explosions={state().explosions ?? []}
-            items={state().items ?? []}
-          />
-        </Application>
+        <Show when={mapCols() > 0 && mapRows() > 0}>
+          <Application
+            width={mapCols() * TILE_SIZE}
+            height={mapRows() * TILE_SIZE}
+            resolution={window.devicePixelRatio}
+            autoDensity
+          >
+            <MapLayer tiles={state().map?.tiles ?? []} />
+            <EntityLayer
+              players={players()}
+              bombs={state().bombs ?? []}
+              explosions={state().explosions ?? []}
+              items={state().items ?? []}
+            />
+          </Application>
+        </Show>
       </div>
 
       <HUD
@@ -234,27 +250,27 @@ export function BombermanGame(props: BombermanGameProps) {
         >
           {t("bomberman.surrender")}
         </Button>
-        <Show when={showSurrenderConfirm()}>
-          <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-            <div class="bg-base-200 p-6 rounded-lg text-center">
-              <p class="mb-4">{t("bomberman.areYouSure")}</p>
-              <div class="flex gap-3 justify-center">
-                <Button outline onClick={() => setShowSurrenderConfirm(false)}>
-                  {t("bomberman.cancel")}
-                </Button>
-                <Button
-                  variant="error"
-                  onClick={() => {
-                    props.onAction({ type: "SURRENDER" });
-                    setShowSurrenderConfirm(false);
-                  }}
-                >
-                  {t("bomberman.yesSurrender")}
-                </Button>
-              </div>
+      </Show>
+      <Show when={showSurrenderConfirm()}>
+        <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div class="bg-base-200 p-6 rounded-lg text-center">
+            <p class="mb-4">{t("bomberman.areYouSure")}</p>
+            <div class="flex gap-3 justify-center">
+              <Button outline onClick={() => setShowSurrenderConfirm(false)}>
+                {t("bomberman.cancel")}
+              </Button>
+              <Button
+                variant="error"
+                onClick={() => {
+                  props.onAction({ type: "SURRENDER" });
+                  setShowSurrenderConfirm(false);
+                }}
+              >
+                {t("bomberman.yesSurrender")}
+              </Button>
             </div>
           </div>
-        </Show>
+        </div>
       </Show>
       <Show when={showScoreboard()}>
         <Scoreboard players={rankings()} onBackToRoom={props.onBackToRoom} />
