@@ -37,6 +37,9 @@ export class BombermanManager {
     service.onDisband = () => {
       this.removeGame(id);
     };
+    service.onLobbyUpdate = () => {
+      this.broadcastLobbyUpdate();
+    };
     service.registerHandlers();
     this.services.set(id, service);
     this.broadcastLobbyUpdate();

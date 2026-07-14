@@ -35,6 +35,7 @@ export class BombermanRoom {
 
   onGameStartCallback?: (playerIds: PlayerId[]) => void;
   onDisbandedCallback?: () => void;
+  onStateChangeCallback?: () => void;
 
   constructor(roomName: string, config: BombermanConfig, creatorId: PlayerId, creatorName: string, password?: string) {
     this.creatorId = creatorId;
@@ -76,6 +77,10 @@ export class BombermanRoom {
 
   onDisbanded(cb: () => void): void {
     this.onDisbandedCallback = cb;
+  }
+
+  onStateChange(cb: () => void): void {
+    this.onStateChangeCallback = cb;
   }
 
   addPlayer(
@@ -135,6 +140,7 @@ export class BombermanRoom {
       player.ready = false;
       this.version++;
       this.broadcastState();
+      this.onStateChangeCallback?.();
       return;
     }
 

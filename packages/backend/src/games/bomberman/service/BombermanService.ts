@@ -22,6 +22,7 @@ export class BombermanService {
   private gameConnectors = new Map<string, SubConnector>();
   private disconnectTimers = new Map<string, ReturnType<typeof setTimeout>>();
   public onDisband?: () => void;
+  public onLobbyUpdate?: () => void;
 
   constructor(
     gameId: GameId,
@@ -37,6 +38,9 @@ export class BombermanService {
     this.room.onGameStart(() => this.startGame());
     this.room.onDisbanded(() => {
       this.onDisband?.();
+    });
+    this.room.onStateChange(() => {
+      this.onLobbyUpdate?.();
     });
   }
 
