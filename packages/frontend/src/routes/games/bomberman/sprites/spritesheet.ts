@@ -1,4 +1,11 @@
-/** Frame definition for a sub-texture in the spritesheet */
+/**
+ * Frame definitions for bomb_party_v4.png (240×320, 15 cols × 20 rows, 16×16 frames).
+ * Coordinates sourced from dennis/bombermanjs Tiled map + sprites.json.
+ *
+ * Conversion: col = (tiledId - 1) % 15, row = floor((tiledId - 1) / 15)
+ * pixelX = col * 16, pixelY = row * 16
+ */
+
 export interface FrameDef {
   x: number;
   y: number;
@@ -7,42 +14,130 @@ export interface FrameDef {
 }
 
 const FRAME = 16;
+const COLS = 15;
 
-function frame(col: number, row: number): FrameDef {
-  return { x: col * FRAME, y: row * FRAME, w: FRAME, h: FRAME };
+/** Convert Tiled tile ID (1-based) to pixel frame coordinates */
+function tid(id: number): FrameDef {
+  const idx = id - 1;
+  return { x: (idx % COLS) * FRAME, y: Math.floor(idx / COLS) * FRAME, w: FRAME, h: FRAME };
 }
 
-/** Display tile size in pixels (sprites are upscaled from 16×16) */
+/** Display tile size in pixels (sprites upscaled from 16×16) */
 export const TILE_SIZE = 36;
 
-// ─── Player rows in spritesheet ───
-export const PLAYER_ROWS = [14, 15, 16, 17]; // White, Black, Blue, Red
+// ─── Player frame data (per-player, using Tiled IDs) ───
+// Each player has: idle-down, walk-down(2), idle-right, walk-right(3),
+// idle-up, walk-up(2), walk-left(3, mirror for right), idle-left.
 
-/** Direction → { stand: col index, frames: all frame cols } */
-export const PLAYER_DIR_COLS: Record<string, { stand: number; frames: number[] }> = {
-  down: { stand: 0, frames: [0, 8, 9] },
-  left: { stand: 1, frames: [1, 2, 3] },
-  up: { stand: 4, frames: [4, 5, 6, 7] },
-  right: { stand: 1, frames: [1, 2, 3] }, // mirrored via scale.x = -1
+export interface PlayerFrames {
+  idleDown: FrameDef;
+  walkDown: FrameDef[];
+  idleRight: FrameDef;
+  walkRight: FrameDef[];
+  idleUp: FrameDef;
+  walkUp: FrameDef[];
+  walkLeft: FrameDef[]; // mirrored for right-facing rendering
+  idleLeft: FrameDef;
+}
+
+/**
+ * Player 0 (blue-ish): Row 13-19
+ *   up=210, down=211, right=214, left=288
+ *   walk-down: 212,213  walk-right: 215,216,217  walk-up: 218,219  walk-left: 285,286,287
+ */
+const p0: PlayerFrames = {
+  idleDown: tid(211),
+  walkDown: [tid(212), tid(213)],
+  idleRight: tid(214),
+  walkRight: [tid(215), tid(216), tid(217)],
+  idleUp: tid(210),
+  walkUp: [tid(218), tid(219)],
+  walkLeft: [tid(285), tid(286), tid(287)],
+  idleLeft: tid(288),
 };
 
-// ─── Tile frames ───
-export const HARD_WALL = frame(0, 12);
-export const SOFT_WALL = frame(0, 13);
-export const FLOOR_1 = frame(1, 13);
-export const FLOOR_2 = frame(2, 13);
+/**
+ * Player 1 (green): Row 13-18
+ *   up=255, down=256, right=259, left=202
+ *   walk-down: 257,258  walk-right: 260,261,262  walk-up: 263,264  walk-left: 199,200,201
+ */
+const p1: PlayerFrames = {
+  idleDown: tid(256),
+  walkDown: [tid(257), tid(258)],
+  idleRight: tid(259),
+  walkRight: [tid(260), tid(261), tid(262)],
+  idleUp: tid(255),
+  walkUp: [tid(263), tid(264)],
+  walkLeft: [tid(199), tid(200), tid(201)],
+  idleLeft: tid(202),
+};
 
-// ─── Bomb frames ───
-export const BOMB_IDLE = frame(3, 13);
-export const BOMB_ACTIVE = frame(9, 13);
+/**
+ * Player 2 (red): Row 14-19
+ *   up=225, down=226, right=229, left=292
+ *   walk-down: 227,228  walk-right: 230,231,232  walk-up: 233,234  walk-left: 289,290,291
+ */
+const p2: PlayerFrames = {
+  idleDown: tid(226),
+  walkDown: [tid(227), tid(228)],
+  idleRight: tid(229),
+  walkRight: [tid(230), tid(231), tid(232)],
+  idleUp: tid(225),
+  walkUp: [tid(233), tid(234)],
+  walkLeft: [tid(289), tid(290), tid(291)],
+  idleLeft: tid(292),
+};
 
-// ─── Explosion frames (Row 18, cols 0-9) ───
-export const EXPLOSION_FRAMES = Array.from({ length: 10 }, (_, i) => frame(i, 18));
+/**
+ * Player 3 (purple): Row 15-19
+ *   up=240, down=241, right=244(=walk-right0), left=296
+ *   walk-down: 242,243  walk-right: 244,245,246  walk-up: 248,249  walk-left: 293,294,295
+ */
+const p3: PlayerFrames = {
+  idleDown: tid(241),
+  walkDown: [tid(242), tid(243)],
+  idleRight: tid(244),
+  walkRight: [tid(244), tid(245), tid(246)],
+  idleUp: tid(240),
+  walkUp: [tid(248), tid(249)],
+  walkLeft: [tid(293), tid(294), tid(295)],
+  idleLeft: tid(296),
+};
 
-// ─── Item frames ───
+export const ALL_PLAYER_FRAMES: PlayerFrames[] = [p0, p1, p2, p3];
+
+// ─── Bomb frames (6 frames, row 18, cols 3-8) ───
+export const BOMB_FRAMES: FrameDef[] = [tid(274), tid(275), tid(276), tid(277), tid(278), tid(279)];
+
+// ─── Explosion frames ───
+export const EXPLOSION_CENTER = tid(272); // (16, 288)
+export const EXPLOSION_H_MID = tid(271); // (0, 288)
+export const EXPLOSION_V_MID = tid(224); // (208, 224)
+export const EXPLOSION_LEFT_END = tid(270); // (224, 272)
+export const EXPLOSION_RIGHT_END = tid(273); // (32, 288)
+export const EXPLOSION_UP_END = tid(209); // (208, 208)
+export const EXPLOSION_DOWN_END = tid(239); // (208, 240)
+
+/** All explosion textures, useful for cycle animation */
+export const EXPLOSION_ALL = [EXPLOSION_CENTER, EXPLOSION_H_MID, EXPLOSION_V_MID, EXPLOSION_LEFT_END, EXPLOSION_RIGHT_END, EXPLOSION_UP_END, EXPLOSION_DOWN_END];
+
+// ─── Tiles ───
+export const SOFT_WALL = tid(204); // crate/box (128, 208)
+export const HARD_WALL = tid(266); // wall/block (160, 272)
+export const FLOOR_1 = tid(197); // grass/floor 1 (16, 208)
+export const FLOOR_2 = tid(198); // grass/floor 2 (32, 208)
+
+// ─── Items (approximate — spritesheet has few item icons) ───
+// Row 13 has some tiles that look item-like. We map best-effort.
+// Kick: boot-like shape, Glove: gauntlet, etc. Use nearby tiles as fallbacks.
 export const ITEM_FRAMES: Record<string, FrameDef> = {
-  KICK: frame(11, 13),
-  GLOVE: frame(12, 13),
-  PIERCE: frame(13, 13),
-  BOMB_UP: frame(14, 13), // fire icon repurposed as bomb-up
+  BOMB_UP: tid(274), // reuse bomb frame
+  FIRE_UP: tid(278), // reuse bomb pulse frame
+  SPEED_UP: tid(218), // reuse up-walk as "speed" indicator
+  KICK: tid(198), // floor tile as placeholder
+  GLOVE: tid(197), // floor tile as placeholder
+  PUNCH: tid(204), // crate as placeholder
+  REMOTE: tid(272), // explosion center as placeholder
+  PIERCE: tid(266), // wall as placeholder
+  SPIRIT: tid(196), // nearby tile
 };

@@ -2,7 +2,7 @@ import type { BombermanPlayer, Bomb, Explosion, Item } from "@generale/types";
 import { Graphics as PIXIGraphics, Texture } from "pixi.js";
 import { For, Show, createEffect, createMemo, createSignal } from "solid-js";
 import { Container, Graphics as PGraphics, Sprite } from "solid-pixi";
-import { useSprites, type PlayerSpriteSet } from "../hooks/useSprites";
+import { useSprites, type PlayerTextures } from "../hooks/useSprites";
 import { TILE_SIZE } from "../sprites/spritesheet";
 
 // ─── Fallback colors for items without sprites ───
@@ -21,11 +21,13 @@ interface EntityLayerProps {
   items: Item[];
 }
 
-/** Pick the standing (first) texture from the correct direction set. */
-function getPlayerTexture(spriteSet: PlayerSpriteSet, facing: string): Texture {
+/** Pick idle or walk frame based on facing direction and animation tick. */
+function getPlayerTexture(pt: PlayerTextures, facing: string, frame: number): Texture {
   const key = facing === "right" ? "left" : facing;
-  const dir = key as keyof PlayerSpriteSet;
-  return spriteSet[dir]?.[0] ?? spriteSet.down[0];
+  if (key === "left") return pt.walkLeft[frame % pt.walkLeft.length];
+  if (key === "up") return frame % 2 === 0 ? pt.idleUp : pt.walkUp[frame % pt.walkUp.length];
+  if (key === "down") return frame % 2 === 0 ? pt.idleDown : pt.walkDown[frame % pt.walkDown.length];
+  return pt.idleDown;
 }
 
 export function EntityLayer(props: EntityLayerProps) {
@@ -65,10 +67,10 @@ export function EntityLayer(props: EntityLayerProps) {
           {/* ── Bombs (z=2) ── */}
           <For each={props.bombs}>
             {(bomb) => {
-              const active = bomb.fuse <= 3 && tick() % 2 === 0;
+              const frameIdx = Math.min(bomb.fuse - 1, sprites().bombs.length - 1);
               return (
                 <Sprite
-                  texture={active ? sprites().bombs[1] : sprites().bombs[0]}
+                  texture={sprites().bombs[Math.max(0, frameIdx)]}
                   x={bomb.x * TILE_SIZE + TILE_SIZE / 2}
                   y={bomb.y * TILE_SIZE + TILE_SIZE / 2}
                   anchor={{ x: 0.5, y: 0.5 }}
@@ -105,8 +107,8 @@ export function EntityLayer(props: EntityLayerProps) {
             {(player, idx) => {
               if (!player.alive) return null;
               const colorIdx = idx() % sprites().players.length;
-              const spriteSet = sprites().players[colorIdx];
-              const tex = getPlayerTexture(spriteSet, player.facing);
+              const pt = sprites().players[colorIdx];
+              const tex = getPlayerTexture(pt, player.facing, tick());
               const flipX = player.facing === "right" ? -1 : 1;
               return (
                 <Sprite
