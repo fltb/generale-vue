@@ -2,6 +2,7 @@ import { BombermanPreGameServerEventType } from "@generale/types";
 import type {
   BombermanRoomState,
   BombermanPreGameClientAction,
+  BombermanPreGameClientDispatch,
   BombermanPreGameServerEvent,
   BombermanState,
   BombermanOperation,
@@ -174,7 +175,7 @@ export function BombermanRoom() {
                         roomSync.dispatch({
                           type: "CHANGE_CONFIG",
                           payload: { playerLimit: Number(e.currentTarget.value) },
-                        } as any)
+                        } as BombermanPreGameClientDispatch)
                       }
                     >
                       {[2, 3, 4].map((n) => (
@@ -193,7 +194,7 @@ export function BombermanRoom() {
                         roomSync.dispatch({
                           type: "CHANGE_CONFIG",
                           payload: { roundTimeSec: Number(e.currentTarget.value) },
-                        } as any)
+                        } as BombermanPreGameClientDispatch)
                       }
                     >
                       {[60, 120, 180, 300, 600].map((n) => (
@@ -210,7 +211,10 @@ export function BombermanRoom() {
                       value={roomSync.state().config?.mapWidth ?? 11}
                       onChange={(e) => {
                         const v = Number(e.currentTarget.value);
-                        roomSync.dispatch({ type: "CHANGE_CONFIG", payload: { mapWidth: v, mapHeight: v } } as any);
+                        roomSync.dispatch({
+                          type: "CHANGE_CONFIG",
+                          payload: { mapWidth: v, mapHeight: v },
+                        } as BombermanPreGameClientDispatch);
                       }}
                     >
                       <option value={9}>Small (9x9)</option>
@@ -229,7 +233,7 @@ export function BombermanRoom() {
                         roomSync.dispatch({
                           type: "CHANGE_CONFIG",
                           payload: { bombLimit: Number(e.currentTarget.value) },
-                        } as any)
+                        } as BombermanPreGameClientDispatch)
                       }
                     >
                       {[1, 2, 3].map((n) => (
@@ -262,7 +266,9 @@ export function BombermanRoom() {
                   <button
                     type="button"
                     class="btn btn-xs btn-ghost text-error"
-                    onClick={() => roomSync.dispatch({ type: "KICK_PLAYER", targetId: p.id } as any)}
+                    onClick={() =>
+                      roomSync.dispatch({ type: "KICK_PLAYER", targetId: p.id } as BombermanPreGameClientDispatch)
+                    }
                   >
                     Kick
                   </button>
