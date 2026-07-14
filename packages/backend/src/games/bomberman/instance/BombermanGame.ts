@@ -17,6 +17,7 @@ export class BombermanGame {
   private onEndCallbacks: Array<(result: BombermanGameEndResult) => void> = [];
   private onTickCallbacks: Array<(state: BombermanState) => void> = [];
   private queues: Record<PlayerId, BombermanOperation[]> = {};
+  private playerDirections: Record<string, "up" | "down" | "left" | "right" | null> = {};
   private bots: Array<{ playerId: PlayerId; getAction: (state: BombermanState) => BombermanOperation }> = [];
 
   constructor(config: BombermanConfig, players: { id: string; name: string }[]) {
@@ -90,6 +91,10 @@ export class BombermanGame {
   }
 
   handleAction(pid: PlayerId, op: BombermanOperation, _optimisticId?: number): void {
+    if (op.type === "SET_DIRECTION") {
+      this.playerDirections[pid] = op.direction;
+      return; // don't queue — direction is stored server-side
+    }
     if (!this.queues[pid]) this.queues[pid] = [];
     this.queues[pid].push(op);
   }
@@ -104,7 +109,7 @@ export class BombermanGame {
         this.queues[bot.playerId]?.push(action);
       }
       // tick() consumes ops from the persistent queue — only removes what was processed
-      this.state = tick(this.state, this.queues);
+      this.state = tick(this.state, this.queues, this.playerDirections);
 
       for (const cb of this.onTickCallbacks) {
         try {

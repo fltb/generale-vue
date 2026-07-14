@@ -413,7 +413,11 @@ function punchBomb(state: BombermanState, bombIdx: number, dx: number, dy: numbe
 
 // ─── Main tick ───
 
-export function tick(state: BombermanState, queues: Record<PlayerId, BombermanOperation[]>): BombermanState {
+export function tick(
+  state: BombermanState,
+  queues: Record<PlayerId, BombermanOperation[]>,
+  playerDirections?: Record<string, "up" | "down" | "left" | "right" | null>,
+): BombermanState {
   const next = cloneState(state);
   next.tick++;
 
@@ -427,14 +431,19 @@ export function tick(state: BombermanState, queues: Record<PlayerId, BombermanOp
     }
     if (ops.length === 0) continue;
 
-    // ─── MOVE: walk speed steps (last direction wins) ───
+    // ─── MOVE: direction from playerDirections (current-intent) or last queued MOVE (fallback) ───
     const moveOps = ops.filter((o) => o.type === "MOVE");
     const lastMove = moveOps.length > 0 ? moveOps[moveOps.length - 1] : undefined;
-    if (lastMove) {
-      player.facing = lastMove.direction;
+
+    // Current-intent direction takes precedence
+    const storedDir = playerDirections?.[pid];
+    const moveDir = storedDir ?? lastMove?.direction ?? null;
+
+    if (moveDir) {
+      player.facing = moveDir;
       const steps = Math.max(1, player.speed);
       for (let i = 0; i < steps; i++) {
-        const result = moveOneTile(player, lastMove.direction, next);
+        const result = moveOneTile(player, moveDir, next);
         if (!result.moved) break; // blocked by wall/player/bomb
       }
     }

@@ -15,6 +15,32 @@ import { BombermanGame } from "./game";
 import { useT } from "~/i18n/useT";
 import { Button, Badge, Alert, Select, Spinner } from "~/ui";
 
+function applyBombermanEventLocal(
+  state: BombermanState,
+  op: BombermanOperation,
+  localPlayerId: string,
+): BombermanState {
+  const next = JSON.parse(JSON.stringify(state)) as BombermanState;
+
+  // Only predict local player's movement
+  if (op.type === "SET_DIRECTION") {
+    const player = next.players?.[localPlayerId];
+    if (player?.alive) {
+      player.facing = op.direction ?? player.facing;
+      // Optimistic: move 1 tile in direction (server corrects on collision)
+      // This gives instant visual feedback — the server reconciliation handles walls
+      if (op.direction) {
+        if (op.direction === "up") player.y = Math.max(0, player.y - 1);
+        else if (op.direction === "down") player.y = Math.min(state.config.mapHeight - 1, player.y + 1);
+        else if (op.direction === "left") player.x = Math.max(0, player.x - 1);
+        else if (op.direction === "right") player.x = Math.min(state.config.mapWidth - 1, player.x + 1);
+      }
+    }
+  }
+
+  return next;
+}
+
 export function BombermanRoom() {
   const { t } = useT();
   const params = useParams();
@@ -76,7 +102,7 @@ export function BombermanRoom() {
   const gameSync = useSyncedState<BombermanState, BombermanOperation & { optimisticId: number }, never>({
     domain: gameDomain,
     initialState: null as unknown as BombermanState,
-    applyEvent: (s) => s,
+    applyEvent: (state, op) => applyBombermanEventLocal(state, op, playerId()),
     autoOpen: false,
   });
 

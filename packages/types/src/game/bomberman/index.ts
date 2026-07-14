@@ -80,6 +80,7 @@ export interface BombermanState {
 
 export type BombermanOperation =
   | { type: "MOVE"; direction: "up" | "down" | "left" | "right" }
+  | { type: "SET_DIRECTION"; direction: "up" | "down" | "left" | "right" | null }
   | { type: "PLACE_BOMB" }
   | { type: "ACTION" }
   | { type: "DETONATE" }

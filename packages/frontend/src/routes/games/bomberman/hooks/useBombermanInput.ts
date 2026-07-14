@@ -25,7 +25,7 @@ export function useBombermanInput(onAction: (op: BombermanOperation) => void) {
   const held = new Set<string>();
   // Track press order: last element is most-recently-pressed direction key
   const pressOrder: string[] = [];
-  let interval: ReturnType<typeof setInterval> | null = null;
+  let lastSentDirection: Direction | null = null;
 
   function getLastPressedDirection(): Direction | null {
     const kb = settings().keybindings;
@@ -42,7 +42,10 @@ export function useBombermanInput(onAction: (op: BombermanOperation) => void) {
 
   function sendCurrentDirection() {
     const dir = getLastPressedDirection();
-    if (dir) onAction({ type: "MOVE", direction: dir });
+    if (dir !== lastSentDirection) {
+      lastSentDirection = dir;
+      onAction({ type: "SET_DIRECTION", direction: dir });
+    }
   }
 
   function onKeyDown(e: KeyboardEvent) {
@@ -90,13 +93,9 @@ export function useBombermanInput(onAction: (op: BombermanOperation) => void) {
   window.addEventListener("keydown", onKeyDown);
   window.addEventListener("keyup", onKeyUp);
 
-  // Poll direction at tick rate to ensure moves aren't missed
-  interval = setInterval(sendCurrentDirection, 50);
-
   onCleanup(() => {
     window.removeEventListener("keydown", onKeyDown);
     window.removeEventListener("keyup", onKeyUp);
-    if (interval) clearInterval(interval);
   });
 
   return { showVirtualControls };
