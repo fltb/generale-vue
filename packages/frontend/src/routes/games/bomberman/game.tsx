@@ -12,7 +12,6 @@ import { Scoreboard } from "./components/Scoreboard";
 import { Countdown } from "~/ui/Countdown";
 import { sfx } from "~/ui/sound";
 import { formatKey } from "./utils";
-import { TILE_SIZE } from "./sprites/procedural";
 
 interface BombermanGameProps {
   initialState: BombermanState;
@@ -30,21 +29,6 @@ export function BombermanGame(props: BombermanGameProps) {
   const [connectionOk, setConnectionOk] = createSignal(true);
 
   const state = createMemo(() => props.initialState);
-
-  // ── Scale to fit viewport ──
-  const [gameScale, setGameScale] = createSignal(1);
-  function calculateScale() {
-    const s = state();
-    if (!s?.map?.tiles?.[0]) return;
-    const cols = s.map.tiles[0].length;
-    const rows = s.map.tiles.length;
-    const scaleW = (window.innerWidth * 0.85) / (cols * TILE_SIZE);
-    const scaleH = (window.innerHeight * 0.8) / (rows * TILE_SIZE);
-    setGameScale(Math.max(1, Math.min(scaleW, scaleH, 3)));
-  }
-  onMount(() => { calculateScale(); window.addEventListener("resize", calculateScale); });
-  onCleanup(() => window.removeEventListener("resize", calculateScale));
-  createEffect(() => { if (state()?.map?.tiles) calculateScale(); });
 
   // ── Countdown ──
   const [countdownDone, setCountdownDone] = createSignal(false);
@@ -143,10 +127,10 @@ export function BombermanGame(props: BombermanGameProps) {
   const myItems = createMemo(() => myPlayer()?.items ?? []);
 
   return (
-    <div class="w-full h-screen overflow-hidden bg-gray-900 flex items-center justify-center relative">
+    <div class="relative w-full h-screen overflow-hidden bg-gray-900">
       {!countdownDone() && <Countdown from={3} onDone={() => setCountdownDone(true)} />}
-      <div style={{ transform: `scale(${gameScale()})`, "transform-origin": "center" }}>
-        <Application resizeTo={window} resolution={window.devicePixelRatio} autoDensity>
+      <div class="absolute inset-0">
+        <Application resizeTo={window}>
           <MapLayer tiles={state().map?.tiles ?? []} />
           <EntityLayer
             players={players()}
