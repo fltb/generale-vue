@@ -8,7 +8,7 @@ import type {
   BombermanOperation,
 } from "@generale/types";
 import { useParams, useNavigate } from "@solidjs/router";
-import { createSignal, createMemo, onMount, onCleanup, Show } from "solid-js";
+import { createSignal, createMemo, onMount, onCleanup, Show, For, Switch, Match } from "solid-js";
 import { ProtectedRoute } from "~/components/ProtectedRoute";
 import { useSyncedState } from "~/hooks/useSyncedState";
 import { BombermanGame } from "./game";
@@ -117,6 +117,12 @@ export function BombermanRoom() {
   function startGame() {
     if (isHost() && allReady()) roomSync.dispatch({ type: "START_GAME" });
   }
+
+  const winnerName = createMemo(() => {
+    const go = gameOver();
+    if (!go) return null;
+    return go.rankings.find((r) => r.playerId === go.winnerId)?.name ?? null;
+  });
   function handleGameAction(op: BombermanOperation) {
     gameSync.dispatch(op);
   }
@@ -159,7 +165,7 @@ export function BombermanRoom() {
             )}
           </p>
 
-          {isHost() && (
+          <Show when={isHost()}>
             <div class="mb-4">
               <Button size="sm" variant="ghost" onClick={() => setShowSettings(!showSettings())}>
                 <svg class="w-4 h-4 mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -255,64 +261,72 @@ export function BombermanRoom() {
                 </div>
               </Show>
             </div>
-          )}
+          </Show>
 
           <div class="grid gap-2 mb-4">
-            {(roomSync.state().players ?? []).map((p) => (
-              <div class="flex items-center gap-3 p-3 bg-base-200 rounded pixel-border">
-                <div class="w-10 h-10 rounded-full bg-base-300 flex items-center justify-center text-sm font-bold text-base-content/60">
-                  {p.name.charAt(0).toUpperCase()}
-                </div>
-                <div class="flex-1">
-                  <div class="font-bold">
-                    {p.name}
-                    {p.isHost && <span class="text-xs text-warning ml-1">{t("bomberman.host")}</span>}
+            <For each={roomSync.state().players ?? []}>
+              {(p) => (
+                <div class="flex items-center gap-3 p-3 bg-base-200 rounded pixel-border">
+                  <div class="w-10 h-10 rounded-full bg-base-300 flex items-center justify-center text-sm font-bold text-base-content/60">
+                    {p.name.charAt(0).toUpperCase()}
                   </div>
-                  <div class="text-xs text-base-content/50">
-                    {p.ready ? t("bomberman.ready") : t("bomberman.notReady")}
+                  <div class="flex-1">
+                    <div class="font-bold">
+                      {p.name}
+                      <Show when={p.isHost}>
+                        <span class="text-xs text-warning ml-1">{t("bomberman.host")}</span>
+                      </Show>
+                    </div>
+                    <div class="text-xs text-base-content/50">
+                      {p.ready ? t("bomberman.ready") : t("bomberman.notReady")}
+                    </div>
                   </div>
+                  <Badge variant={p.ready ? "success" : "neutral"} size="sm" ghost={!p.ready}>
+                    {p.ready ? t("bomberman.ready") : t("bomberman.wait")}
+                  </Badge>
+                  <Show when={isHost() && p.id !== playerId()}>
+                    <Button
+                      size="xs"
+                      variant="ghost"
+                      class="text-error"
+                      onClick={() =>
+                        roomSync.dispatch({ type: "KICK_PLAYER", targetId: p.id } as BombermanPreGameClientDispatch)
+                      }
+                    >
+                      {t("bomberman.kick")}
+                    </Button>
+                  </Show>
                 </div>
-                <Badge variant={p.ready ? "success" : "neutral"} size="sm" ghost={!p.ready}>
-                  {p.ready ? t("bomberman.ready") : t("bomberman.wait")}
-                </Badge>
-                {isHost() && p.id !== playerId() && (
-                  <Button
-                    size="xs"
-                    variant="ghost"
-                    class="text-error"
-                    onClick={() =>
-                      roomSync.dispatch({ type: "KICK_PLAYER", targetId: p.id } as BombermanPreGameClientDispatch)
-                    }
-                  >
-                    {t("bomberman.kick")}
-                  </Button>
-                )}
-              </div>
-            ))}
+              )}
+            </For>
           </div>
 
           <div class="flex gap-2 items-center">
-            {selfPlayer()?.isHost ? (
-              <Badge variant="success" size="lg">
-                {t("bomberman.hostReady")}
-              </Badge>
-            ) : selfPlayer()?.ready ? (
-              <Button size="sm" outline onClick={() => roomSync.dispatch({ type: "UNREADY" })}>
-                {t("bomberman.unready")}
-              </Button>
-            ) : (
-              <Button size="sm" variant="primary" onClick={() => roomSync.dispatch({ type: "READY" })}>
-                {t("bomberman.ready")}
-              </Button>
-            )}
-            {isHost() && (
-              <>
-                <Button variant="success" disabled={!allReady()} onClick={startGame}>
-                  {t("bomberman.startGame")}
+            <Switch>
+              <Match when={selfPlayer()?.isHost}>
+                <Badge variant="success" size="lg">
+                  {t("bomberman.hostReady")}
+                </Badge>
+              </Match>
+              <Match when={selfPlayer()?.ready}>
+                <Button size="sm" outline onClick={() => roomSync.dispatch({ type: "UNREADY" })}>
+                  {t("bomberman.unready")}
                 </Button>
-                {!allReady() && <span class="text-xs text-base-content/50">{t("bomberman.needAllReady")}</span>}
-              </>
-            )}
+              </Match>
+              <Match when={true}>
+                <Button size="sm" variant="primary" onClick={() => roomSync.dispatch({ type: "READY" })}>
+                  {t("bomberman.ready")}
+                </Button>
+              </Match>
+            </Switch>
+            <Show when={isHost()}>
+              <Button variant="success" disabled={!allReady()} onClick={startGame}>
+                {t("bomberman.startGame")}
+              </Button>
+              <Show when={!allReady()}>
+                <span class="text-xs text-base-content/50">{t("bomberman.needAllReady")}</span>
+              </Show>
+            </Show>
           </div>
         </div>
       </Show>
@@ -333,23 +347,20 @@ export function BombermanRoom() {
         <div class="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
           <div class="bg-base-200 p-8 rounded pixel-border text-center">
             <h2 class="text-2xl font-bold mb-4">{t("bomberman.gameOver")}</h2>
-            {gameOver() && (
+            <Show when={gameOver()}>
               <div class="mb-4">
-                {(() => {
-                  const winnerName = gameOver()!.rankings.find((r) => r.playerId === gameOver()!.winnerId)?.name;
-                  return (
-                    <p class="text-lg mb-2">
-                      {t("bomberman.winner")}: {winnerName ?? t("bomberman.draw")}
+                <p class="text-lg mb-2">
+                  {t("bomberman.winner")}: {winnerName() ?? t("bomberman.draw")}
+                </p>
+                <For each={gameOver()?.rankings ?? []}>
+                  {(r) => (
+                    <p>
+                      #{r.rank}: {r.name}
                     </p>
-                  );
-                })()}
-                {(gameOver()!.rankings ?? []).map((r) => (
-                  <p>
-                    #{r.rank}: {r.name}
-                  </p>
-                ))}
+                  )}
+                </For>
               </div>
-            )}
+            </Show>
             <div class="flex gap-2 justify-center">
               <Button variant="primary" onClick={() => setPhase("lobby")}>
                 {t("bomberman.playAgain")}

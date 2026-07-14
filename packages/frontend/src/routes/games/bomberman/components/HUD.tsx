@@ -1,3 +1,4 @@
+import { For, Show } from "solid-js";
 import { useT } from "~/i18n/useT";
 
 interface HUDProps {
@@ -30,6 +31,7 @@ export function HUD(props: HUDProps) {
   const minutes = Math.floor(props.timeLeft / 60);
   const seconds = props.timeLeft % 60;
   const timeStr = `${minutes}:${seconds.toString().padStart(2, "0")}`;
+  const stats = props.playerStats;
 
   return (
     <div class="fixed top-0 left-0 right-0 z-50 pointer-events-none">
@@ -42,38 +44,40 @@ export function HUD(props: HUDProps) {
       </div>
 
       {/* Player inventory — bottom-left */}
-      {props.playerStats && (
+      <Show when={stats}>
         <div class="fixed bottom-20 left-4 bg-black/70 text-white rounded-lg p-3 text-sm font-mono pointer-events-none">
           <div class="flex gap-3 mb-2">
             <span>
-              {t("bomberman.bombLimit")}: {props.playerStats.bombActive}/{props.playerStats.bombMax}
+              {t("bomberman.bombLimit")}: {stats?.bombActive ?? 0}/{stats?.bombMax ?? 0}
             </span>
-            <span>Fire: {props.playerStats.blastRadius}</span>
-            <span>Speed: {props.playerStats.speed}</span>
+            <span>Fire: {stats?.blastRadius ?? 0}</span>
+            <span>Speed: {stats?.speed ?? 0}</span>
           </div>
 
           {/* Active items */}
-          {props.playerItems && props.playerItems.length > 0 && (
+          <Show when={props.playerItems && props.playerItems.length > 0}>
             <div class="border-t border-white/20 pt-2 mt-1">
               <div class="flex flex-wrap gap-1">
-                {props.playerItems.map((item) => {
-                  const info = ITEM_INFO[item];
-                  if (!info) return null;
-                  return (
-                    <span
-                      class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-bold"
-                      style={{ background: info.color, color: "#000" }}
-                      title={info.desc}
-                    >
-                      {info.label}
-                    </span>
-                  );
-                })}
+                <For each={props.playerItems}>
+                  {(item) => {
+                    const info = ITEM_INFO[item];
+                    if (!info) return null;
+                    return (
+                      <span
+                        class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-bold"
+                        style={{ background: info.color, color: "#000" }}
+                        title={info.desc}
+                      >
+                        {info.label}
+                      </span>
+                    );
+                  }}
+                </For>
               </div>
             </div>
-          )}
+          </Show>
         </div>
-      )}
+      </Show>
     </div>
   );
 }

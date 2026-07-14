@@ -122,7 +122,28 @@ function readLines(file: string): string[] {
   log("⚠", YELLOW, `daisyui: bomberman=${bomb}, rest=${other} (pre-existing, info only)`);
 }
 
-// 5. Hardcoded English strings (warning only)
+// 5. IIFE in JSX (React-ism — hard fail)
+{
+  // {(() => ...)()} inside JSX is a React pattern; Solid uses <Show>/<Switch> or compute before return
+  const iifeRe = /\{\(\(\s*\)\s*=>/;
+  const violations: string[] = [];
+  for (const f of walkFiles(join(ROOT, "packages/frontend/src"), ".tsx")) {
+    for (const [i, line] of readLines(f).entries()) {
+      // Skip comment lines
+      if (line.trimStart().startsWith("//")) continue;
+      if (iifeRe.test(line)) violations.push(`${f}:${i + 1}`);
+    }
+  }
+  if (violations.length > 0) {
+    log("✗", RED, `${violations.length} IIFE-in-JSX (use <Show> or extract logic before return):`);
+    for (const v of violations) log("", RED, v);
+    failed++;
+  } else {
+    log("✓", GREEN, "IIFE in JSX");
+  }
+}
+
+// 6. Hardcoded English strings (warning only)
 {
   const hits: string[] = [];
   for (const f of walkFiles(join(ROOT, "packages/frontend/src/routes/games/bomberman"), ".tsx")) {

@@ -38,7 +38,7 @@ jobs:
         run: bun run test
 
       - name: Convention checks
-        run: bun run scripts/check-conventions.ts
+        run: bun run check:conventions
 
       - name: Build
         run: bun run build

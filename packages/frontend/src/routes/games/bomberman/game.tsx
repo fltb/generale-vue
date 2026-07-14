@@ -160,7 +160,9 @@ export function BombermanGame(props: BombermanGameProps) {
 
   return (
     <div class="w-full h-screen overflow-hidden bg-gray-900 flex items-center justify-center relative">
-      {!countdownDone() && <Countdown from={3} onDone={() => setCountdownDone(true)} />}
+      <Show when={!countdownDone()}>
+        <Countdown from={3} onDone={() => setCountdownDone(true)} />
+      </Show>
       <div style={{ transform: `scale(${gameScale()})`, "transform-origin": "center" }}>
         <Application resizeTo={window} resolution={window.devicePixelRatio} autoDensity>
           <MapLayer tiles={state().map?.tiles ?? []} />
@@ -187,29 +189,26 @@ export function BombermanGame(props: BombermanGameProps) {
         </div>
       </Show>
 
-      {(() => {
-        const kb = gameSettings().keybindings;
-        return (
-          showControls() && (
-            <div class="fixed bottom-20 left-1/2 -translate-x-1/2 bg-black/80 text-white px-6 py-4 rounded-lg z-40 text-sm text-center pointer-events-none transition-opacity duration-500">
-              <div class="font-bold mb-2">{t("bomberman.controls")}</div>
-              <div class="grid grid-cols-2 gap-x-6 gap-y-1">
-                <span class="text-left">{t("bomberman.move")}</span>
-                <span class="text-right font-mono">
-                  {formatKey(kb.up)}/{formatKey(kb.down)}/{formatKey(kb.left)}/{formatKey(kb.right)}
-                </span>
-                <span class="text-left">{t("bomberman.placeBomb")}</span>
-                <span class="text-right font-mono">{formatKey(kb.placeBomb)}</span>
-                <span class="text-left">{t("bomberman.action")}</span>
-                <span class="text-right font-mono">{formatKey(kb.action)}</span>
-                <span class="text-left">{t("bomberman.detonate")}</span>
-                <span class="text-right font-mono">{formatKey(kb.detonate)}</span>
-              </div>
-            </div>
-          )
-        );
-      })()}
-      {showVirtualControls() && <VirtualControls onAction={props.onAction} />}
+      <Show when={showControls()}>
+        <div class="fixed bottom-20 left-1/2 -translate-x-1/2 bg-black/80 text-white px-6 py-4 rounded-lg z-40 text-sm text-center pointer-events-none transition-opacity duration-500">
+          <div class="font-bold mb-2">{t("bomberman.controls")}</div>
+          <div class="grid grid-cols-2 gap-x-6 gap-y-1">
+            <span class="text-left">{t("bomberman.move")}</span>
+            <span class="text-right font-mono">
+              {formatKey(gameSettings().keybindings.up)}/{formatKey(gameSettings().keybindings.down)}/{formatKey(gameSettings().keybindings.left)}/{formatKey(gameSettings().keybindings.right)}
+            </span>
+            <span class="text-left">{t("bomberman.placeBomb")}</span>
+            <span class="text-right font-mono">{formatKey(gameSettings().keybindings.placeBomb)}</span>
+            <span class="text-left">{t("bomberman.action")}</span>
+            <span class="text-right font-mono">{formatKey(gameSettings().keybindings.action)}</span>
+            <span class="text-left">{t("bomberman.detonate")}</span>
+            <span class="text-right font-mono">{formatKey(gameSettings().keybindings.detonate)}</span>
+          </div>
+        </div>
+      </Show>
+      <Show when={showVirtualControls()}>
+        <VirtualControls onAction={props.onAction} />
+      </Show>
       <Button
         size="sm"
         variant="ghost"
@@ -225,41 +224,41 @@ export function BombermanGame(props: BombermanGameProps) {
       >
         ?
       </Button>
-      {props.playerId && state().players[props.playerId]?.alive && (
-        <>
-          <Button
-            size="sm"
-            variant="error"
-            outline
-            class="fixed top-4 right-4 z-30"
-            onClick={() => setShowSurrenderConfirm(true)}
-          >
-            {t("bomberman.surrender")}
-          </Button>
-          {showSurrenderConfirm() && (
-            <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-              <div class="bg-base-200 p-6 rounded-lg text-center">
-                <p class="mb-4">{t("bomberman.areYouSure")}</p>
-                <div class="flex gap-3 justify-center">
-                  <Button outline onClick={() => setShowSurrenderConfirm(false)}>
-                    {t("bomberman.cancel")}
-                  </Button>
-                  <Button
-                    variant="error"
-                    onClick={() => {
-                      props.onAction({ type: "SURRENDER" });
-                      setShowSurrenderConfirm(false);
-                    }}
-                  >
-                    {t("bomberman.yesSurrender")}
-                  </Button>
-                </div>
+      <Show when={props.playerId && state().players[props.playerId]?.alive}>
+        <Button
+          size="sm"
+          variant="error"
+          outline
+          class="fixed top-4 right-4 z-30"
+          onClick={() => setShowSurrenderConfirm(true)}
+        >
+          {t("bomberman.surrender")}
+        </Button>
+        <Show when={showSurrenderConfirm()}>
+          <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+            <div class="bg-base-200 p-6 rounded-lg text-center">
+              <p class="mb-4">{t("bomberman.areYouSure")}</p>
+              <div class="flex gap-3 justify-center">
+                <Button outline onClick={() => setShowSurrenderConfirm(false)}>
+                  {t("bomberman.cancel")}
+                </Button>
+                <Button
+                  variant="error"
+                  onClick={() => {
+                    props.onAction({ type: "SURRENDER" });
+                    setShowSurrenderConfirm(false);
+                  }}
+                >
+                  {t("bomberman.yesSurrender")}
+                </Button>
               </div>
             </div>
-          )}
-        </>
-      )}
-      {showScoreboard() && <Scoreboard players={rankings()} onBackToRoom={props.onBackToRoom} />}
+          </div>
+        </Show>
+      </Show>
+      <Show when={showScoreboard()}>
+        <Scoreboard players={rankings()} onBackToRoom={props.onBackToRoom} />
+      </Show>
     </div>
   );
 }

@@ -1,3 +1,4 @@
+import { For } from "solid-js";
 import { useT } from "~/i18n/useT";
 import { Button } from "~/ui";
 
@@ -15,13 +16,15 @@ export function Scoreboard(props: ScoreboardProps) {
       <div class="bg-gray-900 border-2 border-gray-600 p-8 rounded min-w-[300px] text-center pixel-border">
         <h2 class="text-2xl text-white font-bold mb-6">{t("bomberman.gameOver")}</h2>
         <div class="space-y-2 mb-6">
-          {sorted.map((p) => (
-            <div class="flex justify-between text-white text-lg">
-              <span>
-                #{p.rank} {p.name}
-              </span>
-            </div>
-          ))}
+          <For each={sorted}>
+            {(p) => (
+              <div class="flex justify-between text-white text-lg">
+                <span>
+                  #{p.rank} {p.name}
+                </span>
+              </div>
+            )}
+          </For>
         </div>
         <Button variant="primary" class="w-full" onClick={props.onBackToRoom}>
           {t("bomberman.backToRoom")}
