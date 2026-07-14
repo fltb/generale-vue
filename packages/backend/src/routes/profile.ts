@@ -8,7 +8,6 @@ import {
 import { Elysia, t as tSchema } from "elysia";
 import { AVATAR_MAX_BYTES, ProfileService, profileService } from "../services/profileService";
 import { sessionService } from "../services/sessionService";
-import { userSettingsService } from "../services/userSettingsService";
 import { userService } from "../services/userService";
 import { tForRequest } from "../services/i18n";
 
@@ -130,36 +129,6 @@ export const profileRoutes = new Elysia({ prefix: "/profile" })
         400: errorRespSchema,
         401: errorRespSchema,
       },
-      cookie: cookieScheme,
-    },
-  )
-  .get(
-    "/settings",
-    ({ cookie: { sid }, set }) => {
-      const sessionId = sid?.value;
-      const userId = sessionId ? sessionService.get(sessionId)?.userId : undefined;
-      if (!userId) {
-        set.status = 401;
-        return { error: "Unauthorized" };
-      }
-      return userSettingsService.getAll(userId);
-    },
-    { cookie: cookieScheme, response: tSchema.Record(tSchema.String(), tSchema.String()) },
-  )
-  .patch(
-    "/settings",
-    async ({ body, cookie: { sid }, set }) => {
-      const sessionId = sid?.value;
-      const userId = sessionId ? sessionService.get(sessionId)?.userId : undefined;
-      if (!userId) {
-        set.status = 401;
-        return { error: "Unauthorized" };
-      }
-      await userSettingsService.set(userId, body.key, body.value);
-      return { success: true };
-    },
-    {
-      body: tSchema.Object({ key: tSchema.String(), value: tSchema.String() }),
       cookie: cookieScheme,
     },
   );

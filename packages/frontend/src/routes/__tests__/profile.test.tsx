@@ -48,6 +48,14 @@ vi.mock("~/api/profileApi", () => ({
   uploadMyAvatarApi: vi.fn(),
 }));
 
+vi.mock("~/hooks/useGlobalSettings", () => ({
+  useGlobalSettings: () => ({
+    settings: () => ({ locale: "en", theme: "system", soundMuted: false }),
+    isLoading: () => false,
+    update: vi.fn(),
+  }),
+}));
+
 vi.mock("~/components/Avatar", () => ({
   default: (p: any) => <div data-testid="avatar">Avatar</div>,
 }));

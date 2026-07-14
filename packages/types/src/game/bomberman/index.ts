@@ -4,7 +4,6 @@ export type ItemType = "BOMB_UP" | "FIRE_UP" | "SPEED_UP" | "KICK" | "GLOVE" | "
 
 export interface BombermanTile {
   type: "empty" | "hard_wall" | "soft_wall";
-  item?: ItemType;
 }
 
 export interface BombermanMap {
@@ -24,6 +23,8 @@ export interface BombermanPlayer {
   blastRadius: number;
   speed: number;
   items: ItemType[];
+  facing: "up" | "down" | "left" | "right";
+  carriedBomb?: string;
 }
 
 export interface Bomb {
@@ -33,6 +34,7 @@ export interface Bomb {
   y: number;
   fuse: number;
   blastRadius: number;
+  airborne?: boolean;
 }
 
 export interface Explosion {
@@ -48,7 +50,6 @@ export interface Item {
 }
 
 export interface BombermanConfig {
-  mapId?: string;
   mapWidth: number;
   mapHeight: number;
   playerLimit: number;
@@ -60,9 +61,6 @@ export interface BombermanConfig {
   shrinkEnabled: boolean;
   itemDropRate: number;
   items: ItemType[];
-  mode: "multi" | "single";
-  levelId?: string;
-  rounds?: number;
 }
 
 export interface BombermanState {
@@ -77,16 +75,13 @@ export interface BombermanState {
   roundTimer?: number;
   shrinkBoundary?: number;
   bombIdCounter?: number;
-  round?: number;
-  totalRounds?: number;
-  scores?: Record<string, number>;
+  carriedBombs?: Record<string, Bomb>;
 }
 
 export type BombermanOperation =
   | { type: "MOVE"; direction: "up" | "down" | "left" | "right" }
   | { type: "PLACE_BOMB" }
-  | { type: "KICK_BOMB"; direction: string }
-  | { type: "THROW_BOMB"; direction: string }
+  | { type: "ACTION" }
   | { type: "DETONATE" }
   | { type: "SURRENDER" }
   | { type: "NOOP" };
@@ -136,7 +131,7 @@ export enum BombermanPreGameServerEventType {
 export type BombermanPreGameServerEvent =
   | { type: BombermanPreGameServerEventType.KICKED; reason?: string }
   | { type: BombermanPreGameServerEventType.GAME_STARTED; startedAt: number }
-  | { type: BombermanPreGameServerEventType.GAME_ENDED; rankings: { playerId: string; rank: number }[]; winnerId: string | null }
+  | { type: BombermanPreGameServerEventType.GAME_ENDED; rankings: { playerId: string; name: string; rank: number }[]; winnerId: string | null }
   | { type: BombermanPreGameServerEventType.ROOM_DISBANDED; reason?: string };
 
 export interface BombermanGameEndResult {

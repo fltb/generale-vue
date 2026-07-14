@@ -43,6 +43,13 @@
       "when": 1782895895039,
       "tag": "0005_parallel_bromley",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1783500000000,
+      "tag": "0006_rename_language_to_locale",
+      "breakpoints": true
     }
   ]
 }

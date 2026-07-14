@@ -7,13 +7,12 @@ describe("defaultBombermanConfig", () => {
     expect(config.mapWidth).toBe(15);
     expect(config.mapHeight).toBe(13);
     expect(config.playerLimit).toBe(4);
-    expect(config.tickRate).toBe(4);
-    expect(config.bombFuse).toBe(12);
+    expect(config.tickRate).toBe(10);
+    expect(config.bombFuse).toBe(25);
     expect(config.bombLimit).toBe(1);
     expect(config.blastRadius).toBe(1);
     expect(config.roundTimeSec).toBe(180);
     expect(config.itemDropRate).toBe(0.6);
-    expect(config.mode).toBe("multi");
   });
 });
 
@@ -38,12 +37,12 @@ describe("validateBombermanConfig", () => {
     expect(validateBombermanConfig({ playerLimit: 8 })).toContain("playerLimit");
   });
 
-  it("rejects tickRate below 2", () => {
-    expect(validateBombermanConfig({ tickRate: 1 })).toContain("tickRate");
+  it("rejects tickRate below 8", () => {
+    expect(validateBombermanConfig({ tickRate: 7 })).toContain("tickRate");
   });
 
-  it("rejects tickRate above 8", () => {
-    expect(validateBombermanConfig({ tickRate: 10 })).toContain("tickRate");
+  it("rejects tickRate above 20", () => {
+    expect(validateBombermanConfig({ tickRate: 21 })).toContain("tickRate");
   });
 
   it("returns null for partial valid config", () => {

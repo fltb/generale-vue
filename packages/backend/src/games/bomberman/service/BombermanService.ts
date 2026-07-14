@@ -1,5 +1,5 @@
 import type { BombermanConfig, GameId, BombermanPreGameClientAction, BombermanPreGameServerEvent, BombermanRoomState, SyncedStateServerEvent } from "@generale/types";
-import { SyncedStateServerEventType } from "@generale/types";
+import { SyncedStateServerEventType, BombermanPreGameServerEventType } from "@generale/types";
 import type { SubConnector } from "../../../plugins/websocket";
 import { registerDomainHandler, unregisterDomainHandler } from "../../../plugins/websocket";
 import { BombermanGame } from "../instance/BombermanGame";
@@ -15,10 +15,10 @@ export class BombermanService {
   private disconnectTimers = new Map<string, ReturnType<typeof setTimeout>>();
   public onDisband?: () => void;
 
-  constructor(gameId: GameId, roomName: string, config: BombermanConfig, creatorId: string, creatorName: string) {
+  constructor(gameId: GameId, roomName: string, config: BombermanConfig, creatorId: string, creatorName: string, password?: string) {
     this.gameId = gameId;
     this.roomName = roomName;
-    this.room = new BombermanRoom(roomName, config, creatorId, creatorName);
+    this.room = new BombermanRoom(roomName, config, creatorId, creatorName, password);
     this.room.onGameStart(() => this.startGame());
     this.room.onDisbanded(() => { this.onDisband?.(); });
   }
@@ -36,7 +36,10 @@ export class BombermanService {
           connector.close(4004, "Room disbanded");
           return;
         }
-        const result = this.room.addPlayer({ id: userid, name: username }, connector);
+        const pw = connector.context.password;
+        const userArgs: { id: string; name: string; password?: string } = { id: userid, name: username };
+        if (pw) userArgs.password = pw;
+        const result = this.room.addPlayer(userArgs, connector);
         if (!result.success) {
           connector.close(4003, result.message);
         }
@@ -125,10 +128,10 @@ export class BombermanService {
       const players = Object.values(result.state.players) as { playerId: string; name: string; alive: boolean }[];
       const rankings = players
         .sort((a, b) => (a.alive === b.alive ? 0 : a.alive ? -1 : 1))
-        .map((p, i) => ({ playerId: p.playerId, rank: i + 1 }));
+        .map((p, i) => ({ playerId: p.playerId, name: p.name, rank: i + 1 }));
 
       this.room.broadcastCustom({
-        type: "gameended" as any,
+        type: BombermanPreGameServerEventType.GAME_ENDED,
         rankings,
         winnerId: result.winnerId,
       });
@@ -159,6 +162,7 @@ export class BombermanService {
       maxPlayers: s.maxPlayers,
       phase: s.phase,
       hostName: s.players.find((p) => p.isHost)?.name ?? "",
+      hasPassword: !!this.room.getPassword(),
     };
   }
 

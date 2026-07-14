@@ -10,10 +10,12 @@ interface RoomSummary {
   maxPlayers: number;
   phase: string;
   hostName: string;
+  hasPassword: boolean;
 }
 
-function CreateRoomModal(props: { open: boolean; onClose: () => void; onCreated: (gameId: string) => void }) {
+function CreateRoomModal(props: { open: boolean; onClose: () => void; onCreated: (gameId: string, password?: string) => void }) {
   const [roomName, setRoomName] = createSignal("");
+  const [password, setPassword] = createSignal("");
   const [loading, setLoading] = createSignal(false);
   const [error, setError] = createSignal("");
 
@@ -22,15 +24,18 @@ function CreateRoomModal(props: { open: boolean; onClose: () => void; onCreated:
     if (!name) { setError("Please enter a room name"); return; }
     setLoading(true);
     setError("");
+    const body: Record<string, unknown> = { roomName: name };
+    const pw = password().trim();
+    if (pw) body.password = pw;
     const res = await fetch("/api/bomberman/room/create", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ roomName: name }),
+      body: JSON.stringify(body),
     });
     const d = (await res.json()) as { success: boolean; error?: string; data?: { gameId: string } };
     setLoading(false);
     if (d.success && d.data) {
-      props.onCreated(d.data.gameId);
+      props.onCreated(d.data.gameId, pw || undefined);
     } else {
       setError(d.error || "Failed to create room");
     }
@@ -47,6 +52,12 @@ function CreateRoomModal(props: { open: boolean; onClose: () => void; onCreated:
               value={roomName()} onInput={(e) => setRoomName(e.currentTarget.value)}
               onKeyDown={(e) => { if (e.key === "Enter") handleCreate(); }} />
           </div>
+            <div class="form-control mb-4">
+              <label class="label" for="room-password-input"><span class="label-text">Password (optional)</span></label>
+              <input id="room-password-input" type="text" class="input input-bordered w-full" placeholder="Leave empty for public room"
+                value={password()} onInput={(e) => setPassword(e.currentTarget.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") handleCreate(); }} />
+            </div>
           {error() && <div class="alert alert-error mb-4 text-sm">{error()}</div>}
           <div class="flex gap-2 justify-end">
             <button class="btn btn-ghost" onClick={props.onClose} disabled={loading()}>Cancel</button>
@@ -87,9 +98,10 @@ export function BombermanHub() {
     if (d.success) setRooms(d.data);
   }
 
-  function handleCreated(gameId: string) {
+  function handleCreated(gameId: string, password?: string) {
     setShowCreateModal(false);
-    navigate(`/bomberman/room/${gameId}`);
+    const qs = password ? `?password=${encodeURIComponent(password)}` : "";
+    navigate(`/bomberman/room/${gameId}${qs}`);
   }
 
   return (
@@ -114,7 +126,7 @@ export function BombermanHub() {
               <div class="flex items-center gap-4 p-4 bg-base-200 rounded-xl pixel-border hover:bg-base-300 transition-colors cursor-pointer" onClick={() => navigate(`/bomberman/room/${room.gameId}`)}>
                 <div class="w-10 h-10 rounded-full bg-base-300 flex items-center justify-center text-lg">💣</div>
                 <div class="flex-1">
-                  <div class="font-bold">{room.roomName}</div>
+                  <div class="font-bold">{room.roomName}{room.hasPassword ? <span class="text-xs text-warning ml-1">🔒</span> : null}</div>
                   <div class="text-xs text-base-content/50">Host: {room.hostName}</div>
                 </div>
                 <span class="badge badge-outline">{room.playerCount}/{room.maxPlayers}</span>

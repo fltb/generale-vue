@@ -54,16 +54,50 @@ export function VirtualControls(props: VirtualControlsProps) {
         </button>
         <div />
       </div>
-      <button
-        type="button"
-        class="pointer-events-auto w-16 h-16 bg-red-600/80 rounded-full text-white text-2xl font-bold active:bg-red-400 select-none touch-none"
-        onTouchStart={(e) => {
-          e.preventDefault();
-          props.onAction({ type: "PLACE_BOMB" });
-        }}
-      >
-        💣
-      </button>
+      <div class="pointer-events-auto flex flex-col items-center gap-2">
+        <button
+          type="button"
+          class="w-16 h-16 bg-red-600/80 rounded-full text-white text-2xl font-bold active:bg-red-400 select-none touch-none"
+          onTouchStart={(e) => {
+            e.preventDefault();
+            props.onAction({ type: "PLACE_BOMB" });
+          }}
+        >
+          💣
+        </button>
+        <div class="flex gap-2">
+          <button
+            type="button"
+            class="w-14 h-14 bg-blue-600/80 rounded-lg text-white text-sm font-bold active:bg-blue-400 select-none touch-none"
+            onTouchStart={(e) => {
+              e.preventDefault();
+              props.onAction({ type: "ACTION" });
+            }}
+          >
+            A
+          </button>
+          <button
+            type="button"
+            class="w-14 h-14 bg-purple-600/80 rounded-lg text-white text-xs font-bold active:bg-purple-400 select-none touch-none"
+            onTouchStart={(e) => {
+              e.preventDefault();
+              props.onAction({ type: "DETONATE" });
+            }}
+          >
+            Det
+          </button>
+        </div>
+        <button
+          type="button"
+          class="w-14 h-8 bg-yellow-700/80 rounded text-white text-[10px] font-bold active:bg-yellow-500 select-none touch-none"
+          onTouchStart={(e) => {
+            e.preventDefault();
+            props.onAction({ type: "SURRENDER" });
+          }}
+        >
+          Surrender
+        </button>
+      </div>
     </div>
   );
 }

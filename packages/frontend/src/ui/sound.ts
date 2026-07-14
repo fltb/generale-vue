@@ -9,7 +9,7 @@
  */
 import { createSignal } from "solid-js";
 
-const MUTE_KEY = "generale.muted";
+const MUTE_KEY = "generale.settings.soundMuted";
 
 const initialMuted = (() => {
   try {
@@ -22,14 +22,35 @@ const initialMuted = (() => {
 const [muted, setMutedSignal] = createSignal(initialMuted);
 
 export const isMuted = muted;
+
 export function setMuted(v: boolean) {
   setMutedSignal(v);
   try {
     localStorage.setItem(MUTE_KEY, v ? "1" : "0");
   } catch {}
+  // Fire-and-forget DB sync (only if logged in)
+  try {
+    if (document.cookie.includes("sid=")) {
+      fetch("/api/settings/global", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ soundMuted: v ? "1" : "0" }),
+        credentials: "include",
+      }).catch(() => {});
+    }
+  } catch {}
 }
+
 export function toggleMuted() {
   setMuted(!muted());
+}
+
+/** Called by GlobalSettingsSync on app boot — syncs DB value into local signal + cache. */
+export function syncMutedFromServer(value: boolean) {
+  setMutedSignal(value);
+  try {
+    localStorage.setItem(MUTE_KEY, value ? "1" : "0");
+  } catch {}
 }
 
 let ctx: AudioContext | null = null;
@@ -145,6 +166,37 @@ export const sfx = {
         [N.C6, 0.16],
       ],
       { type: "square", gain: 0.22 },
+    );
+  },
+  /** 炸弹放置 */
+  bombPlace() {
+    tone(200, 0.08, { type: "square", gain: 0.15 });
+  },
+  /** 爆炸 */
+  explosion() {
+    // Low boom + noise burst
+    tone(80, 0.3, { type: "sawtooth", gain: 0.25 });
+    tone(120, 0.15, { type: "square", gain: 0.2, when: 0.02 });
+  },
+  /** 拾取道具 */
+  pickup() {
+    melody(
+      [
+        [N.C5, 0.05],
+        [N.E5, 0.08],
+      ],
+      { type: "square", gain: 0.15 },
+    );
+  },
+  /** 玩家死亡 */
+  death() {
+    melody(
+      [
+        [N.G4, 0.1],
+        [N.F4, 0.1],
+        [N.D4, 0.15],
+      ],
+      { type: "triangle", gain: 0.2 },
     );
   },
   /** 胜利号角 */

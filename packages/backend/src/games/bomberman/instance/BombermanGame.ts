@@ -1,13 +1,7 @@
-import type { BombermanState, BombermanOperation, BombermanPlayer, PlayerId, BombermanConfig } from "@generale/types";
+import type { BombermanState, BombermanOperation, BombermanPlayer, PlayerId, BombermanConfig, BombermanGameEndResult } from "@generale/types";
 import { GameStatus } from "@generale/types";
 import { tick } from "../core/game";
 import { generateBombermanMap, getSpawnPositions } from "../core/map-gen";
-
-export interface BombermanGameEndResult {
-  winnerId: PlayerId | null;
-  reason: string;
-  state: BombermanState;
-}
 
 export class BombermanGame {
   private state: BombermanState;
@@ -40,6 +34,7 @@ export class BombermanGame {
         blastRadius: config.blastRadius,
         speed: 1,
         items: [],
+        facing: "down",
       };
     }
 
@@ -59,13 +54,16 @@ export class BombermanGame {
   }
 
   addBot(playerId: PlayerId, getAction: (state: BombermanState) => BombermanOperation): void {
-    const spawns = getSpawnPositions(
-      Object.keys(this.state.players).length + 1,
-      this.state.config.mapWidth,
-      this.state.config.mapHeight,
-    );
-    const idx = Object.keys(this.state.players).length;
-    const spawn = spawns[idx];
+    const w = this.state.config.mapWidth;
+    const h = this.state.config.mapHeight;
+    const allCorners = [
+      { x: 1, y: 1 },
+      { x: w - 2, y: 1 },
+      { x: 1, y: h - 2 },
+      { x: w - 2, y: h - 2 },
+    ];
+    const occupied = new Set(Object.values(this.state.players).map((p) => `${p.x},${p.y}`));
+    const spawn = allCorners.find((c) => !occupied.has(`${c.x},${c.y}`));
     if (!spawn) return;
     this.state.players[playerId] = {
       playerId,
@@ -78,6 +76,7 @@ export class BombermanGame {
       blastRadius: 1,
       speed: 1,
       items: [],
+      facing: "down",
     };
     this.bots.push({ playerId, getAction });
     this.queues[playerId] = [];

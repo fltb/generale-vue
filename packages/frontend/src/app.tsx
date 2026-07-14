@@ -9,7 +9,8 @@ import "./index.css";
 import { createEffect, createSignal, Suspense } from "solid-js";
 import { WebSocketProvider } from "./hooks/useWebsocket";
 import { I18nProvider } from "./i18n/I18nProvider";
-import { getSettingsApi } from "./api/settingsApi";
+import { useGlobalSettings } from "./hooks/useGlobalSettings";
+import { syncMutedFromServer } from "./ui/sound";
 import CookieConsent from "./components/CookieConsent";
 import PlatformShell from "./components/platform/PlatformShell";
 import GeneraleLayout from "./routes/games/generale/components/game/GeneraleLayout";
@@ -131,15 +132,15 @@ if (IS_TEST_MODE) {
   exposeTestBridge();
 }
 
-function LocaleSync(props: { setLocale: (l: string) => void }) {
+function GlobalSettingsSync(props: { setLocale: (l: string) => void }) {
   const auth = useAuth();
+  const { settings } = useGlobalSettings();
 
   createEffect(() => {
-    const user = auth.user;
-    if (user) {
-      getSettingsApi().then((settings) => {
-        if (settings.locale) props.setLocale(settings.locale);
-      });
+    if (auth.user) {
+      const s = settings();
+      props.setLocale(s.locale);
+      syncMutedFromServer(s.soundMuted);
     } else {
       const navLang = navigator.language?.startsWith("zh") ? "zh-CN" : "en";
       props.setLocale(navLang);
@@ -160,7 +161,7 @@ export default function App() {
           <Link rel="icon" type="image/svg+xml" href="/favicon.svg" />
           <Meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
           <AuthProvider>
-            <LocaleSync setLocale={setLocale} />
+            <GlobalSettingsSync setLocale={setLocale} />
             <WebSocketProvider url={defaultWsUrl} autoConnect={false}>
               <Router
                 root={(props) => (

@@ -177,9 +177,28 @@ function explode(bomb: Bomb, state: BombermanState, pierce: boolean): void {
 
       state.explosions.push({ x, y, ttl: 8 });
 
+      // Chain-detonate bombs caught in the blast
+      for (const other of state.bombs) {
+        if (other.id !== bomb.id && other.x === x && other.y === y && other.fuse > 0) {
+          other.fuse = 0;
+        }
+      }
+
       for (const [, player] of Object.entries(state.players)) {
         if (player.alive && player.x === x && player.y === y) {
           player.alive = false;
+          // Drop carried bomb
+          if (player.carriedBomb && state.carriedBombs) {
+            const carried = state.carriedBombs[player.playerId];
+            if (carried) {
+              carried.x = player.x;
+              carried.y = player.y;
+              carried.airborne = false;
+              state.bombs.push(carried);
+              delete state.carriedBombs[player.playerId];
+            }
+            delete player.carriedBomb;
+          }
           for (const item of player.items) {
             if (!["BOMB_UP", "FIRE_UP", "SPEED_UP"].includes(item)) {
               state.items.push({ x, y, type: item });
@@ -193,8 +212,15 @@ function explode(bomb: Bomb, state: BombermanState, pierce: boolean): void {
       if (tile.type === "soft_wall") {
         tile.type = "empty";
         if (Math.random() < state.config.itemDropRate) {
-          const dropType = weightedRandom(ITEM_DROP_TABLE);
-          state.items.push({ x, y, type: dropType as ItemType });
+          let dropTable = ITEM_DROP_TABLE;
+          if (state.config.items !== undefined) {
+            const allowed = ITEM_DROP_TABLE.filter((i) => state.config.items.includes(i.type as ItemType));
+            dropTable = allowed; // could be empty — means no items drop
+          }
+          if (dropTable.length > 0) {
+            const dropType = weightedRandom(dropTable);
+            state.items.push({ x, y, type: dropType as ItemType });
+          }
         }
         if (!pierce) break;
       }
@@ -218,17 +244,9 @@ function processExplosions(state: BombermanState): void {
         (p) => p.playerId === bomb.playerId && p.items.includes("PIERCE" as ItemType),
       );
       explode(bomb, state, hasPierce);
-      for (const other of state.bombs) {
-        if (!exploded.has(other.id) && other.fuse > 0) {
-          const dx = Math.abs(other.x - bomb.x);
-          const dy = Math.abs(other.y - bomb.y);
-          if ((dx <= bomb.blastRadius && other.y === bomb.y) || (dy <= bomb.blastRadius && other.x === bomb.x)) {
-            other.fuse = 0;
-            toProcess.push(other);
-          }
-        }
-      }
     }
+    // Re-check for chain-detonated bombs triggered during explosion
+    toProcess = state.bombs.filter((b) => b.fuse <= 0 && !exploded.has(b.id));
   }
 
   state.bombs = state.bombs.filter((b) => !exploded.has(b.id));
@@ -245,7 +263,160 @@ function killOutOfBounds(state: BombermanState): void {
       (player.x < b || player.x >= state.map.width - b || player.y < b || player.y >= state.map.height - b)
     ) {
       player.alive = false;
+      if (player.carriedBomb && state.carriedBombs) {
+        const carried = state.carriedBombs[player.playerId];
+        if (carried) {
+          carried.x = player.x;
+          carried.y = player.y;
+          state.bombs.push(carried);
+          delete state.carriedBombs[player.playerId];
+        }
+        delete player.carriedBomb;
+      }
     }
+  }
+}
+
+// ─── Unified ACTION: context-sensitive pickup/throw/punch ───
+
+function handleAction(player: BombermanPlayer, state: BombermanState): void {
+  // 1. If carrying a bomb → throw it
+  if (player.carriedBomb) {
+    throwCarriedBomb(player, state);
+    return;
+  }
+  // 2. If has GLOVE and standing on a bomb → pick it up
+  if (player.items.includes("GLOVE" as ItemType)) {
+    const bombIdx = state.bombs.findIndex(
+      (b) => b.x === player.x && b.y === player.y,
+    );
+    if (bombIdx >= 0) {
+      const bomb = state.bombs[bombIdx];
+      if (bomb) {
+        if (!state.carriedBombs) state.carriedBombs = {};
+        state.carriedBombs[player.playerId] = bomb;
+        player.carriedBomb = bomb.id;
+        state.bombs.splice(bombIdx, 1);
+      }
+      return;
+    }
+  }
+  // 3. If has PUNCH and adjacent bomb in facing direction → punch it
+  if (player.items.includes("PUNCH" as ItemType)) {
+    const d = DIRS[player.facing];
+    if (d) {
+      const adjX = player.x + d.dx;
+      const adjY = player.y + d.dy;
+      const bombIdx = state.bombs.findIndex((b) => b.x === adjX && b.y === adjY);
+      if (bombIdx >= 0) {
+        punchBomb(state, bombIdx, d.dx, d.dy, adjX, adjY);
+      }
+    }
+  }
+}
+
+function throwCarriedBomb(player: BombermanPlayer, state: BombermanState): void {
+  if (!player.carriedBomb) return;
+  const carriedBombs = state.carriedBombs;
+  if (!carriedBombs) return;
+  const bomb = carriedBombs[player.playerId];
+  if (!bomb) return;
+
+  const d = DIRS[player.facing];
+  if (!d) return;
+
+  const THROW_DISTANCE = 3;
+  let landed = false;
+  for (let dist = THROW_DISTANCE; dist >= 1; dist--) {
+    const lx = player.x + d.dx * dist;
+    const ly = player.y + d.dy * dist;
+    const tile = state.map.tiles[ly]?.[lx];
+    if (!tile || tile.type === "hard_wall" || tile.type === "soft_wall") continue;
+    if (hasBombAt(state, lx, ly)) continue;
+
+    bomb.x = lx;
+    bomb.y = ly;
+    bomb.airborne = false;
+    state.bombs.push(bomb);
+    delete carriedBombs[player.playerId];
+    delete player.carriedBomb;
+    landed = true;
+
+    // Kill player at landing tile
+    for (const [, p] of Object.entries(state.players)) {
+      if (p.alive && p.playerId !== player.playerId && p.x === lx && p.y === ly) {
+        p.alive = false;
+        for (const item of p.items) {
+          if (!["BOMB_UP", "FIRE_UP", "SPEED_UP"].includes(item)) {
+            state.items.push({ x: lx, y: ly, type: item });
+          }
+        }
+        p.items = [];
+      }
+    }
+    break;
+  }
+
+  if (!landed) {
+    // Drop at thrower's feet
+    bomb.x = player.x;
+    bomb.y = player.y;
+    bomb.airborne = false;
+    if (!hasBombAt(state, player.x, player.y)) {
+      state.bombs.push(bomb);
+    }
+    delete carriedBombs[player.playerId];
+    delete player.carriedBomb;
+  }
+}
+
+function punchBomb(
+  state: BombermanState,
+  bombIdx: number,
+  dx: number,
+  dy: number,
+  bombX: number,
+  bombY: number,
+): void {
+  const bomb = state.bombs[bombIdx];
+  if (!bomb) return;
+  state.bombs.splice(bombIdx, 1);
+
+  const PUNCH_DISTANCE = 3;
+  let landed = false;
+  for (let dist = PUNCH_DISTANCE; dist >= 1; dist--) {
+    const lx = bombX + dx * dist;
+    const ly = bombY + dy * dist;
+    const tile = state.map.tiles[ly]?.[lx];
+    if (!tile || tile.type === "hard_wall" || tile.type === "soft_wall") continue;
+    if (hasBombAt(state, lx, ly)) continue;
+
+    bomb.x = lx;
+    bomb.y = ly;
+    bomb.airborne = false;
+    state.bombs.push(bomb);
+    landed = true;
+
+    // Kill player at landing
+    for (const [, p] of Object.entries(state.players)) {
+      if (p.alive && p.x === lx && p.y === ly) {
+        p.alive = false;
+        for (const item of p.items) {
+          if (!["BOMB_UP", "FIRE_UP", "SPEED_UP"].includes(item)) {
+            state.items.push({ x: lx, y: ly, type: item });
+          }
+        }
+        p.items = [];
+      }
+    }
+    break;
+  }
+
+  if (!landed) {
+    // Bomb stays at original position
+    bomb.x = bombX;
+    bomb.y = bombY;
+    state.bombs.push(bomb);
   }
 }
 
@@ -269,6 +440,7 @@ export function tick(state: BombermanState, queues: Record<PlayerId, BombermanOp
     const moveOps = ops.filter((o) => o.type === "MOVE");
     const lastMove = moveOps.length > 0 ? moveOps[moveOps.length - 1] : undefined;
     if (lastMove) {
+      player.facing = lastMove.direction;
       const steps = Math.max(1, player.speed);
       for (let i = 0; i < steps; i++) {
         const result = moveOneTile(player, lastMove.direction, next);
@@ -282,7 +454,12 @@ export function tick(state: BombermanState, queues: Record<PlayerId, BombermanOp
         case "PLACE_BOMB":
           placeBomb(player, next);
           break;
+        case "ACTION":
+          handleAction(player, next);
+          break;
         case "DETONATE": {
+          const hasRemote = player.items.includes("REMOTE" as ItemType);
+          if (!hasRemote) break;
           const remoteBombs = next.bombs.filter((b) => b.playerId === pid);
           if (remoteBombs.length > 0) {
             const first = remoteBombs[0];
@@ -303,6 +480,24 @@ export function tick(state: BombermanState, queues: Record<PlayerId, BombermanOp
   // Phase order: bombs → explosions → cleanup
   for (const bomb of next.bombs) bomb.fuse--;
 
+  // Decrement carried bombs' fuse
+  if (next.carriedBombs) {
+    for (const [pid, bomb] of Object.entries(next.carriedBombs)) {
+      bomb.fuse--;
+      if (bomb.fuse <= 0) {
+        // Bomb explodes at carrier's position
+        const carrier = next.players[pid];
+        if (carrier && carrier.alive) {
+          bomb.x = carrier.x;
+          bomb.y = carrier.y;
+          next.bombs.push(bomb);
+          delete next.carriedBombs[pid];
+          if (next.players[pid]) delete next.players[pid].carriedBomb;
+        }
+      }
+    }
+  }
+
   processExplosions(next);
 
   for (const e of next.explosions) e.ttl--;
@@ -312,6 +507,12 @@ export function tick(state: BombermanState, queues: Record<PlayerId, BombermanOp
   const bombCounts = new Map<string, number>();
   for (const bomb of next.bombs) {
     bombCounts.set(bomb.playerId, (bombCounts.get(bomb.playerId) ?? 0) + 1);
+  }
+  // Also count carried bombs
+  if (next.carriedBombs) {
+    for (const [pid, _bomb] of Object.entries(next.carriedBombs)) {
+      bombCounts.set(pid, (bombCounts.get(pid) ?? 0) + 1);
+    }
   }
   for (const [, p] of Object.entries(next.players)) {
     p.bombActive = bombCounts.get(p.playerId) ?? 0;
@@ -327,6 +528,19 @@ export function tick(state: BombermanState, queues: Record<PlayerId, BombermanOp
   if (next.config.roundTimeSec > 0) {
     if (next.roundTimer === undefined) next.roundTimer = next.config.roundTimeSec * next.config.tickRate;
     next.roundTimer = Math.max(0, next.roundTimer - 1);
+    if (next.roundTimer === 0 && next.status !== GameStatus.Ended) {
+      next.status = GameStatus.Ended;
+    }
+  }
+
+  // Sudden death: shrink boundary near end of round
+  if (next.config.shrinkEnabled && next.roundTimer !== undefined) {
+    const hurryThreshold = 30 * next.config.tickRate; // 30 seconds
+    if (next.roundTimer < hurryThreshold) {
+      if (next.tick % next.config.tickRate === 0) {
+        next.shrinkBoundary = (next.shrinkBoundary ?? 0) + 1;
+      }
+    }
   }
 
   killOutOfBounds(next);

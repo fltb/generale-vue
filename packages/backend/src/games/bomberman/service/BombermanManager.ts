@@ -23,10 +23,10 @@ export class BombermanManager {
     });
   }
 
-  createGame(roomName: string, creatorId: string, creatorName: string): BombermanService {
+  createGame(roomName: string, creatorId: string, creatorName: string, password?: string): BombermanService {
     const id = `bomb_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
     const config = defaultBombermanConfig();
-    const service = new BombermanService(id, roomName, config, creatorId, creatorName);
+    const service = new BombermanService(id, roomName, config, creatorId, creatorName, password);
     service.onDisband = () => { this.removeGame(id); };
     service.registerHandlers();
     this.services.set(id, service);

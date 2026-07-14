@@ -3,6 +3,7 @@ import { createTestApp, seedUser, loginAs } from "../helpers/integration";
 import type { SeedUser } from "../helpers/integration";
 import type { Database } from "bun:sqlite";
 import type { Elysia } from "elysia";
+import { GLOBAL_SETTINGS_DEFAULTS } from "@generale/types";
 
 describe("Settings Routes", () => {
   let app: Elysia;
@@ -16,54 +17,116 @@ describe("Settings Routes", () => {
   });
   afterAll(() => rawDb.close());
 
-  it("GET /profile/settings — returns empty object for new user", async () => {
+  // ── Global ──
+
+  it("GET /api/settings/global — returns defaults for new user", async () => {
     const { sid } = await loginAs(app, user.username, "testpass123");
-    const r = await app.handle(new Request("http://localhost/api/profile/settings", { headers: { Cookie: `sid=${sid}` } }));
+    const r = await app.handle(new Request("http://localhost/api/settings/global", { headers: { Cookie: `sid=${sid}` } }));
     expect(r.status).toBe(200);
-    expect(await r.json()).toEqual({});
+    const body = await r.json();
+    expect(body.success).toBe(true);
+    expect(body.data).toEqual(GLOBAL_SETTINGS_DEFAULTS);
   });
 
-  it("GET /profile/settings — 401 without auth", async () => {
-    const r = await app.handle(new Request("http://localhost/api/profile/settings"));
-    expect(r.status).toBe(401);
+  it("GET /api/settings/global — 401 without auth", async () => {
+    const r = await app.handle(new Request("http://localhost/api/settings/global"));
+    expect(r.status).toBe(200);
+    const body = await r.json();
+    expect(body.success).toBe(false);
+    expect(body.message).toBe("Not authorized");
   });
 
-  it("PATCH /profile/settings — sets a setting", async () => {
+  it("PATCH /api/settings/global — sets a setting", async () => {
     const { sid } = await loginAs(app, user.username, "testpass123");
-    const r = await app.handle(new Request("http://localhost/api/profile/settings", {
+    const r = await app.handle(new Request("http://localhost/api/settings/global", {
       method: "PATCH",
       headers: { "Content-Type": "application/json", Cookie: `sid=${sid}` },
-      body: JSON.stringify({ key: "lang", value: "zh-CN" }),
+      body: JSON.stringify({ locale: "zh-CN" }),
     }));
     expect(r.status).toBe(200);
-    expect((await r.json()).success).toBe(true);
+    const body = await r.json();
+    expect(body.success).toBe(true);
   });
 
-  it("GET /profile/settings — returns saved setting", async () => {
+  it("GET /api/settings/global — returns saved setting (deserialized)", async () => {
     const { sid } = await loginAs(app, user.username, "testpass123");
-    const r = await app.handle(new Request("http://localhost/api/profile/settings", { headers: { Cookie: `sid=${sid}` } }));
+    const r = await app.handle(new Request("http://localhost/api/settings/global", { headers: { Cookie: `sid=${sid}` } }));
     expect(r.status).toBe(200);
-    expect(await r.json()).toEqual({ lang: "zh-CN" });
+    const body = await r.json();
+    expect(body.data.locale).toBe("zh-CN");
+    expect(body.data.theme).toBe("system");
+    expect(body.data.soundMuted).toBe(false);
   });
 
-  it("PATCH /profile/settings — overwrites existing setting", async () => {
+  it("PATCH /api/settings/global — overwrites existing setting", async () => {
     const { sid } = await loginAs(app, user.username, "testpass123");
-    await app.handle(new Request("http://localhost/api/profile/settings", {
+    await app.handle(new Request("http://localhost/api/settings/global", {
       method: "PATCH",
       headers: { "Content-Type": "application/json", Cookie: `sid=${sid}` },
-      body: JSON.stringify({ key: "lang", value: "en" }),
+      body: JSON.stringify({ locale: "en" }),
     }));
-    const r = await app.handle(new Request("http://localhost/api/profile/settings", { headers: { Cookie: `sid=${sid}` } }));
+    const r = await app.handle(new Request("http://localhost/api/settings/global", { headers: { Cookie: `sid=${sid}` } }));
     expect(r.status).toBe(200);
-    expect(await r.json()).toEqual({ lang: "en" });
+    const body = await r.json();
+    expect(body.data.locale).toBe("en");
   });
 
-  it("PATCH /profile/settings — 401 without auth", async () => {
-    const r = await app.handle(new Request("http://localhost/api/profile/settings", {
+  it("PATCH /api/settings/global — 401 without auth", async () => {
+    const r = await app.handle(new Request("http://localhost/api/settings/global", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ key: "lang", value: "en" }),
+      body: JSON.stringify({ locale: "en" }),
     }));
-    expect(r.status).toBe(401);
+    expect(r.status).toBe(200);
+    const body = await r.json();
+    expect(body.success).toBe(false);
+    expect(body.message).toBe("Not authorized");
+  });
+
+  // ── Game ──
+
+  it("GET /api/settings/game/bomberman — returns defaults", async () => {
+    const { sid } = await loginAs(app, user.username, "testpass123");
+    const r = await app.handle(new Request("http://localhost/api/settings/game/bomberman", { headers: { Cookie: `sid=${sid}` } }));
+    expect(r.status).toBe(200);
+    const body = await r.json();
+    expect(body.success).toBe(true);
+    expect(body.data.soundVolume).toBe(1);
+    expect(body.data.keybindings).toBeDefined();
+  });
+
+  it("GET /api/settings/game/bomberman — 401 without auth", async () => {
+    const r = await app.handle(new Request("http://localhost/api/settings/game/bomberman"));
+    expect(r.status).toBe(200);
+    const body = await r.json();
+    expect(body.success).toBe(false);
+  });
+
+  it("PATCH /api/settings/game/bomberman — sets a setting", async () => {
+    const { sid } = await loginAs(app, user.username, "testpass123");
+    const r = await app.handle(new Request("http://localhost/api/settings/game/bomberman", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", Cookie: `sid=${sid}` },
+      body: JSON.stringify({ soundVolume: "0.5" }),
+    }));
+    expect(r.status).toBe(200);
+    const body = await r.json();
+    expect(body.success).toBe(true);
+  });
+
+  // ── All ──
+
+  it("GET /api/settings/all — batch fetches global + game settings", async () => {
+    const { sid } = await loginAs(app, user.username, "testpass123");
+    const r = await app.handle(new Request("http://localhost/api/settings/all", { headers: { Cookie: `sid=${sid}` } }));
+    expect(r.status).toBe(200);
+    const body = await r.json();
+    expect(body.success).toBe(true);
+    expect(body.data.global).toBeDefined();
+    expect(body.data.global.locale).toBe("en");
+    expect(body.data.games).toBeDefined();
+    // bomberman should be present since we set a value earlier
+    expect(body.data.games.bomberman).toBeDefined();
+    expect(body.data.games.bomberman.soundVolume).toBe(0.5);
   });
 });

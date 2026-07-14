@@ -1,5 +1,5 @@
 interface ScoreboardProps {
-  players: Array<{ name: string; rank: number; score: number }>;
+  players: Array<{ name: string; rank: number }>;
   onBackToRoom: () => void;
 }
 
@@ -16,7 +16,6 @@ export function Scoreboard(props: ScoreboardProps) {
               <span>
                 #{p.rank} {p.name}
               </span>
-              <span class="text-gray-400">{p.score} pts</span>
             </div>
           ))}
         </div>

@@ -27,7 +27,7 @@ export function tForRequest(ctx: { cookie?: unknown; request?: { headers: Header
       const row = db
         .select()
         .from(userSettings)
-        .where(and(eq(userSettings.userId, session.userId), eq(userSettings.key, "language")))
+        .where(and(eq(userSettings.userId, session.userId), eq(userSettings.key, "locale")))
         .get();
       if (row && (SUPPORTED as readonly string[]).includes(row.value)) {
         locale = row.value as LocaleCode;

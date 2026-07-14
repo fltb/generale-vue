@@ -27,7 +27,7 @@ export function bombermanRoutes(app: Elysia) {
         }
         const user = await userService.findById(userId);
         const creatorName = user?.username ?? "Unknown";
-        const service = bombermanManager.createGame(body.roomName, userId, creatorName);
+        const service = bombermanManager.createGame(body.roomName, userId, creatorName, body.password);
         return { success: true, data: { gameId: service.gameId } };
       },
       { body: t.Object({ roomName: t.String(), password: t.Optional(t.String()) }), cookie: cookieScheme },

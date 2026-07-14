@@ -3,8 +3,9 @@ import { createEffect, createSignal, type JSX, onCleanup, Show } from "solid-js"
 import Avatar from "~/components/Avatar";
 import LogoIcon from "~/components/LogoIcon";
 import { useAuth } from "~/hooks/useAuth";
-import { MuteToggle } from "~/ui";
+import { MuteToggle, Modal } from "~/ui";
 import { useT } from "~/i18n/useT";
+import { KeybindingSettings } from "./KeybindingSettings";
 
 interface Props {
   children?: JSX.Element;
@@ -15,6 +16,7 @@ export default function BombermanLayout(props: Props) {
   const navigate = useNavigate();
   const { locale, setLocale } = useT();
   const [open, setOpen] = createSignal(false);
+  const [showSettings, setShowSettings] = createSignal(false);
 
   createEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -68,6 +70,17 @@ export default function BombermanLayout(props: Props) {
         </div>
         <div class="flex items-center gap-3">
           <MuteToggle />
+          <button
+            type="button"
+            onClick={() => setShowSettings(true)}
+            class="btn btn-sm btn-ghost btn-square"
+            aria-label="Settings"
+          >
+            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="3" />
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+            </svg>
+          </button>
           <div class="flex items-center gap-1">
             {[
               { code: "en", label: "EN" },
@@ -133,6 +146,25 @@ export default function BombermanLayout(props: Props) {
       </nav>
 
       <main class="flex-1 min-w-0">{props.children}</main>
+
+      <Show when={showSettings()}>
+        <Modal boxClass="max-w-lg">
+          <div class="flex justify-end mb-2">
+            <button
+              type="button"
+              class="btn btn-sm btn-ghost btn-square"
+              onClick={() => setShowSettings(false)}
+              aria-label="Close settings"
+            >
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
+          </div>
+          <KeybindingSettings />
+        </Modal>
+      </Show>
     </div>
   );
 }

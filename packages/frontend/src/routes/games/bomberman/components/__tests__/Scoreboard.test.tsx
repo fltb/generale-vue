@@ -4,9 +4,9 @@ import { Scoreboard } from "../Scoreboard";
 
 describe("Scoreboard", () => {
   const players = [
-    { name: "Alice", rank: 1, score: 300 },
-    { name: "Bob", rank: 2, score: 150 },
-    { name: "Carol", rank: 3, score: 80 },
+    { name: "Alice", rank: 1 },
+    { name: "Bob", rank: 2 },
+    { name: "Carol", rank: 3 },
   ];
 
   it("renders GAME OVER heading", () => {
@@ -21,9 +21,11 @@ describe("Scoreboard", () => {
     expect(screen.getByText((t) => t.includes("Carol"))).toBeInTheDocument();
   });
 
-  it("renders player scores", () => {
+  it("renders player ranks", () => {
     render(() => <Scoreboard players={players} onBackToRoom={() => {}} />);
-    expect(screen.getByText("300 pts")).toBeInTheDocument();
+    expect(screen.getByText((t) => t.includes("#1"))).toBeInTheDocument();
+    expect(screen.getByText((t) => t.includes("#2"))).toBeInTheDocument();
+    expect(screen.getByText((t) => t.includes("#3"))).toBeInTheDocument();
   });
 
   it("renders back to room button", () => {

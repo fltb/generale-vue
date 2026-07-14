@@ -20,12 +20,15 @@ export function BombermanRoom() {
   const [error, setError] = createSignal("");
   const [showSettings, setShowSettings] = createSignal(false);
   const [gameOver, setGameOver] = createSignal<{
-    rankings: { playerId: string; rank: number }[];
+    rankings: { playerId: string; name: string; rank: number }[];
     winnerId: string | null;
   } | null>(null);
 
   const roomDomain = `room-${params.id}`;
   const gameDomain = `game-${params.id}`;
+
+  // Read password from URL search params
+  const urlPassword = new URLSearchParams(window.location.search).get("password") || undefined;
 
   const roomSync = useSyncedState<BombermanRoomState, BombermanPreGameClientAction, BombermanPreGameServerEvent>({
     domain: roomDomain,
@@ -38,6 +41,7 @@ export function BombermanRoom() {
       hostId: "",
     },
     applyEvent: (s) => s,
+    openPayload: urlPassword ? { password: urlPassword } : {},
     onCustomEvent: (evt) => {
       const e = evt as BombermanPreGameServerEvent;
       if (e.type === BombermanPreGameServerEventType.GAME_STARTED) {
@@ -244,9 +248,12 @@ export function BombermanRoom() {
             <h2 class="text-2xl font-bold mb-4">Game Over</h2>
             {gameOver() && (
               <div class="mb-4">
-                <p class="text-lg mb-2">Winner: {gameOver()!.winnerId ?? "Draw"}</p>
+                {(() => {
+                  const winnerName = gameOver()!.rankings.find((r) => r.playerId === gameOver()!.winnerId)?.name;
+                  return <p class="text-lg mb-2">Winner: {winnerName ?? "Draw"}</p>;
+                })()}
                 {(gameOver()!.rankings ?? []).map((r) => (
-                  <p>#{r.rank}: {r.playerId.slice(0, 8)}</p>
+                  <p>#{r.rank}: {r.name}</p>
                 ))}
               </div>
             )}

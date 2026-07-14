@@ -1,4 +1,16 @@
 import { vi } from "vitest";
+import * as nodeCrypto from "node:crypto";
+
+// Polyfill globalThis.crypto for elysia (Node 18 doesn't provide it as a global)
+if (typeof globalThis.crypto === "undefined") {
+  Object.defineProperty(globalThis, "crypto", {
+    value: Object.assign(nodeCrypto.webcrypto, {
+      timingSafeEqual: nodeCrypto.timingSafeEqual.bind(nodeCrypto),
+    }),
+    writable: false,
+    configurable: true,
+  });
+}
 
 const store: Map<string, Map<string, unknown>> = new Map();
 

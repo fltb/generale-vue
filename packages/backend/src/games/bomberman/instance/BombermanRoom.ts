@@ -9,9 +9,12 @@ import {
   type PlayerId,
   type ServerSyncConnector,
   type SyncedStateServerEvent,
+  SyncedGameServerEventType,
   SyncedStateServerEventType,
+  SyncedStateServerStateUpdatePayloadType,
 } from "@generale/types";
 import { StateSyncState } from "../../../game/instance/state-sync";
+import { validateBombermanConfig } from "../settings";
 
 export type BombermanRoomConnector = ServerSyncConnector<
   BombermanPreGameClientAction,
@@ -27,12 +30,16 @@ export class BombermanRoom {
   private destroyed = false;
   private hostReclaimTimer: ReturnType<typeof setTimeout> | undefined;
   private creatorId: PlayerId;
+  private creatorName: string;
+  private roomPassword: string | undefined;
 
   onGameStartCallback?: (playerIds: PlayerId[]) => void;
   onDisbandedCallback?: () => void;
 
-  constructor(roomName: string, config: BombermanConfig, creatorId: PlayerId, _creatorName: string) {
+  constructor(roomName: string, config: BombermanConfig, creatorId: PlayerId, creatorName: string, password?: string) {
     this.creatorId = creatorId;
+    this.creatorName = creatorName;
+    this.roomPassword = password;
     this.state = {
       roomName,
       config,
@@ -41,6 +48,26 @@ export class BombermanRoom {
       hostId: creatorId,
       players: [],
     };
+  }
+
+  public getPassword(): string | undefined {
+    return this.roomPassword;
+  }
+
+  public canJoin(playerId: PlayerId, password?: string): { success: true } | { success: false; message: string } {
+    if (this.destroyed) return { success: false, message: "Room destroyed" };
+    // Existing player can always rejoin
+    const existing = this.state.players.find((p) => p.id === playerId);
+    if (existing) return { success: true };
+    // First player (creator) skips password
+    if (this.state.players.length === 0) return { success: true };
+    // Password check for new players
+    if (this.roomPassword && password !== this.roomPassword) {
+      return { success: false, message: "Wrong password" };
+    }
+    if (this.state.phase !== "lobby") return { success: false, message: "Game already in progress" };
+    if (this.state.players.length >= this.state.maxPlayers) return { success: false, message: "Room is full" };
+    return { success: true };
   }
 
   onGameStart(cb: (playerIds: PlayerId[]) => void): void {
@@ -52,10 +79,11 @@ export class BombermanRoom {
   }
 
   addPlayer(
-    user: { id: PlayerId; name: string },
+    user: { id: PlayerId; name: string; password?: string },
     connector: BombermanRoomConnector,
   ): { success: true } | { success: false; message: string } {
-    if (this.destroyed) return { success: false, message: "Room destroyed" };
+    const joinCheck = this.canJoin(user.id, user.password);
+    if (!joinCheck.success) return joinCheck;
 
     const existing = this.state.players.find((p) => p.id === user.id);
     if (existing) {
@@ -65,8 +93,6 @@ export class BombermanRoom {
       this.sendState(user.id, true);
       return { success: true };
     }
-
-    if (this.state.phase !== "lobby") return { success: false, message: "Game already in progress" };
 
     // First player must be the creator
     if (this.state.players.length === 0 && user.id !== this.creatorId) {
@@ -78,7 +104,7 @@ export class BombermanRoom {
     }
 
     const isHost = this.state.players.length === 0;
-    const player: BombermanRoomPlayer = { id: user.id, name: user.name, ready: false, isHost };
+    const player: BombermanRoomPlayer = { id: user.id, name: isHost ? (user.name || this.creatorName) : user.name, ready: false, isHost };
     this.state.players.push(player);
     this.connectors.set(user.id, connector);
     this.wireConnector(user.id, connector);
@@ -179,6 +205,10 @@ export class BombermanRoom {
         break;
       case "CHANGE_CONFIG":
         if (!player.isHost) return;
+        {
+          const err = validateBombermanConfig(evt.payload);
+          if (err) return; // ignore invalid config
+        }
         this.state.config = { ...this.state.config, ...evt.payload };
         break;
       case "KICK_PLAYER":
@@ -187,7 +217,7 @@ export class BombermanRoom {
         {
           const targetConn = this.connectors.get(evt.targetId);
           if (targetConn) {
-            targetConn.send({ type: "custom", payload: { type: BombermanPreGameServerEventType.KICKED, reason: "Kicked by host" } } as any);
+            targetConn.send({ type: SyncedGameServerEventType.CUSTOM, payload: { type: BombermanPreGameServerEventType.KICKED, reason: "Kicked by host" } });
             targetConn.close();
           }
           this.removePlayer(evt.targetId);
@@ -201,7 +231,7 @@ export class BombermanRoom {
         this.version++;
         this.onGameStartCallback?.(this.state.players.map((p) => p.id));
         for (const [, c] of this.connectors) {
-          c.send({ type: "custom", payload: { type: BombermanPreGameServerEventType.GAME_STARTED, startedAt: Date.now() } } as any);
+          c.send({ type: SyncedGameServerEventType.CUSTOM, payload: { type: BombermanPreGameServerEventType.GAME_STARTED, startedAt: Date.now() } });
         }
         break;
     }
@@ -216,7 +246,7 @@ export class BombermanRoom {
   broadcastCustom(event: BombermanPreGameServerEvent): void {
     for (const [, c] of this.connectors) {
       try {
-        c.send({ type: "custom", payload: event } as any);
+        c.send({ type: SyncedGameServerEventType.CUSTOM, payload: event });
       } catch {}
     }
   }
@@ -243,13 +273,13 @@ export class BombermanRoom {
       (state, ver, op) =>
         conn.send({
           type: SyncedStateServerEventType.STATE_UPDATE,
-          payload: { type: "snapshot", version: ver, confirmedOp: op, payload: state },
-        } as any),
+          payload: { type: SyncedStateServerStateUpdatePayloadType.SNAPSHOT, version: ver, confirmedOp: op, payload: state },
+        }),
       (patches, ver, op) =>
         conn.send({
           type: SyncedStateServerEventType.STATE_UPDATE,
-          payload: { type: "patch", version: ver, confirmedOp: op, payload: patches },
-        } as any),
+          payload: { type: SyncedStateServerStateUpdatePayloadType.PATCH, version: ver, confirmedOp: op, payload: patches },
+        }),
     );
   }
 

@@ -2,6 +2,7 @@
   "name": "@generale/backend",
   "version": "1.0.50",
   "private": true,
+  "type": "module",
   "scripts": {
     "test": "vitest && bun test src/__tests__/helpers/ src/__tests__/routes/",
     "test:watch": "vitest --watch",

@@ -25,7 +25,6 @@ export function defaultBombermanConfig(): BombermanConfig {
     shrinkEnabled: false,
     itemDropRate: 0.6,
     items: [...ALL_ITEMS],
-    mode: "multi",
   };
 }
 

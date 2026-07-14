@@ -11,7 +11,7 @@ import type {
 import { Title, Meta } from "@solidjs/meta";
 import { useNavigate } from "@solidjs/router";
 import { useMutation } from "@tanstack/solid-query";
-import { createMemo, createSignal, onMount, Show } from "solid-js";
+import { createMemo, createSignal, Show } from "solid-js";
 import { useT } from "../i18n/useT";
 import { changeEmailApi, changePasswordApi, changeUsernameApi } from "~/api/accountApi";
 import type { ApiError } from "~/api/base";
@@ -19,7 +19,7 @@ import { patchMyProfileApi, uploadMyAvatarApi } from "~/api/profileApi";
 import Avatar from "~/components/Avatar";
 import { ProtectedRoute } from "~/components/ProtectedRoute";
 import { useAuth } from "~/hooks/useAuth";
-import { getSettingsApi, updateSettingsApi } from "~/api/settingsApi";
+import { useGlobalSettings } from "~/hooks/useGlobalSettings";
 
 const ACCEPTED_MIME = "image/png,image/jpeg,image/webp";
 
@@ -27,21 +27,11 @@ export default function ProfilePage() {
   const auth = useAuth();
   const nav = useNavigate();
   const { t, setLocale } = useT();
-  const [settingsLanguage, setSettingsLanguage] = createSignal("en");
+  const { settings, update } = useGlobalSettings();
 
-  onMount(async () => {
-    try {
-      const s = await getSettingsApi();
-      if (s.language) setSettingsLanguage(s.language);
-    } catch {}
-  });
-
-  async function handleLanguageChange(value: string) {
-    setSettingsLanguage(value);
+  function handleLanguageChange(value: string) {
     setLocale(value);
-    try {
-      await updateSettingsApi("language", value);
-    } catch {}
+    update({ locale: value as "en" | "zh-CN" });
   }
 
   // 表单 state；初始值用 createMemo 从 auth.user 派生，user 拉到后第一次渲染会用真实值。
@@ -283,7 +273,7 @@ export default function ProfilePage() {
                 <span class="label-text w-20">{t("Language")}</span>
                 <select
                   class="select select-bordered select-sm flex-1"
-                  value={settingsLanguage()}
+                  value={settings().locale}
                   onChange={(e) => handleLanguageChange(e.currentTarget.value)}
                 >
                   <option value="en">English</option>

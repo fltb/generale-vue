@@ -22,6 +22,6 @@ describe("sound", () => {
   });
   it("persists to localStorage", () => {
     setMuted(true);
-    expect(localStorage.getItem("generale.muted")).toBe("1");
+    expect(localStorage.getItem("generale.settings.soundMuted")).toBe("1");
   });
 });

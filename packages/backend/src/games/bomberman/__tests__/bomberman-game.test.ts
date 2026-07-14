@@ -8,7 +8,7 @@ describe("BombermanGame", () => {
     const config = defaultBombermanConfig();
     config.mapWidth = 9;
     config.mapHeight = 9;
-    const game = new BombermanGame(config, ["p1", "p2"]);
+    const game = new BombermanGame(config, [{ id: "p1", name: "P1" }, { id: "p2", name: "P2" }]);
     const state = game.getState();
     expect(state.status).toBe(GameStatus.Playing);
     expect(state.tick).toBe(0);
@@ -19,7 +19,7 @@ describe("BombermanGame", () => {
     const config = defaultBombermanConfig();
     config.mapWidth = 9;
     config.mapHeight = 9;
-    const game = new BombermanGame(config, ["p1", "p2"]);
+    const game = new BombermanGame(config, [{ id: "p1", name: "P1" }, { id: "p2", name: "P2" }]);
     const state = game.getState();
     expect(state.players.p1).toBeDefined();
     expect(state.players.p2).toBeDefined();
@@ -29,62 +29,51 @@ describe("BombermanGame", () => {
   });
 
   it("handles player actions through handleAction", () => {
-    const config = defaultBombermanConfig();
-    config.mapWidth = 9;
-    config.mapHeight = 9;
-    const game = new BombermanGame(config, ["p1", "p2"]);
-
-    game.handleAction("p1", { type: "MOVE", direction: "right" }, 0);
-    game.handleAction("p1", { type: "PLACE_BOMB" }, 1);
-
-    // Actions are queued and processed by tick
-    const state = game.getState();
-    const tickedState = (BombermanGame.prototype as any).tick
-      ? null
-      : null;
-
+    const game = new BombermanGame(defaultBombermanConfig(), [{ id: "p1", name: "P1" }, { id: "p2", name: "P2" }]);
+    game.handleAction("p1", { type: "MOVE", direction: "right" });
     game.startTicking();
-    // Let one tick happen
+    // Wait a tick for processing
+    const state = game.getState();
+    // Player p1 should exist in state
+    expect(state.players["p1"]).toBeDefined();
+    expect(state.players["p1"].alive).toBe(true);
     game.stopTicking();
     game.destroy();
   });
 
-  it("fires onEnd callback when game ends", async () => {
-    const config = defaultBombermanConfig();
-    config.mapWidth = 9;
-    config.mapHeight = 9;
-    config.tickRate = 10;
-    config.bombFuse = 3;
-    const game = new BombermanGame(config, ["p1", "p2"]);
-
-    let endResult: any = null;
+  it("fires onEnd callback when game ends", () => {
+    const game = new BombermanGame(defaultBombermanConfig(), [{ id: "p1", name: "P1" }, { id: "p2", name: "P2" }]);
+    let endResult: { winnerId: string | null; state: unknown } | null = null;
     game.onEnd((result) => { endResult = result; });
-
-    // Kill p2 before starting
+    // Kill both players to trigger game end
     const state = game.getState();
-    state.players.p2!.alive = false;
-
+    state.players["p1"].alive = false;
+    state.players["p2"].alive = false;
     game.startTicking();
-
-    await new Promise((r) => setTimeout(r, 50));
-    game.stopTicking();
-
-    // The game should have ended since only p1 is alive
-    // onEnd fires during tick if status changes to Ended
-    game.destroy();
+    // Game should end on next tick
+    // Wait for tick to process
+    return new Promise<void>((resolve) => {
+      setTimeout(() => {
+        expect(endResult).not.toBeNull();
+        game.stopTicking();
+        game.destroy();
+        resolve();
+      }, 200);
+    });
   });
 
   it("supports adding bots", () => {
-    const config = defaultBombermanConfig();
-    config.mapWidth = 9;
-    config.mapHeight = 9;
-    const game = new BombermanGame(config, ["p1"]);
-
-    game.addBot("bot1", () => ({ type: "NOOP" }));
-
+    const game = new BombermanGame(defaultBombermanConfig(), [{ id: "p1", name: "P1" }]);
+    const botId = "bot-1";
+    game.addBot(botId, (state) => {
+      // Return a simple move action
+      return { type: "MOVE", direction: "right" };
+    });
     const state = game.getState();
-    expect(state.players.bot1).toBeDefined();
-    expect(state.players.bot1!.alive).toBe(true);
+    expect(state.players[botId]).toBeDefined();
+    expect(state.players[botId].alive).toBe(true);
+    // Bot should be in players map
+    expect(Object.keys(state.players)).toContain(botId);
     game.destroy();
   });
 
@@ -92,7 +81,7 @@ describe("BombermanGame", () => {
     const config = defaultBombermanConfig();
     config.mapWidth = 9;
     config.mapHeight = 9;
-    const game = new BombermanGame(config, ["p1", "p2"]);
+    const game = new BombermanGame(config, [{ id: "p1", name: "P1" }, { id: "p2", name: "P2" }]);
     game.startTicking();
     game.destroy();
     // Should not throw
