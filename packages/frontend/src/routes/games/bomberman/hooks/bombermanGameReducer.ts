@@ -7,6 +7,9 @@ import type { BombermanState, BombermanOperation } from "@generale/types";
  * Handles:
  *  - SET_DIRECTION: move local player 1 tile (server corrects on collision)
  *  - PLACE_BOMB: decrement bombActive, add a visual bomb at player position
+ *  - DETONATE: trigger oldest remote bomb to explode next tick (approximate)
+ *  - ACTION: pick up adjacent bomb with GLOVE (server will correct if wrong)
+ *  - SURRENDER: mark local player as dead immediately
  */
 export function applyBombermanEventLocal(
   state: BombermanState,
@@ -42,6 +45,41 @@ export function applyBombermanEventLocal(
         blastRadius: player.blastRadius,
       };
       next.bombs = [...(next.bombs ?? []), bomb];
+    }
+  }
+
+  if (op.type === "DETONATE") {
+    const player = next.players?.[localPlayerId];
+    // DETONATE requires REMOTE item — optimistically apply anyway (server corrects)
+    if (player?.alive) {
+      // Local: trigger the oldest placed bomb immediately (approximate)
+      const remoteBombs = next.bombs
+        .filter(b => b.playerId === localPlayerId)
+        .sort((a, b) => b.fuse - a.fuse); // oldest first = highest remaining fuse
+      if (remoteBombs.length > 0) {
+        remoteBombs[0].fuse = 1; // explode next tick
+      }
+    }
+  }
+
+  if (op.type === "ACTION") {
+    const player = next.players?.[localPlayerId];
+    if (player?.alive) {
+      // Local: optimistic GLOVE pickup — server will correct if wrong
+      const adjBombs = next.bombs.filter(b =>
+        Math.abs(b.x - player.x) + Math.abs(b.y - player.y) <= 1,
+      );
+      if (adjBombs.length > 0 && player.items.includes("GLOVE")) {
+        // Optimistic: pick up adjacent bomb (server confirms via carriedBomb)
+        player.carriedBomb = adjBombs[0].id;
+      }
+    }
+  }
+
+  if (op.type === "SURRENDER") {
+    const player = next.players?.[localPlayerId];
+    if (player) {
+      player.alive = false;
     }
   }
 

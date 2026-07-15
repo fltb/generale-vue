@@ -117,6 +117,41 @@ export function useBombermanRoomSession(params: { id: string; password?: string 
       (selfStatus() === "playing" || selfStatus() === "spectating" || gameJustEnded()),
   );
 
+  // ── Game sync resync watchdog ──
+  const MAX_WATCHDOG_ATTEMPTS = 5;
+  const WATCHDOG_INTERVAL_MS = 2000;
+  let watchdogTimer: ReturnType<typeof setInterval> | null = null;
+  let watchdogAttempts = 0;
+
+  function stopWatchdog() {
+    if (watchdogTimer) {
+      clearInterval(watchdogTimer);
+      watchdogTimer = null;
+    }
+    watchdogAttempts = 0;
+  }
+
+  function startGameWatchdog() {
+    stopWatchdog();
+    watchdogAttempts = 0;
+    watchdogTimer = setInterval(() => {
+      if (watchdogAttempts >= MAX_WATCHDOG_ATTEMPTS) {
+        stopWatchdog();
+        return;
+      }
+      const s = gameSync.state();
+      if (s?.map?.tiles?.length && s.map.tiles.length > 0 && s.map.tiles[0]?.length) {
+        // Map data is populated — watchdog has done its job
+        stopWatchdog();
+        return;
+      }
+      // No map data yet — reconnect to trigger a fresh snapshot
+      watchdogAttempts++;
+      gameSync.disconnect();
+      setTimeout(() => gameSync.connect(), 200);
+    }, WATCHDOG_INTERVAL_MS);
+  }
+
   // Password state machine
   const [hasPassword, setHasPassword] = createSignal<boolean | undefined>(undefined);
   const storedPw = sessionStorage.getItem("bomberman-room-invite-pw");
@@ -164,7 +199,10 @@ export function useBombermanRoomSession(params: { id: string; password?: string 
           setPhase("playing");
           setSelfStatus("playing");
           setStartedThisSession(true);
-          setTimeout(() => gameSync.connect(), 500);
+          setTimeout(() => {
+            gameSync.connect();
+            startGameWatchdog();
+          }, 500);
           break;
         case "gameended":
           setGameEnded({ rankings: evt.rankings, winnerId: evt.winnerId });
@@ -249,6 +287,7 @@ export function useBombermanRoomSession(params: { id: string; password?: string 
         setPhase("playing");
         setSelfStatus("playing");
         gameSync.connect();
+        startGameWatchdog();
       } else {
         setPhase("lobby");
         roomSync.connect();
@@ -260,6 +299,7 @@ export function useBombermanRoomSession(params: { id: string; password?: string 
   });
 
   onCleanup(() => {
+    stopWatchdog();
     roomSync.disconnect();
     gameSync.disconnect();
   });
