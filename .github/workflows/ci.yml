@@ -40,6 +40,9 @@ jobs:
       - name: Convention checks
         run: bun run check:conventions
 
+      - name: Architecture check
+        run: bun run check:architecture
+
       - name: Build
         run: bun run build
 
