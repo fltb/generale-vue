@@ -1,6 +1,7 @@
 import type {
   BombermanConfig,
   BombermanOperation,
+  BombermanState,
   ChatClientToServer,
   ChatServerToClient,
   GameId,
@@ -11,9 +12,10 @@ import type {
   SyncedStateServerEvent,
 } from "@generale/types";
 import { SyncedStateServerEventType, BombermanPreGameServerEventType } from "@generale/types";
-import type { SubConnector } from "../../../plugins/websocket";
 import { registerDomainHandler, unregisterDomainHandler } from "../../../plugins/websocket";
 import { GameChatInstance } from "../../../game/instance/GameChatInstance";
+import { GameSyncManager } from "../../../game/instance/sync-manager";
+import type { SyncConnector } from "../../../game/instance/sync-manager";
 import { BombermanGame } from "../instance/BombermanGame";
 import { BombermanRoom } from "../instance/BombermanRoom";
 
@@ -24,8 +26,27 @@ export class BombermanService {
   private game: BombermanGame | null = null;
   private destroyed = false;
   private chat: GameChatInstance;
-  private gameConnectors = new Map<string, SubConnector>();
+
+  // Sync layer: game-agnostic connector + patch/snapshot management
+  private sync = new GameSyncManager<BombermanState>({
+    send: {
+      sendSnapshot: (conn, state, version, confirmedOp) =>
+        conn.send({
+          type: SyncedStateServerEventType.STATE_UPDATE,
+          payload: { type: "snapshot", version, confirmedOp, payload: state },
+        }),
+      sendPatch: (conn, patches, version, confirmedOp) =>
+        conn.send({
+          type: SyncedStateServerEventType.STATE_UPDATE,
+          payload: { type: "patch", version, confirmedOp, payload: patches },
+        }),
+    },
+    customEventType: "CUSTOM" as never,
+    displacedPayloadType: "DISPLACED" as never,
+  });
+
   private disconnectTimers = new Map<string, ReturnType<typeof setTimeout>>();
+
   public onDisband?: () => void;
   public onLobbyUpdate?: () => void;
   private roomUpdateEmitter?: (gameId: string) => void;
@@ -86,11 +107,15 @@ export class BombermanService {
         return;
       }
       const g = this.game;
-      this.gameConnectors.set(userid, connector);
 
+      // Delegate connector lifecycle to the game-agnostic sync manager
+      this.sync.addPlayer(userid, connector as unknown as SyncConnector);
+
+      // Clear any pending auto-surrender timer (player reconnected)
       const existingTimer = this.disconnectTimers.get(userid);
       if (existingTimer) clearTimeout(existingTimer);
 
+      // Register action handler (game-specific — NOT in sync manager)
       connector.onClientMessage((evt) => {
         const e = evt as Record<string, unknown>;
         const op = {
@@ -99,19 +124,19 @@ export class BombermanService {
         } as unknown as BombermanOperation;
         g.handleAction(userid, op, e["optimisticId"] as number | undefined);
       });
+
+      // Auto-surrender after 30s of disconnection
       connector.onClose(() => {
-        this.gameConnectors.delete(userid);
         const timer = setTimeout(() => {
-          if (this.game && !this.gameConnectors.has(userid)) {
+          if (this.game && !this.sync.getPlayerConnector(userid)) {
             this.game.handleAction(userid, { type: "SURRENDER" });
           }
         }, 30000);
         this.disconnectTimers.set(userid, timer);
       });
-      connector.send({
-        type: SyncedStateServerEventType.STATE_UPDATE,
-        payload: { type: "snapshot", version: g.getState().tick, payload: g.getState() },
-      });
+
+      // Send initial snapshot via sync manager (patch/snapshot auto-detected)
+      this.sync.sendToPlayer(userid, g.getState(), g.getState().tick, 0, true);
     });
 
     registerDomainHandler(`chat-${this.gameId}`, (connector) => {
@@ -137,7 +162,7 @@ export class BombermanService {
     this.game = new BombermanGame(config, roomPlayers);
     const g = this.game;
 
-    // Add a test bot if only 1 human player (for solo testing)
+    // Solo test bot
     if (roomPlayers.length === 1) {
       const botId = `bot-${this.gameId}`;
       const dirs: Array<"up" | "down" | "left" | "right"> = ["up", "down", "left", "right"];
@@ -151,19 +176,12 @@ export class BombermanService {
       });
     }
 
+    // Tick → broadcast: delegate to sync manager instead of manual forEach
     g.onTick((state) => {
-      for (const [, conn] of this.gameConnectors) {
-        try {
-          conn.send({
-            type: SyncedStateServerEventType.STATE_UPDATE,
-            payload: { type: "snapshot", version: state.tick, payload: state },
-          });
-        } catch {
-          // ignore send failures
-        }
-      }
+      this.sync.broadcastToAllPlayers(state, state.tick, 0);
     });
 
+    // Game end: broadcast GAME_ENDED + cleanup
     g.onEnd((result) => {
       const players = Object.values(result.state.players) as { playerId: string; name: string; alive: boolean }[];
       const rankings = players
@@ -181,9 +199,9 @@ export class BombermanService {
       for (const timer of this.disconnectTimers.values()) clearTimeout(timer);
       this.disconnectTimers.clear();
 
+      this.sync.destroy();
       g.destroy();
       this.game = null;
-      this.gameConnectors.clear();
     });
 
     // 3-second pre-game delay for client countdown sync
@@ -242,6 +260,7 @@ export class BombermanService {
     unregisterDomainHandler(`chat-${this.gameId}`);
     this.chat.destroy();
     this.room.destroy();
+    this.sync.destroy();
     this.game?.destroy();
     this.onDisband?.();
   }

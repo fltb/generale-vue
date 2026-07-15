@@ -141,7 +141,7 @@ describe("BombermanService — startGame", () => {
 
       // Manually add a game connector (simulating a player connecting to game domain)
       const gameConnector = mockConnector("host-1", "Host");
-      (service as any).gameConnectors.set("host-1", gameConnector);
+      (service as any).sync.addPlayer("host-1", gameConnector);
 
       service.startGame();
 

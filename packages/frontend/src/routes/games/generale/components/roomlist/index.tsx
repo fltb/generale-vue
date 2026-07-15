@@ -3,7 +3,6 @@ import { useNavigate } from "@solidjs/router";
 import { useQuery } from "@tanstack/solid-query";
 import { createMemo, createSignal, For, Match, Show, Switch } from "solid-js";
 import { getGameInfoApi, listGamesApi } from "~/routes/games/generale/api/gameApi";
-import { useGameListQuery } from "~/hooks/useGameListQuery";
 import { useLobbyRealtime } from "~/hooks/useLobbyRealtime";
 import { useT } from "~/i18n/useT";
 import { Alert, Badge, Button, Card, CardBody, CardTitle, CardActions, Modal, Spinner } from "~/ui";
@@ -19,10 +18,23 @@ export function RoomList() {
   const limit = 50;
   const offset = 0;
 
-  const gamesQuery = useGameListQuery("games", () => filters(), async (params) => {
-    const res = await listGamesApi(params as ListGamesQuery);
-    return res.data ?? [];
-  }, { offset, limit });
+  function buildFilterRecord(f: Partial<ListGamesQuery>) {
+    const r: Record<string, string | undefined> = {};
+    for (const [k, v] of Object.entries(f)) {
+      if (v != null && v !== "") r[k] = String(v);
+    }
+    if (offset != null) r.offset = String(offset);
+    if (limit != null) r.limit = String(limit);
+    return r;
+  }
+
+  const gamesQuery = useQuery(() => ({
+    queryKey: ["games", buildFilterRecord(filters()), offset, limit] as const,
+    queryFn: async () => {
+      const res = await listGamesApi({ ...filters(), offset: String(offset), limit: String(limit) });
+      return res.data ?? [];
+    },
+  }));
 
   useLobbyRealtime(() => filters(), { offset, limit });
 

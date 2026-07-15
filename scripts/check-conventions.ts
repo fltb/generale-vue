@@ -182,6 +182,53 @@ function readLines(file: string): string[] {
   }
 }
 
+// 8. No local LobbyServerMessageType in game backends (hard fail)
+// Backend must use shared types from @generale/types, not define a local enum.
+{
+  const violations: string[] = [];
+  for (const f of walkFiles(join(ROOT, "packages/backend/src/games"), ".ts")) {
+    // Skip the shared types package itself
+    if (f.includes("packages/types")) continue;
+    for (const [i, line] of readLines(f).entries()) {
+      if (line.includes("export enum LobbyServerMessageType")) {
+        violations.push(`${f}:${i + 1} — must import from @generale/types`);
+      }
+    }
+  }
+  if (violations.length > 0) {
+    log("✗", RED, `${violations.length} local LobbyServerMessageType (use shared from @generale/types):`);
+    for (const v of violations) log("", RED, v);
+    failed++;
+  } else {
+    log("✓", GREEN, "shared message types (no local enums)");
+  }
+}
+
+// 9. Game hubs must use useLobbyRealtime (hard fail)
+// Prevents manual WebSocket subscription in hub components.
+{
+  const violations: string[] = [];
+  for (const f of walkFiles(join(ROOT, "packages/frontend/src/routes/games"), ".tsx")) {
+    const basename = f.split("/").pop() ?? "";
+    if (!basename.startsWith("hub.")) continue;
+    const content = readFileSync(f, "utf-8");
+    if (content.includes("onMount") && content.includes("getOrCreateSub")) {
+      violations.push(`${f} — uses manual WS instead of useLobbyRealtime`);
+    }
+    // Also check that useLobbyRealtime is imported
+    if (!content.includes("useLobbyRealtime")) {
+      violations.push(`${f} — missing useLobbyRealtime import`);
+    }
+  }
+  if (violations.length > 0) {
+    log("✗", RED, `${violations.length} game hub(s) not using useLobbyRealtime:`);
+    for (const v of violations) log("", RED, v);
+    failed++;
+  } else {
+    log("✓", GREEN, "game hubs use useLobbyRealtime");
+  }
+}
+
 // ─── Result ───
 if (failed > 0) {
   console.error(`\n${RED}${failed} check(s) FAILED.${NC}`);

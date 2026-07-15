@@ -3,8 +3,10 @@
   "module": "index.ts",
   "devDependencies": {
     "@biomejs/biome": "2.5.1",
+    "@nielspeter/ts-archunit": "^0.17.0",
     "@types/bun": "^1.3.14",
-    "dependency-cruiser": "^18.1.0"
+    "dependency-cruiser": "^18.1.0",
+    "plop": "^4.0.5"
   },
   "peerDependencies": {
     "typescript": "^6.0.3"
@@ -21,7 +23,11 @@
     "check:write": "bunx biome check --write",
     "ci:lint": "bunx biome ci --reporter=github",
     "check:conventions": "bun run scripts/check-conventions.ts",
-    "check:architecture": "depcruise packages/frontend/src packages/backend/src --config .dependency-cruiser.cjs"
+    "check:architecture": "depcruise packages/frontend/src packages/backend/src --config .dependency-cruiser.cjs",
+    "arch": "bunx ts-archunit check",
+    "arch:baseline": "bunx ts-archunit baseline",
+    "arch": "ts-archunit check",
+    "arch:baseline": "ts-archunit baseline"
   },
   "type": "module",
   "workspaces": [

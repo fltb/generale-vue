@@ -53,9 +53,7 @@ export function applyBombermanEventLocal(
     // DETONATE requires REMOTE item — optimistically apply anyway (server corrects)
     if (player?.alive) {
       // Local: trigger the oldest placed bomb immediately (approximate)
-      const remoteBombs = next.bombs
-        .filter(b => b.playerId === localPlayerId)
-        .sort((a, b) => b.fuse - a.fuse); // oldest first = highest remaining fuse
+      const remoteBombs = next.bombs.filter((b) => b.playerId === localPlayerId).sort((a, b) => b.fuse - a.fuse); // oldest first = highest remaining fuse
       if (remoteBombs.length > 0) {
         remoteBombs[0].fuse = 1; // explode next tick
       }
@@ -66,9 +64,7 @@ export function applyBombermanEventLocal(
     const player = next.players?.[localPlayerId];
     if (player?.alive) {
       // Local: optimistic GLOVE pickup — server will correct if wrong
-      const adjBombs = next.bombs.filter(b =>
-        Math.abs(b.x - player.x) + Math.abs(b.y - player.y) <= 1,
-      );
+      const adjBombs = next.bombs.filter((b) => Math.abs(b.x - player.x) + Math.abs(b.y - player.y) <= 1);
       if (adjBombs.length > 0 && player.items.includes("GLOVE")) {
         // Optimistic: pick up adjacent bomb (server confirms via carriedBomb)
         player.carriedBomb = adjBombs[0].id;

@@ -113,9 +113,7 @@ export function useBombermanRoomSession(params: { id: string; password?: string 
   onCleanup(() => cancelGameEndFallback());
 
   const showingGameUI = createMemo(
-    () =>
-      phase() === "playing" &&
-      (selfStatus() === "playing" || selfStatus() === "spectating" || gameJustEnded()),
+    () => phase() === "playing" && (selfStatus() === "playing" || selfStatus() === "spectating" || gameJustEnded()),
   );
 
   // ── Game sync resync watchdog ──

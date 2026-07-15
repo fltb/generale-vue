@@ -270,9 +270,10 @@ export default function ProfilePage() {
             {/* ---------- Settings ---------- */}
             <Card class="bg-base-200 p-4 space-y-3">
               <h2 class="text-lg font-semibold">{t("Settings")}</h2>
-              <label class="flex items-center gap-3">
+              <label class="flex items-center gap-3" for="language-select">
                 <span class="label-text w-20">{t("Language")}</span>
                 <Select
+                  id="language-select"
                   size="sm"
                   bordered
                   class="flex-1"
@@ -290,7 +291,7 @@ export default function ProfilePage() {
               <h2 class="text-lg font-semibold">{t("Account")}</h2>
 
               <div class="flex items-end gap-3 flex-wrap">
-                <label class="flex-1 min-w-0">
+                <label class="flex-1 min-w-0" for="username-input">
                   <span class="label-text">
                     {t("Username")}
                     <Show when={auth.user?.usernameChangedAt}>
@@ -304,6 +305,7 @@ export default function ProfilePage() {
                     </Show>
                   </span>
                   <Input
+                    id="username-input"
                     bordered
                     class="w-full"
                     maxLength={50}
@@ -348,9 +350,10 @@ export default function ProfilePage() {
             <Card class="bg-base-200 p-4 space-y-3">
               <h2 class="text-lg font-semibold">{t("Profile")}</h2>
 
-              <label class="block">
+              <label class="block" for="display-name-input">
                 <span class="label-text">{t("Display Name")}</span>
                 <Input
+                  id="display-name-input"
                   bordered
                   class="w-full"
                   maxLength={50}
@@ -360,9 +363,10 @@ export default function ProfilePage() {
                 />
               </label>
 
-              <label class="block">
+              <label class="block" for="bio-textarea">
                 <span class="label-text">{t("Bio")}</span>
                 <Textarea
+                  id="bio-textarea"
                   bordered
                   class="w-full"
                   maxLength={500}

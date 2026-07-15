@@ -1,0 +1,1002 @@
+{
+  "generatedAt": "2026-07-15T07:31:29.622Z",
+  "count": 166,
+  "violations": [
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/backend/src/plugins/websocket.ts",
+      "line": 193,
+      "hash": "319ae5005db96738"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/backend/src/plugins/websocket.ts",
+      "line": 193,
+      "hash": "7fe4f25a55d6c47f"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/backend/src/plugins/websocket.ts",
+      "line": 212,
+      "hash": "e88301e5390b54ac"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/backend/src/plugins/websocket.ts",
+      "line": 212,
+      "hash": "4d6c0da469198b4f"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/backend/src/plugins/websocket.ts",
+      "line": 212,
+      "hash": "691f3974134c793d"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/backend/src/plugins/websocket.ts",
+      "line": 212,
+      "hash": "7ee4348dadfe5d78"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/backend/src/plugins/websocket.ts",
+      "line": 226,
+      "hash": "be6aca561ac2c1a3"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/backend/src/plugins/websocket.ts",
+      "line": 362,
+      "hash": "2165dc7e25ad75a4"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/backend/src/services/emailService.ts",
+      "line": 67,
+      "hash": "72a3bcc859f84346"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/backend/src/services/emailService.ts",
+      "line": 67,
+      "hash": "9a3fd4e51540cb1d"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/backend/src/services/emailService.ts",
+      "line": 90,
+      "hash": "779e1121c02ca95e"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/backend/src/services/profileService.ts",
+      "line": 42,
+      "hash": "e0118fb6cea4c8cd"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/backend/src/services/profileService.ts",
+      "line": 42,
+      "hash": "0e2d406227fad97d"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/backend/src/services/profileService.ts",
+      "line": 54,
+      "hash": "99b1df66692c19b6"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/frontend/src/api/accountApi.ts",
+      "line": 17,
+      "hash": "d95434d3095643fd"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/frontend/src/api/accountApi.ts",
+      "line": 17,
+      "hash": "4495076918f19700"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/frontend/src/api/accountApi.ts",
+      "line": 17,
+      "hash": "b54e69bb22f1a3b8"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/frontend/src/api/accountApi.ts",
+      "line": 17,
+      "hash": "bc6c43c818b27fae"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/frontend/src/api/accountApi.ts",
+      "line": 17,
+      "hash": "8a97dcff7f260a91"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/frontend/src/api/accountApi.ts",
+      "line": 17,
+      "hash": "d0a7041af38e4f8b"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/frontend/src/api/accountApi.ts",
+      "line": 17,
+      "hash": "a7aba26de7a84d59"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/frontend/src/api/accountApi.ts",
+      "line": 17,
+      "hash": "9b5d307b8044122a"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/frontend/src/api/accountApi.ts",
+      "line": 17,
+      "hash": "b5415e5a1607aa90"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/frontend/src/api/accountApi.ts",
+      "line": 17,
+      "hash": "a0aa972ae114f7c3"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/frontend/src/api/accountApi.ts",
+      "line": 24,
+      "hash": "27d709563cdf5a21"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/frontend/src/api/accountApi.ts",
+      "line": 24,
+      "hash": "a162973a0d62ba7a"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/frontend/src/api/accountApi.ts",
+      "line": 24,
+      "hash": "bd356590ef896867"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/frontend/src/api/accountApi.ts",
+      "line": 24,
+      "hash": "a28910811ab1d514"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/frontend/src/api/accountApi.ts",
+      "line": 24,
+      "hash": "a44024b1e2afe78a"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/frontend/src/api/accountApi.ts",
+      "line": 24,
+      "hash": "ec79641319b140ce"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/frontend/src/api/accountApi.ts",
+      "line": 24,
+      "hash": "7cabc90f86252e38"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/frontend/src/api/accountApi.ts",
+      "line": 24,
+      "hash": "141df82931cdee7c"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/frontend/src/api/accountApi.ts",
+      "line": 24,
+      "hash": "975185d7913e748b"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/frontend/src/api/accountApi.ts",
+      "line": 31,
+      "hash": "0a0559a038c84928"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/frontend/src/api/accountApi.ts",
+      "line": 31,
+      "hash": "93d277ae404541cc"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/frontend/src/api/accountApi.ts",
+      "line": 31,
+      "hash": "80c9507f76859695"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/frontend/src/api/accountApi.ts",
+      "line": 31,
+      "hash": "4a11c5d8c7d3284c"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/frontend/src/api/accountApi.ts",
+      "line": 31,
+      "hash": "f814d56eb61fe0b2"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/frontend/src/api/accountApi.ts",
+      "line": 31,
+      "hash": "c6bc20647506f546"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/frontend/src/api/accountApi.ts",
+      "line": 31,
+      "hash": "eb55809ace058b3a"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/frontend/src/api/accountApi.ts",
+      "line": 31,
+      "hash": "2cf50168b3eb78f2"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/frontend/src/api/accountApi.ts",
+      "line": 38,
+      "hash": "a576d164bb8a5899"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/frontend/src/api/accountApi.ts",
+      "line": 38,
+      "hash": "54a95e3f9b600e8e"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/frontend/src/api/accountApi.ts",
+      "line": 38,
+      "hash": "c6f9bc4398faef42"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/frontend/src/api/accountApi.ts",
+      "line": 38,
+      "hash": "758fb532b21ef1af"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/frontend/src/api/accountApi.ts",
+      "line": 38,
+      "hash": "3d8f7d9f26ea43c3"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/frontend/src/api/accountApi.ts",
+      "line": 38,
+      "hash": "3790ef6aa141b217"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/frontend/src/api/accountApi.ts",
+      "line": 38,
+      "hash": "c4c6a36af89baf41"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/frontend/src/api/accountApi.ts",
+      "line": 45,
+      "hash": "581cc70ceeeae324"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/frontend/src/api/accountApi.ts",
+      "line": 45,
+      "hash": "aec2cb3c07078100"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/frontend/src/api/accountApi.ts",
+      "line": 45,
+      "hash": "0c929300959672d8"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/frontend/src/api/accountApi.ts",
+      "line": 45,
+      "hash": "912fbf287208039e"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/frontend/src/api/accountApi.ts",
+      "line": 45,
+      "hash": "5caf492a53bdba4f"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/frontend/src/api/accountApi.ts",
+      "line": 45,
+      "hash": "9aadc7d5e85d4fda"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/frontend/src/api/accountApi.ts",
+      "line": 52,
+      "hash": "27a548fd38e7ebc6"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/frontend/src/api/accountApi.ts",
+      "line": 52,
+      "hash": "8f751769c0ba34f5"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/frontend/src/api/accountApi.ts",
+      "line": 52,
+      "hash": "c360639010ee69a0"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/frontend/src/api/accountApi.ts",
+      "line": 52,
+      "hash": "2dfe255422a23668"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/frontend/src/api/accountApi.ts",
+      "line": 52,
+      "hash": "84cf6f44980cbd68"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/frontend/src/api/auth.ts",
+      "line": 25,
+      "hash": "e6c5c1f65d43ba0a"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/frontend/src/api/auth.ts",
+      "line": 25,
+      "hash": "2b4512091f67e413"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/frontend/src/api/auth.ts",
+      "line": 25,
+      "hash": "72fcffeeedafa0d4"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/frontend/src/api/auth.ts",
+      "line": 25,
+      "hash": "08d2b0516cf03ed0"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/frontend/src/api/auth.ts",
+      "line": 35,
+      "hash": "5c79e1c1565bd633"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/frontend/src/api/auth.ts",
+      "line": 35,
+      "hash": "1a38e937c9f9fbc7"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/frontend/src/api/auth.ts",
+      "line": 35,
+      "hash": "cf0ca3298bfc7c1d"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/frontend/src/api/auth.ts",
+      "line": 59,
+      "hash": "209a1f51dc8c3fca"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/frontend/src/api/auth.ts",
+      "line": 59,
+      "hash": "a6a2635484596258"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/frontend/src/api/mapApi.ts",
+      "line": 11,
+      "hash": "91a24d7bd6b17678"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/frontend/src/api/profileApi.ts",
+      "line": 17,
+      "hash": "9ecb8f899309bbb6"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/frontend/src/api/profileApi.ts",
+      "line": 23,
+      "hash": "42d9f9bd361d1b38"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/frontend/src/routes/confirm-email-change.tsx",
+      "line": 16,
+      "hash": "f4addb376fc156f0"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/frontend/src/ui/Alert.tsx",
+      "line": 18,
+      "hash": "a92eb642aa249c8d"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/frontend/src/ui/Alert.tsx",
+      "line": 18,
+      "hash": "7258d5e1e4cfe4bb"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/frontend/src/ui/Alert.tsx",
+      "line": 18,
+      "hash": "7d88d6ace302ffbb"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/frontend/src/ui/Alert.tsx",
+      "line": 18,
+      "hash": "776d0146ef697b8a"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/frontend/src/ui/Alert.tsx",
+      "line": 18,
+      "hash": "e563cb6da9dd9db4"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/frontend/src/ui/Alert.tsx",
+      "line": 18,
+      "hash": "1a1d42b3b7f2d952"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/frontend/src/ui/Alert.tsx",
+      "line": 18,
+      "hash": "59ea54a03a5a4c5f"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/frontend/src/ui/Checkbox.tsx",
+      "line": 9,
+      "hash": "18c65ee375d18663"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/frontend/src/ui/Checkbox.tsx",
+      "line": 9,
+      "hash": "1bcee73fbf7c83cf"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/frontend/src/ui/Checkbox.tsx",
+      "line": 9,
+      "hash": "dfd6349ab9ae34f9"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/frontend/src/ui/Checkbox.tsx",
+      "line": 9,
+      "hash": "98228dcb30ea7f7f"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/frontend/src/ui/Checkbox.tsx",
+      "line": 9,
+      "hash": "90fb2cb3b2b2c97d"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/frontend/src/ui/Checkbox.tsx",
+      "line": 9,
+      "hash": "ffc956d1e4557cfe"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/frontend/src/ui/Collapse.tsx",
+      "line": 8,
+      "hash": "35e211e5a4497d6c"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/frontend/src/ui/Collapse.tsx",
+      "line": 8,
+      "hash": "b2b0bbe4dc332862"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/frontend/src/ui/Input.tsx",
+      "line": 11,
+      "hash": "e53bc599ece83d36"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/frontend/src/ui/Range.tsx",
+      "line": 8,
+      "hash": "026089726f05e33f"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/frontend/src/ui/Range.tsx",
+      "line": 8,
+      "hash": "a16539cd35a5545e"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/frontend/src/ui/Range.tsx",
+      "line": 8,
+      "hash": "a5efa3a16fcc5e9a"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/frontend/src/ui/Range.tsx",
+      "line": 8,
+      "hash": "950cf7489f69a77f"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/frontend/src/ui/Spinner.tsx",
+      "line": 10,
+      "hash": "0ed6ad5aabec4727"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/frontend/src/ui/Spinner.tsx",
+      "line": 10,
+      "hash": "c41901592586a164"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/frontend/src/ui/Spinner.tsx",
+      "line": 10,
+      "hash": "09e05cb768777ef1"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/frontend/src/ui/Tabs.tsx",
+      "line": 7,
+      "hash": "8d9018e35745233c"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/frontend/src/ui/Tabs.tsx",
+      "line": 7,
+      "hash": "16daa6533690c088"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/frontend/src/ui/Tabs.tsx",
+      "line": 17,
+      "hash": "b2746b9903fca5f7"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/frontend/src/ws/manager.ts",
+      "line": 71,
+      "hash": "c202bd93ea166f43"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/frontend/src/ws/manager.ts",
+      "line": 71,
+      "hash": "0871c1be456e0ab3"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/frontend/src/ws/manager.ts",
+      "line": 71,
+      "hash": "5901dc71f8b93133"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/frontend/src/ws/manager.ts",
+      "line": 77,
+      "hash": "5761ac05983fc74a"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/frontend/src/ws/manager.ts",
+      "line": 77,
+      "hash": "a76f2d816f74eda2"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/frontend/src/ws/manager.ts",
+      "line": 83,
+      "hash": "8ff4431c95d34a52"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/frontend/src/ws/manager.ts",
+      "line": 290,
+      "hash": "6327cf3617854fd0"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/backend/src/game/instance/sync-manager.ts",
+      "line": 92,
+      "hash": "8ed45303cb7b808f"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/backend/src/game/instance/sync-manager.ts",
+      "line": 166,
+      "hash": "6153b06fb320f978"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/backend/src/game/instance/sync-manager.ts",
+      "line": 166,
+      "hash": "4b79033af57605d6"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/backend/src/game/instance/sync-manager.ts",
+      "line": 187,
+      "hash": "64f8b0c9545bfa93"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/backend/src/game/instance/sync-manager.ts",
+      "line": 226,
+      "hash": "64e3a17166b60749"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/backend/src/games/bomberman/instance/BombermanGame.ts",
+      "line": 127,
+      "hash": "4635ef022d9feffb"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/backend/src/games/bomberman/instance/BombermanGame.ts",
+      "line": 127,
+      "hash": "cf81695dec9be78e"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/backend/src/games/bomberman/instance/BombermanRoom.ts",
+      "line": 332,
+      "hash": "e4c98463f1f123cb"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/backend/src/games/bomberman/instance/BombermanRoom.ts",
+      "line": 332,
+      "hash": "2e8548ff99b95d56"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/backend/src/games/bomberman/service/BombermanManager.ts",
+      "line": 59,
+      "hash": "a2bc74256ed69a8e"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/backend/src/games/bomberman/service/BombermanManager.ts",
+      "line": 59,
+      "hash": "f434b28337ab0645"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/backend/src/games/bomberman/service/BombermanManager.ts",
+      "line": 59,
+      "hash": "5cde8ac4fdc9e2e4"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/backend/src/games/bomberman/service/BombermanManager.ts",
+      "line": 59,
+      "hash": "752d41ffa62c8f81"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/backend/src/games/bomberman/service/BombermanManager.ts",
+      "line": 59,
+      "hash": "7176cc991a9c6305"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/backend/src/games/bomberman/service/BombermanManager.ts",
+      "line": 59,
+      "hash": "cf139d456d133e0c"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/backend/src/games/bomberman/service/BombermanManager.ts",
+      "line": 59,
+      "hash": "dee2868be7ecd921"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/backend/src/games/bomberman/service/BombermanManager.ts",
+      "line": 66,
+      "hash": "12d25644ba91b90e"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/backend/src/games/bomberman/service/BombermanManager.ts",
+      "line": 66,
+      "hash": "3a92da66154de05a"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/backend/src/games/bomberman/service/BombermanManager.ts",
+      "line": 66,
+      "hash": "c72217cd3047ea84"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/backend/src/games/bomberman/service/BombermanManager.ts",
+      "line": 66,
+      "hash": "a4657b7c09ff8169"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/backend/src/games/bomberman/service/BombermanManager.ts",
+      "line": 66,
+      "hash": "73a41ebdf337bf4b"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/backend/src/games/bomberman/service/BombermanManager.ts",
+      "line": 66,
+      "hash": "bbff9b53945dfbc1"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/backend/src/games/bomberman/service/BombermanManager.ts",
+      "line": 73,
+      "hash": "96b2ec68c2accb62"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/backend/src/games/bomberman/service/BombermanManager.ts",
+      "line": 73,
+      "hash": "5d8e0fd08f71d936"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/backend/src/games/bomberman/service/BombermanManager.ts",
+      "line": 73,
+      "hash": "2869d02e15ea1695"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/backend/src/games/bomberman/service/BombermanManager.ts",
+      "line": 73,
+      "hash": "d5a432ce05dc509f"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/backend/src/games/bomberman/service/BombermanManager.ts",
+      "line": 73,
+      "hash": "aeec8343cfe69d58"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/backend/src/games/bomberman/service/BombermanManager.ts",
+      "line": 81,
+      "hash": "a0d819bd7bdcf50d"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/backend/src/games/bomberman/service/BombermanManager.ts",
+      "line": 81,
+      "hash": "e3e2e4f2c927a294"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/backend/src/games/bomberman/service/BombermanManager.ts",
+      "line": 81,
+      "hash": "d339f609a95ef418"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/backend/src/games/bomberman/service/BombermanManager.ts",
+      "line": 81,
+      "hash": "cc07eaebff9f667d"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/backend/src/games/bomberman/service/BombermanManager.ts",
+      "line": 81,
+      "hash": "c766dea661364e0e"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/backend/src/games/bomberman/service/BombermanManager.ts",
+      "line": 81,
+      "hash": "7525c7540658ff81"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/backend/src/games/bomberman/service/BombermanManager.ts",
+      "line": 90,
+      "hash": "44d1d1cd57d3b1dc"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/backend/src/games/bomberman/service/BombermanManager.ts",
+      "line": 90,
+      "hash": "aaabd96c8f1e7dcd"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/backend/src/games/bomberman/service/BombermanManager.ts",
+      "line": 90,
+      "hash": "00e82dd660a2cfb9"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/backend/src/games/bomberman/service/BombermanManager.ts",
+      "line": 90,
+      "hash": "0dc39e7c02365b97"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/backend/src/games/bomberman/service/BombermanManager.ts",
+      "line": 90,
+      "hash": "3770c58940f4d1b6"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/backend/src/games/bomberman/service/BombermanManager.ts",
+      "line": 99,
+      "hash": "2b3673697549e812"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/backend/src/games/bomberman/service/BombermanManager.ts",
+      "line": 99,
+      "hash": "d02a4054e4246837"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/backend/src/games/bomberman/service/BombermanManager.ts",
+      "line": 99,
+      "hash": "a7ec159d328d5b0e"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/backend/src/games/bomberman/service/BombermanManager.ts",
+      "line": 99,
+      "hash": "7067cc69625b39aa"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/backend/src/games/generale/instance/GeneraleGame.ts",
+      "line": 67,
+      "hash": "b30754f9ea8ce291"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/backend/src/games/generale/instance/GeneraleGame.ts",
+      "line": 67,
+      "hash": "7e380cb81fc13963"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/backend/src/games/generale/instance/GeneraleGame.ts",
+      "line": 67,
+      "hash": "05071f333dca0848"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/backend/src/games/generale/instance/GeneraleGame.ts",
+      "line": 130,
+      "hash": "9e740e82cc4dd459"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/backend/src/games/generale/instance/GeneraleGame.ts",
+      "line": 429,
+      "hash": "13bf8c284e8e028f"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/backend/src/games/generale/instance/GeneraleGame.ts",
+      "line": 612,
+      "hash": "9c76de8b4ac23b69"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/backend/src/games/generale/instance/GeneraleRoom.ts",
+      "line": 1079,
+      "hash": "27cbe65c7fa03d6c"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/backend/src/games/generale/instance/GeneraleRoom.ts",
+      "line": 1079,
+      "hash": "0a7473cc4fef8eaa"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/backend/src/games/generale/instance/GeneraleRoom.ts",
+      "line": 1079,
+      "hash": "cfa8bd1ba2fab2f7"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/backend/src/games/generale/instance/GeneraleRoom.ts",
+      "line": 1079,
+      "hash": "7996320ed220acbc"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/backend/src/games/generale/instance/GeneraleRoom.ts",
+      "line": 1087,
+      "hash": "05f5fe2669948eb1"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/backend/src/games/generale/instance/GeneraleRoom.ts",
+      "line": 1087,
+      "hash": "cfe5c58d920ea5ec"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/backend/src/games/generale/instance/GeneraleRoom.ts",
+      "line": 1087,
+      "hash": "958be4f8c2449e01"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/backend/src/games/generale/service/GeneraleManager.ts",
+      "line": 252,
+      "hash": "df4e5649eb659e16"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/backend/src/games/generale/service/GeneraleManager.ts",
+      "line": 252,
+      "hash": "edceab098e4a9400"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/backend/src/games/generale/service/GeneraleManager.ts",
+      "line": 259,
+      "hash": "2cf87fd5f7f528cc"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/backend/src/games/generale/service/GeneraleManager.ts",
+      "line": 274,
+      "hash": "dc05641f716c1be6"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/backend/src/games/generale/service/GeneraleManager.ts",
+      "line": 274,
+      "hash": "257c82165912013e"
+    },
+    {
+      "rule": "No duplicate function bodies in all files (similarity >= 0.9)",
+      "file": "packages/backend/src/games/generale/service/GeneraleManager.ts",
+      "line": 283,
+      "hash": "560e92589b4267e7"
+    }
+  ]
+}

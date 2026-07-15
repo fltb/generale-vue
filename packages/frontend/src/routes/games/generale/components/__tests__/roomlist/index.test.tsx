@@ -4,15 +4,22 @@ import { render, screen, fireEvent } from "@solidjs/testing-library";
 const mockNavigate = vi.fn();
 const mockInvalidateQueries = vi.fn();
 
+let mockQueryData: unknown[] = [];
+let mockQueryLoading = false;
+let mockQueryError: { message: string } | null = null;
+
 vi.mock("@tanstack/solid-query", () => ({
-  useQuery: () => ({
-    isLoading: false,
-    isError: false,
-    isSuccess: false,
-    data: null,
-    error: null,
-    refetch: vi.fn(),
-  }),
+  useQuery: (opts: any) => {
+    const fn = typeof opts === "function" ? opts : () => opts;
+    return {
+      get isLoading() { return mockQueryLoading; },
+      get isError() { return !!mockQueryError; },
+      get isSuccess() { return !mockQueryLoading && !mockQueryError; },
+      get error() { return mockQueryError; },
+      get data() { return mockQueryData; },
+      refetch: vi.fn(),
+    };
+  },
   useQueryClient: () => ({
     invalidateQueries: mockInvalidateQueries,
     getQueryCache: () => ({ getAll: () => [] }),
@@ -31,18 +38,6 @@ vi.mock("@solidjs/router", () => ({
   useSearchParams: () => [() => ({}), vi.fn()],
 }));
 
-const mockGameListQuery = vi.hoisted(() => ({
-  isLoading: false,
-  isError: false,
-  isSuccess: true,
-  error: null,
-  data: [],
-  refetch: vi.fn(),
-}));
-
-vi.mock("~/hooks/useGameListQuery", () => ({
-  useGameListQuery: () => mockGameListQuery,
-}));
 
 vi.mock("~/hooks/useLobbyRealtime", () => ({
   useLobbyRealtime: () => ({}),
@@ -66,11 +61,9 @@ import { RoomList } from "~/routes/games/generale/components/roomlist/index";
 describe("RoomList", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockGameListQuery.isLoading = false;
-    mockGameListQuery.isError = false;
-    mockGameListQuery.isSuccess = true;
-    mockGameListQuery.error = null;
-    mockGameListQuery.data = [];
+    mockQueryData = [];
+    mockQueryLoading = false;
+    mockQueryError = null;
   });
 
   it("renders title", () => {
@@ -94,23 +87,20 @@ describe("RoomList", () => {
   });
 
   it("shows loading spinner when loading", () => {
-    mockGameListQuery.isLoading = true;
-    mockGameListQuery.isSuccess = false;
+    mockQueryLoading = true;
     render(() => <RoomList />);
     expect(screen.getByText("Active Rooms")).toBeInTheDocument();
   });
 
   it("shows error alert when error", () => {
-    mockGameListQuery.isLoading = false;
-    mockGameListQuery.isError = true;
-    mockGameListQuery.isSuccess = false;
-    mockGameListQuery.error = { message: "Network error" };
+    mockQueryLoading = false;
+    mockQueryError = { message: "Network error" };
     render(() => <RoomList />);
     expect(screen.getByText(/Failed to load room list/)).toBeInTheDocument();
   });
 
   it("renders game cards on success with data", () => {
-    mockGameListQuery.data = [
+    mockQueryData = [
       {
         id: "g1",
         roomName: "Test Game",
@@ -128,7 +118,7 @@ describe("RoomList", () => {
   });
 
   it("renders Join button for game cards", () => {
-    mockGameListQuery.data = [
+    mockQueryData = [
       {
         id: "g1",
         roomName: "Test Game",
@@ -148,7 +138,7 @@ describe("RoomList", () => {
   });
 
   it("navigates to game when Join clicked", () => {
-    mockGameListQuery.data = [
+    mockQueryData = [
       {
         id: "g1",
         roomName: "Test Game",
@@ -163,7 +153,7 @@ describe("RoomList", () => {
   });
 
   it("shows Locked badge for password-protected rooms", () => {
-    mockGameListQuery.data = [
+    mockQueryData = [
       {
         id: "g1",
         roomName: "Locked Game",
@@ -178,7 +168,7 @@ describe("RoomList", () => {
   });
 
   it("shows Details button for game cards", () => {
-    mockGameListQuery.data = [
+    mockQueryData = [
       {
         id: "g1",
         roomName: "Test Game",

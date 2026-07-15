@@ -2,13 +2,7 @@ import { BombermanService } from "./BombermanService";
 import { registerDomainHandler } from "../../../plugins/websocket";
 import { defaultBombermanConfig } from "../settings";
 import type { SubConnector, WSContextBase } from "../../../plugins/websocket";
-
-export enum LobbyServerMessageType {
-  LIST = "LOBBY_LIST",
-  CREATED = "LOBBY_CREATED",
-  UPDATED = "LOBBY_UPDATED",
-  DELETED = "LOBBY_DELETED",
-}
+import { LobbyServerMessageType } from "@generale/types";
 
 export class BombermanManager {
   private services = new Map<string, BombermanService>();
