@@ -141,8 +141,12 @@ export function useBombermanRoomSession(params: { id: string; password?: string 
   const roomDomain = `room-${params.id}`;
   const gameDomain = `game-${params.id}`;
 
+  // Read domains from API (prefer API over hardcoded interpolation)
+  const [resolvedRoomDomain, setResolvedRoomDomain] = createSignal(roomDomain);
+  const [resolvedGameDomain, setResolvedGameDomain] = createSignal(gameDomain);
+
   const roomSync = useSyncedState<BombermanRoomState, BombermanPreGameClientAction, BombermanPreGameServerEvent>({
-    domain: roomDomain,
+    domain: resolvedRoomDomain(),
     initialState: {
       roomName: "",
       players: [],
@@ -205,7 +209,7 @@ export function useBombermanRoomSession(params: { id: string; password?: string 
     BombermanOperation & { optimisticId: number },
     BombermanPreGameServerEvent
   >({
-    domain: gameDomain,
+    domain: resolvedGameDomain(),
     initialState: null as unknown as BombermanState,
     applyEvent: (state, op) => applyBombermanEventLocal(state, op, playerId()),
     onCustomEvent: (evt) => {
@@ -231,6 +235,11 @@ export function useBombermanRoomSession(params: { id: string; password?: string 
       }
       setPlayerId(d.data.playerId);
       setHasPassword(!!d.data.hasPassword);
+      // Use domains from API when available, fall back to interpolation
+      const dRoom = d.data.domains?.primary ?? `room-${params.id}`;
+      const dGame = d.data.domains?.game ?? `game-${params.id}`;
+      if (dRoom && resolvedRoomDomain() !== dRoom) setResolvedRoomDomain(dRoom);
+      if (dGame && resolvedGameDomain() !== dGame) setResolvedGameDomain(dGame);
       const dChat = d.data.domains?.chat ?? null;
       if (dChat && chatDomain() !== dChat) setChatDomain(dChat);
       if (needsPassword()) {
