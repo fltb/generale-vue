@@ -11,6 +11,7 @@ import { createMemo, createSignal, onMount, onCleanup } from "solid-js";
 import { useSyncedState } from "~/hooks/useSyncedState";
 import { applyBombermanRoomEventLocal } from "./bombermanRoomReducer";
 import { applyBombermanEventLocal } from "./bombermanGameReducer";
+import bridge from "~/testBridge";
 
 /**
  * Public shape of a synced-state handle, mirroring what useSyncedState returns.
@@ -317,6 +318,10 @@ export function useBombermanRoomSession(params: { id: string; password?: string 
     roomSync.dispatch({ type: "LEAVE_SPECTATE" });
     setSelfStatus("lobby");
   }
+
+  // ─── Bridge: expose state for E2E testing & console debugging ───
+  bridge.roomId = params.id;
+  bridge.onOperationQueued = (op) => gameSync.dispatch(op as never);
 
   return {
     phase,
