@@ -19,7 +19,10 @@ export function RoomList() {
   const limit = 50;
   const offset = 0;
 
-  const gamesQuery = useGameListQuery("games", () => filters(), listGamesApi, { offset, limit });
+  const gamesQuery = useGameListQuery("games", () => filters(), async (params) => {
+    const res = await listGamesApi(params as ListGamesQuery);
+    return res.data ?? [];
+  }, { offset, limit });
 
   useLobbyRealtime(() => filters(), { offset, limit });
 

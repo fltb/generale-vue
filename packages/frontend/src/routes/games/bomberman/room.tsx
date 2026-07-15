@@ -1,6 +1,6 @@
 import type { BombermanPreGameClientDispatch } from "@generale/types";
 import { useParams, useNavigate } from "@solidjs/router";
-import { createMemo, createSignal, Show, For, Switch, Match } from "solid-js";
+import { createMemo, createEffect, createSignal, Show, For, Switch, Match } from "solid-js";
 import { ProtectedRoute } from "~/components/ProtectedRoute";
 import { BombermanGame } from "./game";
 import { useT } from "~/i18n/useT";
@@ -39,6 +39,31 @@ export function BombermanRoom() {
     if (!ge) return null;
     return ge.rankings.find((r) => r.playerId === ge.winnerId)?.name ?? null;
   });
+
+  // ── Auto-dismiss game ended overlay after 5s ──
+  const GAME_END_AUTO_DISMISS_MS = 5000;
+  let autoDismissTimer: ReturnType<typeof setTimeout> | null = null;
+  createEffect(() => {
+    if (session.phase() === "ended") {
+      autoDismissTimer = setTimeout(() => {
+        navigate("/bomberman");
+      }, GAME_END_AUTO_DISMISS_MS);
+    }
+    return () => {
+      if (autoDismissTimer) {
+        clearTimeout(autoDismissTimer);
+        autoDismissTimer = null;
+      }
+    };
+  });
+
+  function handleDismissGameEnd() {
+    if (autoDismissTimer) {
+      clearTimeout(autoDismissTimer);
+      autoDismissTimer = null;
+    }
+    navigate("/bomberman");
+  }
 
   return (
     <ProtectedRoute>
@@ -306,13 +331,7 @@ export function BombermanRoom() {
         </div>
       </Show>
 
-      <Show
-        when={
-          session.phase() === "playing" &&
-          (session.selfStatus() === "playing" || session.selfStatus() === "spectating") &&
-          session.gameSync.state()
-        }
-      >
+      <Show when={session.showingGameUI() && session.gameSync.state()}>
         <BombermanGame
           gameSync={session.gameSync}
           onBackToRoom={() => {
@@ -322,6 +341,7 @@ export function BombermanRoom() {
           displaced={session.displaced}
           spectate={session.selfStatus() === "spectating"}
           onLeaveSpectate={() => session.leaveSpectate()}
+          freshStart={session.startedThisSession()}
         />
       </Show>
 
@@ -344,10 +364,10 @@ export function BombermanRoom() {
               </div>
             </Show>
             <div class="flex gap-2 justify-center">
-              <Button variant="primary" onClick={() => navigate("/bomberman")}>
+              <Button variant="primary" onClick={handleDismissGameEnd}>
                 {t("bomberman.playAgain")}
               </Button>
-              <Button outline onClick={() => navigate("/bomberman")}>
+              <Button outline onClick={handleDismissGameEnd}>
                 {t("bomberman.backToLobby")}
               </Button>
             </div>

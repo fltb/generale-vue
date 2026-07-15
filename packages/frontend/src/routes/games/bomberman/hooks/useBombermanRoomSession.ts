@@ -70,6 +70,13 @@ export interface BombermanRoomSession {
 
   /** True when another client (same user) took over this session. */
   displaced: () => boolean;
+
+  /** True while the game UI should be shown (playing/spectating, plus a brief window after game ended). */
+  showingGameUI: () => boolean;
+  /** True immediately after game ended — used to keep game mounted for result screen. */
+  gameJustEnded: () => boolean;
+  /** True when the current session started a fresh game (not a reconnect). */
+  startedThisSession: () => boolean;
 }
 
 /**
@@ -91,6 +98,24 @@ export function useBombermanRoomSession(params: { id: string; password?: string 
   const [chatDomain, setChatDomain] = createSignal<string | null>(null);
   const [displaced, setDisplaced] = createSignal(false);
   const [selfStatus, setSelfStatus] = createSignal<"lobby" | "playing" | "spectating">("lobby");
+  const [gameJustEnded, setGameJustEnded] = createSignal(false);
+  const [startedThisSession, setStartedThisSession] = createSignal(false);
+
+  const GAME_END_FALLBACK_MS = 15_000;
+  let gameEndFallbackTimer: ReturnType<typeof setTimeout> | null = null;
+  function cancelGameEndFallback() {
+    if (gameEndFallbackTimer) {
+      clearTimeout(gameEndFallbackTimer);
+      gameEndFallbackTimer = null;
+    }
+  }
+  onCleanup(() => cancelGameEndFallback());
+
+  const showingGameUI = createMemo(
+    () =>
+      phase() === "playing" &&
+      (selfStatus() === "playing" || selfStatus() === "spectating" || gameJustEnded()),
+  );
 
   // Password state machine
   const [hasPassword, setHasPassword] = createSignal<boolean | undefined>(undefined);
@@ -134,12 +159,20 @@ export function useBombermanRoomSession(params: { id: string; password?: string 
         case "gamestarted":
           setPhase("playing");
           setSelfStatus("playing");
+          setStartedThisSession(true);
           setTimeout(() => gameSync.connect(), 500);
           break;
         case "gameended":
           setGameEnded({ rankings: evt.rankings, winnerId: evt.winnerId });
+          setGameJustEnded(true);
           setPhase("ended");
           gameSync.disconnect();
+          // Fallback: if game component doesn't dismiss, force clear after 15s
+          cancelGameEndFallback();
+          gameEndFallbackTimer = setTimeout(() => {
+            setGameJustEnded(false);
+            setStartedThisSession(false);
+          }, GAME_END_FALLBACK_MS);
           break;
         case "kicked":
           setError("You have been kicked from the room");
@@ -254,5 +287,8 @@ export function useBombermanRoomSession(params: { id: string; password?: string 
     wrongPassword,
     setPassword,
     displaced,
+    showingGameUI,
+    gameJustEnded,
+    startedThisSession,
   };
 }

@@ -26,6 +26,7 @@ interface BombermanGameProps {
   displaced?: Accessor<boolean>;
   spectate?: boolean;
   onLeaveSpectate?: () => void;
+  freshStart?: boolean;
 }
 
 export function BombermanGame(props: BombermanGameProps) {
@@ -63,8 +64,8 @@ export function BombermanGame(props: BombermanGameProps) {
     if (state()?.map?.tiles) calculateScale();
   });
 
-  // ── Countdown (skip for spectators) ──
-  const [countdownDone, setCountdownDone] = createSignal(!!props.spectate);
+  // ── Countdown (skip for spectators and reconnects) ──
+  const [countdownDone, setCountdownDone] = createSignal(!props.freshStart);
 
   // ── Sound effects ──
   let prevBombCount = 0;
