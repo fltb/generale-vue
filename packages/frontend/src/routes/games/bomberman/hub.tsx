@@ -1,20 +1,13 @@
 import { useNavigate } from "@solidjs/router";
-import { createSignal, createMemo, onMount, onCleanup, For, Show } from "solid-js";
+import { createSignal, createMemo, onMount, For, Show } from "solid-js";
+import { useQueryClient } from "@tanstack/solid-query";
 import { ProtectedRoute } from "~/components/ProtectedRoute";
 import { useWS } from "~/hooks/useWebsocket";
+import { useGameListQuery } from "~/hooks/useGameListQuery";
 import { Button, Input, Select, Modal, Checkbox, LabelText, Badge, Alert } from "~/ui";
 import { RoomFilter, type BombermanRoomFilter } from "./components/RoomFilter";
 import { useT } from "~/i18n/useT";
-
-interface RoomSummary {
-  gameId: string;
-  roomName: string;
-  playerCount: number;
-  maxPlayers: number;
-  phase: string;
-  hostName: string;
-  hasPassword: boolean;
-}
+import { listBombermanRoomsApi, type RoomSummary } from "./api/rooms";
 
 const MAP_SIZES = [
   { key: "small" as const, w: 9, h: 9 },
@@ -212,28 +205,35 @@ export function BombermanHub() {
   const { t } = useT();
   const navigate = useNavigate();
   const ws = useWS();
-  const [rooms, setRooms] = createSignal<RoomSummary[]>([]);
   const [showCreateModal, setShowCreateModal] = createSignal(false);
   const [filter, setFilter] = createSignal<BombermanRoomFilter>({});
 
-  let refreshTimer: ReturnType<typeof setTimeout> | null = null;
-
-  function safeRefresh() {
-    if (refreshTimer) clearTimeout(refreshTimer);
-    refreshTimer = setTimeout(async () => {
-      try {
-        const res = await fetch("/api/bomberman/room/list");
-        const data = await res.json();
-        if (Array.isArray(data)) setRooms(data);
-      } catch {
-        /* ignore */
-      }
-    }, 500);
+  /** Convert BombermanRoomFilter to a plain record for useGameListQuery and WS cache key. */
+  function buildFilterRecord(f: BombermanRoomFilter): Record<string, string | undefined> {
+    const q: Record<string, string | undefined> = {};
+    if (f.roomName) q.roomName = f.roomName;
+    if (f.status && f.status !== "all") q.status = f.status;
+    if (f.hasPassword && f.hasPassword !== "all") q.hasPassword = f.hasPassword;
+    if (f.sortBy) q.sortBy = f.sortBy;
+    if (f.sortOrder) q.sortOrder = f.sortOrder;
+    return q;
   }
+
+  /** Current TQ cache key matching useGameListQuery. */
+  function currentQueryKey() {
+    return ["bomberman-rooms", buildFilterRecord(filter()), 0, 50, undefined, undefined] as const;
+  }
+
+  const qc = useQueryClient();
+  const roomsQuery = useGameListQuery<RoomSummary[]>(
+    "bomberman-rooms",
+    () => buildFilterRecord(filter()),
+    listBombermanRoomsApi,
+  );
 
   const filteredRooms = createMemo(() => {
     const f = filter();
-    return rooms()
+    return (roomsQuery.data ?? [])
       .filter((r) => {
         if (f.roomName && !r.roomName.toLowerCase().includes(f.roomName.toLowerCase())) return false;
         if (f.status === "lobby" && r.phase !== "lobby") return false;
@@ -250,43 +250,45 @@ export function BombermanHub() {
   });
 
   onMount(() => {
-    fetchAndSetRooms();
     function tryOpenLobby() {
       if (ws?.isConnected) {
         const sub = ws.getOrCreateSub("lobby-bomberman");
         sub?.onMessage((msg: unknown) => {
           try {
             const m = msg as { type: string; payload: unknown };
+            const qk = currentQueryKey();
 
             switch (m.type) {
               case "LOBBY_LIST": {
                 // Initial full snapshot
-                setRooms(m.payload as RoomSummary[]);
+                qc.setQueryData(qk, m.payload as RoomSummary[]);
                 break;
               }
               case "LOBBY_CREATED": {
                 const created = m.payload as RoomSummary;
-                setRooms((prev) => [created, ...prev]);
+                qc.setQueryData<RoomSummary[]>(qk, (prev) => (prev ? [created, ...prev] : [created]));
                 break;
               }
               case "LOBBY_UPDATED": {
                 const updated = m.payload as RoomSummary;
-                setRooms((prev) => prev.map((r) => (r.gameId === updated.gameId ? updated : r)));
+                qc.setQueryData<RoomSummary[]>(qk, (prev) =>
+                  prev?.map((r) => (r.gameId === updated.gameId ? updated : r)),
+                );
                 break;
               }
               case "LOBBY_DELETED": {
                 const { id } = m.payload as { id: string };
-                setRooms((prev) => prev.filter((r) => r.gameId !== id));
+                qc.setQueryData<RoomSummary[]>(qk, (prev) => prev?.filter((r) => r.gameId !== id));
                 break;
               }
               // Keep backward compat for old server messages
               case "ROOM_LIST_UPDATE": {
-                setRooms(m.payload as RoomSummary[]);
+                qc.setQueryData(qk, m.payload as RoomSummary[]);
                 break;
               }
             }
           } catch {
-            safeRefresh();
+            // WS parse error — ignore, useGameListQuery will auto-refresh
           }
         });
         ws.openDomain("lobby-bomberman", {});
@@ -296,19 +298,6 @@ export function BombermanHub() {
     }
     tryOpenLobby();
   });
-
-  onCleanup(() => {
-    if (refreshTimer) {
-      clearTimeout(refreshTimer);
-      refreshTimer = null;
-    }
-  });
-
-  async function fetchAndSetRooms() {
-    const res = await fetch("/api/bomberman/room/list");
-    const d = (await res.json()) as { success: boolean; data: RoomSummary[] };
-    if (d.success) setRooms(d.data);
-  }
 
   function handleCreated(gameId: string, password?: string) {
     setShowCreateModal(false);

@@ -1,55 +1,51 @@
 /**
  * useGameListQuery.ts
  *
- * Hook 封装：把前端 filters -> listGamesApi(query)
- * 使用 TanStack Solid Query（useQuery）
+ * 通用 hook：把前端 filters → API call，使用 TanStack Solid Query（useQuery）。
+ * 游戏无关 —— queryFn 由调用方注入，bomberman / generale 等都能复用。
  */
 
-import type { ListGamesQuery } from "@generale/types";
 import { useQuery } from "@tanstack/solid-query";
 import type { Accessor } from "solid-js";
-import { listGamesApi } from "~/routes/games/generale/api/gameApi";
 
-/**
- * 将前端友好的 filters（部分字段）转换为后端 `ListGamesQuery`（字符串形式）
- * 接受一个部分 ListGamesQuery（字段类型都是 string | undefined），返回同形态对象
- */
+/** 将前端 filters（string | undefined 值）转换为 query params 对象 */
 export function buildListQueryFromFilters(
-  filters: Partial<ListGamesQuery> & Record<string, string | undefined>,
+  filters: Record<string, string | undefined>,
   opts?: { offset?: number; limit?: number; sortBy?: string; sortOrder?: string },
-): ListGamesQuery {
+): Record<string, string> {
   const q: Record<string, string> = {};
 
-  // copy strings/values if provided (ListGamesQuery expects strings)
   for (const key of Object.keys(filters)) {
-    const v = filters[key as keyof typeof filters];
+    const v = filters[key];
     if (v === undefined || v === null || v === "") continue;
-    // ensure string
     q[key] = String(v);
   }
 
-  // pagination & sorting defaults
   if (opts?.offset !== undefined) q.offset = String(opts.offset);
   if (opts?.limit !== undefined) q.limit = String(opts.limit ?? 50);
   if (opts?.sortBy) q.sortBy = opts.sortBy;
   if (opts?.sortOrder) q.sortOrder = opts.sortOrder;
 
-  return q as ListGamesQuery;
+  return q;
 }
 
 /**
  * useGameListQuery
- * @param filtersAccessor - Solid Accessor 返回当前 filters（部分 ListGamesQuery）
- * @param options - 可选: offset/limit/sortBy/sortOrder
- * @returns Solid Query 返回值
+ *
+ * @param queryKey   - TanStack Query key prefix（如 "games" 或 "bomberman-rooms"）
+ * @param filtersAccessor - Solid Accessor 返回当前 filters
+ * @param queryFn    - 后端请求函数，接收 query params 对象，返回 data
+ * @param options    - 可选: offset/limit/sortBy/sortOrder
  */
-export function useGameListQuery(
-  filtersAccessor: Accessor<Partial<ListGamesQuery>>,
+export function useGameListQuery<TData>(
+  queryKey: string,
+  filtersAccessor: Accessor<Record<string, string | undefined>>,
+  queryFn: (params: Record<string, string>) => Promise<TData>,
   options?: { offset?: number; limit?: number; sortBy?: string; sortOrder?: string },
 ) {
   return useQuery(() => ({
     queryKey: [
-      "games",
+      queryKey,
       filtersAccessor(),
       options?.offset ?? 0,
       options?.limit ?? 50,
@@ -63,9 +59,7 @@ export function useGameListQuery(
         sortBy: options?.sortBy,
         sortOrder: options?.sortOrder,
       });
-      const res = await listGamesApi(q);
-      // backend 返回 shape: { success, data, meta }
-      return res.data ?? [];
+      return queryFn(q);
     },
     retry: false,
     refetchOnWindowFocus: true,

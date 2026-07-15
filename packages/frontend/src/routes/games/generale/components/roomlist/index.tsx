@@ -2,7 +2,7 @@ import type { ListGamesQuery } from "@generale/types/dist/api";
 import { useNavigate } from "@solidjs/router";
 import { useQuery } from "@tanstack/solid-query";
 import { createMemo, createSignal, For, Match, Show, Switch } from "solid-js";
-import { getGameInfoApi } from "~/routes/games/generale/api/gameApi";
+import { getGameInfoApi, listGamesApi } from "~/routes/games/generale/api/gameApi";
 import { useGameListQuery } from "~/hooks/useGameListQuery";
 import { useLobbyRealtime } from "~/hooks/useLobbyRealtime";
 import { useT } from "~/i18n/useT";
@@ -19,7 +19,7 @@ export function RoomList() {
   const limit = 50;
   const offset = 0;
 
-  const gamesQuery = useGameListQuery(() => filters(), { offset, limit });
+  const gamesQuery = useGameListQuery("games", () => filters(), listGamesApi, { offset, limit });
 
   useLobbyRealtime(() => filters(), { offset, limit });
 
