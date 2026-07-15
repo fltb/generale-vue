@@ -1,7 +1,4 @@
-import type {
-  BombermanRoomState,
-  BombermanPreGameClientDispatch,
-} from "@generale/types";
+import type { BombermanRoomState, BombermanPreGameClientDispatch } from "@generale/types";
 
 /**
  * Local optimistic reducer for bomberman room (pregame) state.
@@ -52,6 +49,21 @@ export function applyBombermanRoomEventLocal(
     }
     case "DISBAND_ROOM": {
       next.phase = "disbanded";
+      break;
+    }
+    case "ENTER_SPECTATE": {
+      const p = next.players.find((p) => p.id === localPlayerId);
+      if (p) {
+        p.status = "spectating";
+        p.ready = false;
+      }
+      break;
+    }
+    case "LEAVE_SPECTATE": {
+      const p = next.players.find((p) => p.id === localPlayerId);
+      if (p) {
+        p.status = "lobby";
+      }
       break;
     }
   }

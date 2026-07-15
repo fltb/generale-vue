@@ -223,7 +223,12 @@ export class BombermanService {
     const primary = phase === "playing" && inRoom ? `game-${this.gameId}` : `room-${this.gameId}`;
     return {
       success: true as const,
-      data: { playerId: userid, phase, domains: { primary, game: `game-${this.gameId}`, chat: `chat-${this.gameId}` } },
+      data: {
+        playerId: userid,
+        phase,
+        hasPassword: !!this.room.getPassword(),
+        domains: { primary, game: `game-${this.gameId}`, chat: `chat-${this.gameId}` },
+      },
     };
   }
 

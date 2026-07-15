@@ -225,7 +225,9 @@ export function BombermanHub() {
         const res = await fetch("/api/bomberman/room/list");
         const data = await res.json();
         if (Array.isArray(data)) setRooms(data);
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
     }, 500);
   }
 

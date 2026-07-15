@@ -9,10 +9,12 @@ import type { SyncedState } from "./useBombermanRoomSession";
 export function useBombermanGameSession(
   gameSync: SyncedState<BombermanState, BombermanOperation>,
   _playerId: () => string,
+  spectate?: boolean,
 ) {
   const state = () => gameSync.state();
 
   function onAction(op: BombermanOperation) {
+    if (spectate) return; // Block all game actions in spectate mode
     gameSync.dispatch(op);
   }
 

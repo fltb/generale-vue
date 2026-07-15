@@ -97,6 +97,7 @@ export interface BombermanRoomPlayer {
   ready: boolean;
   isHost: boolean;
   color?: number;
+  status?: "lobby" | "spectating";
 }
 
 export interface BombermanRoomState {
@@ -114,7 +115,9 @@ export type BombermanPreGameClientAction =
   | { type: "CHANGE_CONFIG"; optimisticId: number; payload: Partial<BombermanConfig> }
   | { type: "KICK_PLAYER"; optimisticId: number; targetId: string }
   | { type: "START_GAME"; optimisticId: number }
-  | { type: "DISBAND_ROOM"; optimisticId: number };
+  | { type: "DISBAND_ROOM"; optimisticId: number }
+  | { type: "ENTER_SPECTATE"; optimisticId: number }
+  | { type: "LEAVE_SPECTATE"; optimisticId: number };
 
 /** Dispatch-friendly version — same as above without optimisticId (useSyncedState auto-generates it).
  *  Explicit union avoids TypeScript Omit not distributing over discriminated unions. */
@@ -124,13 +127,16 @@ export type BombermanPreGameClientDispatch =
   | { type: "CHANGE_CONFIG"; payload: Partial<BombermanConfig> }
   | { type: "KICK_PLAYER"; targetId: string }
   | { type: "START_GAME" }
-  | { type: "DISBAND_ROOM" };
+  | { type: "DISBAND_ROOM" }
+  | { type: "ENTER_SPECTATE" }
+  | { type: "LEAVE_SPECTATE" };
 
 export enum BombermanPreGameServerEventType {
   KICKED = "kicked",
   GAME_STARTED = "gamestarted",
   GAME_ENDED = "gameended",
   ROOM_DISBANDED = "disbanded",
+  DISPLACED = "displaced",
 }
 
 export type BombermanPreGameServerEvent =
@@ -141,7 +147,19 @@ export type BombermanPreGameServerEvent =
       rankings: { playerId: string; name: string; rank: number }[];
       winnerId: string | null;
     }
-  | { type: BombermanPreGameServerEventType.ROOM_DISBANDED; reason?: string };
+  | { type: BombermanPreGameServerEventType.ROOM_DISBANDED; reason?: string }
+  | { type: BombermanPreGameServerEventType.DISPLACED; reason?: string };
+
+export interface BombermanConnectResponse {
+  playerId: string;
+  phase: string;
+  hasPassword?: boolean;
+  domains: {
+    primary: string;
+    game: string;
+    chat: string;
+  };
+}
 
 export interface BombermanGameEndResult {
   winnerId: string | null;

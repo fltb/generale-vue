@@ -254,19 +254,31 @@ export class BombermanRoom {
         if (!player.isHost) return;
         this.disband();
         break;
-      case "START_GAME":
+      case "START_GAME": {
         if (!player.isHost) return;
         if (this.state.players.length < 2) return;
         if (!this.state.players.filter((p) => !p.isHost).every((p) => p.ready)) return;
         this.state.phase = "playing";
         this.version++;
-        this.onGameStartCallback?.(this.state.players.map((p) => p.id));
+        // Only include non-spectating players in the game
+        const gamePlayerIds = this.state.players.filter((p) => p.status !== "spectating").map((p) => p.id);
+        this.onGameStartCallback?.(gamePlayerIds);
         for (const [, c] of this.connectors) {
           c.send({
             type: SyncedGameServerEventType.CUSTOM,
             payload: { type: BombermanPreGameServerEventType.GAME_STARTED, startedAt: Date.now() },
           });
         }
+        break;
+      }
+      case "ENTER_SPECTATE":
+        if (this.state.phase !== "playing") return;
+        player.status = "spectating";
+        player.ready = false;
+        break;
+      case "LEAVE_SPECTATE":
+        if (this.state.phase !== "playing") return;
+        player.status = "lobby";
         break;
     }
 

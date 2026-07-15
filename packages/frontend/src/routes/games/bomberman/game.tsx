@@ -1,5 +1,5 @@
 import { Application } from "solid-pixi";
-import { createSignal, createMemo, createEffect, onMount, onCleanup, Show } from "solid-js";
+import { type Accessor, createSignal, createMemo, createEffect, onMount, onCleanup, Show } from "solid-js";
 import type { BombermanState, BombermanOperation } from "@generale/types";
 import { GameStatus, bombermanSettingsSchema } from "@generale/types";
 import { useBombermanInput } from "./hooks/useBombermanInput";
@@ -14,6 +14,7 @@ import { sfx } from "~/ui/sound";
 import { formatKey } from "./utils";
 import { useT } from "~/i18n/useT";
 import { Button } from "~/ui";
+import { TakeoverOverlay } from "~/ui/Overlay";
 import type { SyncedState } from "./hooks/useBombermanRoomSession";
 import { useBombermanGameSession } from "./hooks/useBombermanGameSession";
 import { computeEndgameResult } from "./hooks/selectors";
@@ -22,12 +23,15 @@ interface BombermanGameProps {
   gameSync: SyncedState<BombermanState, BombermanOperation>;
   onBackToRoom: () => void;
   playerId?: string;
+  displaced?: Accessor<boolean>;
+  spectate?: boolean;
+  onLeaveSpectate?: () => void;
 }
 
 export function BombermanGame(props: BombermanGameProps) {
   const { t } = useT();
-  const session = useBombermanGameSession(props.gameSync, () => props.playerId ?? "");
-  const { showVirtualControls } = useBombermanInput(session.onAction);
+  const session = useBombermanGameSession(props.gameSync, () => props.playerId ?? "", props.spectate);
+  const { showVirtualControls } = useBombermanInput(props.spectate ? () => {} : session.onAction);
   const { settings: gameSettings } = useGameSettings(bombermanSettingsSchema);
   const [showScoreboard, setShowScoreboard] = createSignal(false);
   const [rankings, setRankings] = createSignal<{ name: string; rank: number }[]>([]);
@@ -59,8 +63,8 @@ export function BombermanGame(props: BombermanGameProps) {
     if (state()?.map?.tiles) calculateScale();
   });
 
-  // ── Countdown ──
-  const [countdownDone, setCountdownDone] = createSignal(false);
+  // ── Countdown (skip for spectators) ──
+  const [countdownDone, setCountdownDone] = createSignal(!!props.spectate);
 
   // ── Sound effects ──
   let prevBombCount = 0;
@@ -101,14 +105,16 @@ export function BombermanGame(props: BombermanGameProps) {
     }
     prevAliveCount = aliveCount;
 
-    // Game ended
+    // Game ended — skip sounds for spectators
     if (s.status === GameStatus.Ended && !gameEnded) {
       gameEnded = true;
-      const myPlayer = props.playerId ? s.players?.[props.playerId] : null;
-      if (myPlayer?.alive) {
-        sfx.victory();
-      } else {
-        sfx.defeat();
+      if (!props.spectate) {
+        const myPlayer = props.playerId ? s.players?.[props.playerId] : null;
+        if (myPlayer?.alive) {
+          sfx.victory();
+        } else {
+          sfx.defeat();
+        }
       }
     }
   });
@@ -212,7 +218,8 @@ export function BombermanGame(props: BombermanGameProps) {
           <div class="grid grid-cols-2 gap-x-6 gap-y-1">
             <span class="text-left">{t("bomberman.move")}</span>
             <span class="text-right font-mono">
-              {formatKey(gameSettings().keybindings.up)}/{formatKey(gameSettings().keybindings.down)}/{formatKey(gameSettings().keybindings.left)}/{formatKey(gameSettings().keybindings.right)}
+              {formatKey(gameSettings().keybindings.up)}/{formatKey(gameSettings().keybindings.down)}/
+              {formatKey(gameSettings().keybindings.left)}/{formatKey(gameSettings().keybindings.right)}
             </span>
             <span class="text-left">{t("bomberman.placeBomb")}</span>
             <span class="text-right font-mono">{formatKey(gameSettings().keybindings.placeBomb)}</span>
@@ -223,9 +230,26 @@ export function BombermanGame(props: BombermanGameProps) {
           </div>
         </div>
       </Show>
-      <Show when={showVirtualControls()}>
+      <Show when={!props.spectate && showVirtualControls()}>
         <VirtualControls onAction={session.onAction} />
       </Show>
+      {/* Spectate mode badge + leave button */}
+      <Show when={props.spectate}>
+        <div class="fixed top-4 left-4 z-30 flex items-center gap-2 bg-yellow-800/80 text-white px-3 py-1.5 rounded text-sm font-bold">
+          <span>{t("bomberman.spectating") || "Spectating"}</span>
+          <Show when={props.onLeaveSpectate}>
+            <Button
+              size="xs"
+              variant="ghost"
+              class="text-white ml-2 border border-white/30"
+              onClick={props.onLeaveSpectate}
+            >
+              {t("bomberman.leaveSpectate") || "Leave"}
+            </Button>
+          </Show>
+        </div>
+      </Show>
+
       <Button
         size="sm"
         variant="ghost"
@@ -241,7 +265,8 @@ export function BombermanGame(props: BombermanGameProps) {
       >
         ?
       </Button>
-      <Show when={props.playerId && state().players[props.playerId]?.alive}>
+      {/* Hide surrender button for spectators */}
+      <Show when={!props.spectate && props.playerId && state().players[props.playerId]?.alive}>
         <Button
           size="sm"
           variant="error"
@@ -252,7 +277,7 @@ export function BombermanGame(props: BombermanGameProps) {
           {t("bomberman.surrender")}
         </Button>
       </Show>
-      <Show when={showSurrenderConfirm()}>
+      <Show when={!props.spectate && showSurrenderConfirm()}>
         <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div class="bg-base-200 p-6 rounded-lg text-center">
             <p class="mb-4">{t("bomberman.areYouSure")}</p>
@@ -275,6 +300,10 @@ export function BombermanGame(props: BombermanGameProps) {
       </Show>
       <Show when={showScoreboard()}>
         <Scoreboard players={rankings()} onBackToRoom={props.onBackToRoom} />
+      </Show>
+
+      <Show when={props.displaced?.()}>
+        <TakeoverOverlay scope="Game" dim={70} />
       </Show>
     </div>
   );

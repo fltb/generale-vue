@@ -143,7 +143,27 @@ function readLines(file: string): string[] {
   }
 }
 
-// 6. Hardcoded English strings (warning only)
+// 6. Identity applyEvent — bypasses sync architecture (hard fail)
+{
+  // applyEvent: (s) => s  means no local optimistic update — all actions wait for server RTT
+  const idRe = /applyEvent\s*:\s*\(s\)\s*=>\s*s\b/;
+  const violations: string[] = [];
+  for (const f of [...walkFiles(join(ROOT, "packages/frontend/src"), ".ts"), ...walkFiles(join(ROOT, "packages/frontend/src"), ".tsx")]) {
+    if (f.includes("__tests__")) continue;
+    for (const [i, line] of readLines(f).entries()) {
+      if (idRe.test(line)) violations.push(`${f}:${i + 1}`);
+    }
+  }
+  if (violations.length > 0) {
+    log("✗", RED, `${violations.length} identity applyEvent (use reducer or create domain hook):`);
+    for (const v of violations) log("", RED, v);
+    failed++;
+  } else {
+    log("✓", GREEN, "identity applyEvent");
+  }
+}
+
+// 7. Hardcoded English strings (warning only)
 {
   const hits: string[] = [];
   for (const f of walkFiles(join(ROOT, "packages/frontend/src/routes/games/bomberman"), ".tsx")) {

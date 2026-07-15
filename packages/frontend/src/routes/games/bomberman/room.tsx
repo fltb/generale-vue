@@ -1,27 +1,28 @@
-import type {
-  BombermanPreGameClientDispatch,
-} from "@generale/types";
+import type { BombermanPreGameClientDispatch } from "@generale/types";
 import { useParams, useNavigate } from "@solidjs/router";
 import { createMemo, createSignal, Show, For, Switch, Match } from "solid-js";
 import { ProtectedRoute } from "~/components/ProtectedRoute";
 import { BombermanGame } from "./game";
 import { useT } from "~/i18n/useT";
-import { Button, Badge, Alert, Select, Spinner } from "~/ui";
+import { Button, Badge, Alert, Select, Spinner, Card, Input } from "~/ui";
 import { useBombermanRoomSession } from "./hooks/useBombermanRoomSession";
+import { TakeoverOverlay } from "~/ui/Overlay";
+import ChatPanel from "~/components/ChatPanel";
 
 export function BombermanRoom() {
   const { t } = useT();
   const params = useParams();
   const navigate = useNavigate();
   const [showSettings, setShowSettings] = createSignal(false);
+  const [chatVisible, setChatVisible] = createSignal(false);
 
   // Read password from URL search params
   const urlPassword = new URLSearchParams(window.location.search).get("password") || undefined;
 
   const session = useBombermanRoomSession({ id: params.id ?? "", password: urlPassword });
 
-  const selfPlayer = createMemo(
-    () => (session.roomSync.state().players ?? []).find((p) => p.id === session.playerId()),
+  const selfPlayer = createMemo(() =>
+    (session.roomSync.state().players ?? []).find((p) => p.id === session.playerId()),
   );
   const isHost = createMemo(() => selfPlayer()?.isHost ?? false);
   const allReady = createMemo(() => {
@@ -56,7 +57,38 @@ export function BombermanRoom() {
         </div>
       </Show>
 
-      <Show when={session.phase() === "lobby"}>
+      <Show when={session.needsPassword()}>
+        <Card class="p-6 max-w-md mx-auto mt-8">
+          <h2 class="text-lg font-semibold mb-4">{t("Room requires password")}</h2>
+          <Show
+            when={session.wrongPassword()}
+            fallback={<p class="text-sm opacity-70 mb-4">{t("Password required")}</p>}
+          >
+            <p class="text-error text-sm mb-4">{t("Wrong password, try again")}</p>
+          </Show>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              const pw = (e.target as HTMLFormElement).elements.namedItem("pw") as HTMLInputElement;
+              if (pw.value.trim()) session.setPassword(pw.value.trim());
+            }}
+          >
+            <div class="flex items-center gap-2">
+              <Input bordered type="password" name="pw" placeholder={t("Enter room password")} class="w-64" />
+              <Button variant="primary" type="submit">
+                {t("Join")}
+              </Button>
+            </div>
+          </form>
+        </Card>
+      </Show>
+
+      <Show
+        when={
+          !session.needsPassword() &&
+          (session.phase() === "lobby" || (session.phase() === "playing" && session.selfStatus() !== "playing"))
+        }
+      >
         <div class="container mx-auto p-4 max-w-2xl">
           <div class="flex items-center gap-3 mb-4">
             <h1 class="text-2xl font-bold">{session.roomSync.state().roomName || t("bomberman.title")}</h1>
@@ -66,13 +98,43 @@ export function BombermanRoom() {
           </div>
 
           <p class="text-sm text-gray-500 mb-4">
-            {t("bomberman.players")}: {session.roomSync.state().players?.length ?? 0}/{session.roomSync.state().maxPlayers}{" "}
+            {t("bomberman.players")}: {session.roomSync.state().players?.length ?? 0}/
+            {session.roomSync.state().maxPlayers}{" "}
             {(session.roomSync.state().players?.length ?? 0) < 2 && (
               <span class="text-warning">({t("bomberman.needMin")})</span>
             )}
           </p>
 
-          <Show when={isHost()}>
+          {/* Game in progress alert — show when phase is playing but self is not playing */}
+          <Show when={session.phase() === "playing"}>
+            <Alert variant="info" class="mb-4">
+              <div class="flex items-center justify-between w-full gap-3">
+                <div>
+                  <div class="font-medium">{t("bomberman.gameInProgress") || "Game in Progress"}</div>
+                  <div class="text-sm opacity-70">
+                    <Show
+                      when={session.selfStatus() === "lobby"}
+                      fallback={t("bomberman.youAreSpectating") || "You are spectating."}
+                    >
+                      {t("bomberman.waitOrSpectate") || "You can wait for the game to end, or enter spectator mode."}
+                    </Show>
+                  </div>
+                </div>
+                <Show when={session.selfStatus() === "lobby"}>
+                  <Button size="sm" variant="primary" onClick={() => session.enterSpectate()}>
+                    {t("bomberman.watchGame") || "Watch Game"}
+                  </Button>
+                </Show>
+                <Show when={session.selfStatus() === "spectating"}>
+                  <Button size="sm" variant="ghost" onClick={() => session.leaveSpectate()}>
+                    {t("bomberman.leaveSpectate") || "Leave Spectate"}
+                  </Button>
+                </Show>
+              </div>
+            </Alert>
+          </Show>
+
+          <Show when={isHost() && session.phase() === "lobby"}>
             <div class="mb-4">
               <Button size="sm" variant="ghost" onClick={() => setShowSettings(!showSettings())}>
                 <svg class="w-4 h-4 mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -183,6 +245,9 @@ export function BombermanRoom() {
                       <Show when={p.isHost}>
                         <span class="text-xs text-warning ml-1">{t("bomberman.host")}</span>
                       </Show>
+                      <Show when={p.status === "spectating"}>
+                        <span class="text-xs text-info ml-1">({t("bomberman.spectating") || "Spectating"})</span>
+                      </Show>
                     </div>
                     <div class="text-xs text-base-content/50">
                       {p.ready ? t("bomberman.ready") : t("bomberman.notReady")}
@@ -197,7 +262,10 @@ export function BombermanRoom() {
                       variant="ghost"
                       class="text-error"
                       onClick={() =>
-                        session.roomSync.dispatch({ type: "KICK_PLAYER", targetId: p.id } as BombermanPreGameClientDispatch)
+                        session.roomSync.dispatch({
+                          type: "KICK_PLAYER",
+                          targetId: p.id,
+                        } as BombermanPreGameClientDispatch)
                       }
                     >
                       {t("bomberman.kick")}
@@ -210,7 +278,7 @@ export function BombermanRoom() {
 
           <div class="flex gap-2 items-center">
             <Switch>
-              <Match when={selfPlayer()?.isHost}>
+              <Match when={selfPlayer()?.isHost && session.phase() === "lobby"}>
                 <Badge variant="success" size="lg">
                   {t("bomberman.hostReady")}
                 </Badge>
@@ -220,13 +288,13 @@ export function BombermanRoom() {
                   {t("bomberman.unready")}
                 </Button>
               </Match>
-              <Match when={true}>
+              <Match when={session.phase() === "lobby"}>
                 <Button size="sm" variant="primary" onClick={() => session.roomSync.dispatch({ type: "READY" })}>
                   {t("bomberman.ready")}
                 </Button>
               </Match>
             </Switch>
-            <Show when={isHost()}>
+            <Show when={isHost() && session.phase() === "lobby"}>
               <Button variant="success" disabled={!allReady()} onClick={startGame}>
                 {t("bomberman.startGame")}
               </Button>
@@ -238,13 +306,22 @@ export function BombermanRoom() {
         </div>
       </Show>
 
-      <Show when={session.phase() === "playing" && session.gameSync.state()}>
+      <Show
+        when={
+          session.phase() === "playing" &&
+          (session.selfStatus() === "playing" || session.selfStatus() === "spectating") &&
+          session.gameSync.state()
+        }
+      >
         <BombermanGame
           gameSync={session.gameSync}
           onBackToRoom={() => {
             // phase will be reset by server event or navigation
           }}
           playerId={session.playerId()}
+          displaced={session.displaced}
+          spectate={session.selfStatus() === "spectating"}
+          onLeaveSpectate={() => session.leaveSpectate()}
         />
       </Show>
 
@@ -276,6 +353,34 @@ export function BombermanRoom() {
             </div>
           </div>
         </div>
+      </Show>
+      {/* Floating chat window */}
+      <Show when={session.chatDomain() && session.playerId()}>
+        <div class="fixed bottom-4 right-4 z-50">
+          <Show when={!chatVisible()}>
+            <Button variant="primary" class="shadow-lg btn-circle" onClick={() => setChatVisible(true)}>
+              💬
+            </Button>
+          </Show>
+          <Show when={chatVisible()}>
+            <div class="w-96 bg-base-100 shadow-xl pixel-border">
+              <div class="flex justify-between p-2 border-b border-base-300">
+                <span class="text-sm font-medium">Chat</span>
+                <Button size="xs" variant="ghost" onClick={() => setChatVisible(false)}>
+                  ✕
+                </Button>
+              </div>
+              <div class="p-2">
+                <ChatPanel domain={session.chatDomain() as string} userId={session.playerId() as string} />
+              </div>
+            </div>
+          </Show>
+        </div>
+      </Show>
+
+      {/* Takeover overlay — same user connected from another tab/device */}
+      <Show when={session.displaced()}>
+        <TakeoverOverlay scope="Room" dim={60} />
       </Show>
     </ProtectedRoute>
   );
