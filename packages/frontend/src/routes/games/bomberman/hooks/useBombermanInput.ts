@@ -26,6 +26,11 @@ export function useBombermanInput(onAction: (op: BombermanOperation) => void) {
   // Track press order: last element is most-recently-pressed direction key
   const pressOrder: string[] = [];
   let lastSentDirection: Direction | null = null;
+  // Hold-repeat: re-send SET_DIRECTION every 100ms while a direction key is held.
+  // The server processes each SET_DIRECTION as exactly 1 tile, so this gives
+  // smooth continuous movement (1 tile/tick = 10 tiles/sec at 10 tps).
+  let holdRepeatTimer: number | null = null;
+  const HOLD_REPEAT_MS = 100;
 
   function getLastPressedDirection(): Direction | null {
     const kb = settings().keybindings;
@@ -40,11 +45,40 @@ export function useBombermanInput(onAction: (op: BombermanOperation) => void) {
     return null;
   }
 
+  function stopHoldRepeat() {
+    if (holdRepeatTimer !== null) {
+      window.clearInterval(holdRepeatTimer);
+      holdRepeatTimer = null;
+    }
+  }
+
+  function startHoldRepeat(dir: Direction) {
+    stopHoldRepeat();
+    holdRepeatTimer = window.setInterval(() => {
+      // If the key that started this repeat is no longer held, stop.
+      // (We re-check via getLastPressedDirection to handle key-binding changes.)
+      const current = getLastPressedDirection();
+      if (current !== dir) {
+        stopHoldRepeat();
+        return;
+      }
+      // Re-send — server dedups queue so duplicate SET_DIRECTIONs are no-ops,
+      // and the optimistic queue sends each as a separate optimistic event.
+      onAction({ type: "SET_DIRECTION", direction: dir });
+    }, HOLD_REPEAT_MS);
+  }
+
   function sendCurrentDirection() {
     const dir = getLastPressedDirection();
     if (dir !== lastSentDirection) {
       lastSentDirection = dir;
       onAction({ type: "SET_DIRECTION", direction: dir });
+      // Start hold-repeat for the new direction (only if non-null)
+      if (dir) {
+        startHoldRepeat(dir);
+      } else {
+        stopHoldRepeat();
+      }
     }
   }
 
@@ -96,6 +130,7 @@ export function useBombermanInput(onAction: (op: BombermanOperation) => void) {
   onCleanup(() => {
     window.removeEventListener("keydown", onKeyDown);
     window.removeEventListener("keyup", onKeyUp);
+    stopHoldRepeat();
   });
 
   return { showVirtualControls };

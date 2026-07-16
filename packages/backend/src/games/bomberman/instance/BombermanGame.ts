@@ -17,8 +17,6 @@ export class BombermanGame {
   private onEndCallbacks: Array<(result: BombermanGameEndResult) => void> = [];
   private onTickCallbacks: Array<(state: BombermanState) => void> = [];
   private queues: Record<PlayerId, BombermanOperation[]> = {};
-  /** Tracks the most recent direction intent per player, used to inject SET_DIRECTION into queues before each tick. */
-  private directionIntents: Record<PlayerId, "up" | "down" | "left" | "right" | null> = {};
   private bots: Array<{ playerId: PlayerId; getAction: (state: BombermanState) => BombermanOperation }> = [];
   private syncData: Record<PlayerId, { lastConfirmedOp: number }> = {};
 
@@ -106,11 +104,20 @@ export class BombermanGame {
     if (!this.queues[pid]) this.queues[pid] = [];
 
     if (op.type === "SET_DIRECTION") {
-      // Deduplicate: filter out any pending SET_DIRECTION, then push the new one.
-      // This ensures only the latest direction intent is in the queue.
-      this.queues[pid] = this.queues[pid].filter((o) => o.type !== "SET_DIRECTION");
-      this.queues[pid].push(op);
-      this.directionIntents[pid] = op.direction;
+      // Discrete model: each SET_DIRECTION is exactly 1 tile. Client controls
+      // the rate (1 on keydown, re-sends every 100ms while held, null on keyup).
+      // This guarantees "1 press = 1 tile" without race conditions between
+      // keyup-null and server tick auto-injection.
+      if (op.direction === null) {
+        // Null = stop intent. DON'T dedup the existing SET_DIRECTION in queue —
+        // let the pending move process first, so brief keypresses still
+        // result in 1 tile of movement. The null is informational only; the
+        // next non-null event will overwrite, or queue exhaustion will end movement.
+      } else {
+        // Non-null: dedup existing SET_DIRECTION (replace intent), push new
+        this.queues[pid] = this.queues[pid].filter((o) => o.type !== "SET_DIRECTION");
+        this.queues[pid].push(op);
+      }
     } else {
       this.queues[pid].push(op);
     }
@@ -129,18 +136,6 @@ export class BombermanGame {
         const action = bot.getAction(this.state);
         if (!this.queues[bot.playerId]) this.queues[bot.playerId] = [];
         this.queues[bot.playerId]?.push(action);
-      }
-
-      // Inject direction intent into queues for alive players that have a non-null direction
-      for (const [pid, dir] of Object.entries(this.directionIntents)) {
-        if (dir === null || dir === undefined) continue;
-        const player = this.state.players[pid];
-        if (!player?.alive) continue;
-        if (!this.queues[pid]) this.queues[pid] = [];
-        // Only inject if there isn't already a pending SET_DIRECTION (client may have sent one)
-        if (!this.queues[pid].some((o) => o.type === "SET_DIRECTION")) {
-          this.queues[pid].push({ type: "SET_DIRECTION", direction: dir });
-        }
       }
 
       // Snapshot queues before tick — tick() is pure, does not mutate this.queues

@@ -29,7 +29,6 @@ const TWO_PLAYERS = [
 function pvt(game: BombermanGame) {
   return game as unknown as {
     syncData: Record<string, { lastConfirmedOp: number }>;
-    directionIntents: Record<string, "up" | "down" | "left" | "right" | null>;
     queues: Record<string, unknown[]>;
   };
 }
@@ -56,9 +55,8 @@ describe("handleAction — confirmedOp tracking", () => {
     game.handleAction("p1", { type: "PLACE_BOMB" }, 3);
     expect(pvt(game).syncData["p1"].lastConfirmedOp).toBe(3);
 
-    // Stale SET_DIRECTION with id 2 → ignored, direction NOT updated
+    // Stale SET_DIRECTION with id 2 → ignored, NOT added to queue
     game.handleAction("p1", { type: "SET_DIRECTION", direction: "right" }, 2);
-    expect(pvt(game).directionIntents["p1"]).toBeUndefined();
     expect(pvt(game).queues["p1"]).toHaveLength(1); // only PLACE_BOMB, SET_DIRECTION was dropped
 
     game.destroy();
@@ -80,7 +78,8 @@ describe("handleAction — confirmedOp tracking", () => {
   it("accepts fresh SET_DIRECTION and updates confirmedOp", () => {
     const game = new BombermanGame(MINIMAL_CONFIG, TWO_PLAYERS);
     game.handleAction("p1", { type: "SET_DIRECTION", direction: "down" }, 7);
-    expect(pvt(game).directionIntents["p1"]).toBe("down");
+    expect(pvt(game).queues["p1"]).toHaveLength(1);
+    expect(pvt(game).queues["p1"]![0]).toEqual({ type: "SET_DIRECTION", direction: "down" });
     expect(pvt(game).syncData["p1"].lastConfirmedOp).toBe(7);
 
     game.destroy();
@@ -149,34 +148,32 @@ describe("handleAction — confirmedOp tracking", () => {
   });
 });
 
-describe("handleAction — SET_DIRECTION stores in directionIntents", () => {
-  it('stores SET_DIRECTION "right" in directionIntents', () => {
+describe("handleAction — SET_DIRECTION goes to queue (discrete model)", () => {
+  it('pushes SET_DIRECTION "right" to queue', () => {
     const game = new BombermanGame(MINIMAL_CONFIG, TWO_PLAYERS);
     game.handleAction("p1", { type: "SET_DIRECTION", direction: "right" }, 1);
-    expect(pvt(game).directionIntents["p1"]).toBe("right");
+    expect(pvt(game).queues["p1"]).toHaveLength(1);
+    expect(pvt(game).queues["p1"]![0]).toEqual({ type: "SET_DIRECTION", direction: "right" });
     game.destroy();
   });
 
-  it('overwrites previous direction when SET_DIRECTION "up" follows "right"', () => {
+  it('replaces previous SET_DIRECTION when new direction arrives (dedup)', () => {
     const game = new BombermanGame(MINIMAL_CONFIG, TWO_PLAYERS);
     game.handleAction("p1", { type: "SET_DIRECTION", direction: "right" }, 1);
     game.handleAction("p1", { type: "SET_DIRECTION", direction: "up" }, 2);
-    expect(pvt(game).directionIntents["p1"]).toBe("up");
-    game.destroy();
-  });
-
-  it("stores null direction", () => {
-    const game = new BombermanGame(MINIMAL_CONFIG, TWO_PLAYERS);
-    game.handleAction("p1", { type: "SET_DIRECTION", direction: null }, 1);
-    expect(pvt(game).directionIntents["p1"]).toBeNull();
-    game.destroy();
-  });
-
-  it("pushes SET_DIRECTION to action queue (deduplicated)", () => {
-    const game = new BombermanGame(MINIMAL_CONFIG, TWO_PLAYERS);
-    game.handleAction("p1", { type: "SET_DIRECTION", direction: "left" }, 1);
     expect(pvt(game).queues["p1"]).toHaveLength(1);
-    expect(pvt(game).queues["p1"]![0]).toEqual({ type: "SET_DIRECTION", direction: "left" });
+    expect(pvt(game).queues["p1"]![0]).toEqual({ type: "SET_DIRECTION", direction: "up" });
+    game.destroy();
+  });
+
+  it("null direction does not push to queue (let pending up process first)", () => {
+    const game = new BombermanGame(MINIMAL_CONFIG, TWO_PLAYERS);
+    game.handleAction("p1", { type: "SET_DIRECTION", direction: "up" }, 1);
+    game.handleAction("p1", { type: "SET_DIRECTION", direction: null }, 2);
+    // Null intent leaves the pending "up" in queue so it still gets processed
+    // (guarantees "1 press = 1 tile" even on brief keypresses)
+    expect(pvt(game).queues["p1"]).toHaveLength(1);
+    expect(pvt(game).queues["p1"]![0]).toEqual({ type: "SET_DIRECTION", direction: "up" });
     game.destroy();
   });
 
@@ -191,8 +188,8 @@ describe("handleAction — SET_DIRECTION stores in directionIntents", () => {
     const game = new BombermanGame(MINIMAL_CONFIG, TWO_PLAYERS);
     game.handleAction("p1", { type: "SET_DIRECTION", direction: "left" }, 1);
     game.handleAction("p2", { type: "SET_DIRECTION", direction: "right" }, 1);
-    expect(pvt(game).directionIntents["p1"]).toBe("left");
-    expect(pvt(game).directionIntents["p2"]).toBe("right");
+    expect(pvt(game).queues["p1"]![0]).toEqual({ type: "SET_DIRECTION", direction: "left" });
+    expect(pvt(game).queues["p2"]![0]).toEqual({ type: "SET_DIRECTION", direction: "right" });
     game.destroy();
   });
 });
@@ -272,7 +269,7 @@ describe("tick — per-player confirmedOp broadcast", () => {
     expect(pvt(game).syncData["p1"].lastConfirmedOp).toBe(3);
     expect(pvt(game).syncData["p2"].lastConfirmedOp).toBe(1);
 
-    // Verify queues — SET_DIRECTION does NOT go to queue
+    // Verify queues — SET_DIRECTION DOES go to queue in discrete model
     expect(pvt(game).queues["p1"]).toHaveLength(3); // two PLACE_BOMBs + one SET_DIRECTION
     expect(pvt(game).queues["p2"]).toHaveLength(1); // one DETONATE
 
@@ -304,13 +301,9 @@ describe("tick — per-player confirmedOp broadcast", () => {
         expect(pvt(game).syncData["p1"].lastConfirmedOp).toBe(2);
         expect(pvt(game).syncData["p2"].lastConfirmedOp).toBe(1);
 
-        // directionIntents preserved
-        expect(pvt(game).directionIntents["p1"]).toBe("right");
-        expect(pvt(game).directionIntents["p2"]).toBe("left");
-
         game.destroy();
         resolve();
-      }, 150); // >1 tick at 100ms/tick
+      }, 250); // >1 tick at 100ms/tick
     });
   });
 
@@ -346,6 +339,34 @@ describe("tick — per-player confirmedOp broadcast", () => {
     expect(pvt(game).queues["p2"]).toHaveLength(2);
     expect(pvt(game).syncData["p1"].lastConfirmedOp).toBe(10);
     expect(pvt(game).syncData["p2"].lastConfirmedOp).toBe(7);
+
+    game.destroy();
+  });
+});
+
+describe("discrete movement — brief keypress = 1 tile", () => {
+  it("pending up is preserved when null keyup arrives before tick", () => {
+    const game = new BombermanGame(MINIMAL_CONFIG, TWO_PLAYERS);
+    // Simulate: user presses W (id=1), releases before next tick (id=2)
+    game.handleAction("p1", { type: "SET_DIRECTION", direction: "up" }, 1);
+    expect(pvt(game).queues["p1"]).toHaveLength(1);
+
+    // Null keyup arrives — must NOT remove the pending up
+    game.handleAction("p1", { type: "SET_DIRECTION", direction: null }, 2);
+    expect(pvt(game).queues["p1"]).toHaveLength(1);
+    expect(pvt(game).queues["p1"]![0]).toEqual({ type: "SET_DIRECTION", direction: "up" });
+
+    game.destroy();
+  });
+
+  it("second non-null direction replaces pending (direction change)", () => {
+    const game = new BombermanGame(MINIMAL_CONFIG, TWO_PLAYERS);
+    game.handleAction("p1", { type: "SET_DIRECTION", direction: "up" }, 1);
+    // User changes mind: press D before next tick
+    game.handleAction("p1", { type: "SET_DIRECTION", direction: "right" }, 2);
+    // Only the latest direction is in the queue (up replaced by right)
+    expect(pvt(game).queues["p1"]).toHaveLength(1);
+    expect(pvt(game).queues["p1"]![0]).toEqual({ type: "SET_DIRECTION", direction: "right" });
 
     game.destroy();
   });
