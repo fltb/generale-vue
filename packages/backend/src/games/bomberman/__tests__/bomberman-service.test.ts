@@ -158,6 +158,53 @@ describe("BombermanService — startGame", () => {
       expect(sentPayload).toBeDefined();
       expect(sentPayload.type).toBe("state-update");
       expect(sentPayload.payload.type).toBe("snapshot");
+      expect(sentPayload.payload.payload.status).toBe(GameStatus.Playing);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("recreates sync on second startGame so new connectors get fresh state (not stale from previous game)", () => {
+    vi.useFakeTimers();
+    try {
+      const room = (service as any).room as BombermanRoom;
+      room.addPlayer({ id: "host-1", name: "Host" }, mockConnector("host-1", "Host"));
+
+      // --- Game 1: play and end ---
+      service.startGame();
+      const sync1 = (service as any).sync;
+      vi.advanceTimersByTime(3000);
+      const game1 = (service as any).game as BombermanGame;
+      expect(game1).not.toBeNull();
+
+      // End game: all players surrender
+      for (const pid of Object.keys(game1.getState().players)) {
+        game1.handleAction(pid, { type: "SURRENDER" });
+      }
+      vi.advanceTimersByTime(100); // one tick
+      expect((service as any).game).toBeNull(); // game cleaned up
+
+      // --- Game 2: new game ---
+      service.startGame();
+      const sync2 = (service as any).sync;
+      vi.advanceTimersByTime(3000);
+      const game2 = (service as any).game as BombermanGame;
+      expect(game2).not.toBeNull();
+
+      // A fresh sync manager should have been created (not the destroyed game1 sync)
+      expect(sync2).not.toBe(sync1);
+
+      // Add connector to game 2 and verify it receives PLAYING state (not Ended)
+      const conn = mockConnector("host-1", "Host");
+      (service as any).sync.addPlayer("host-1", conn);
+      vi.advanceTimersByTime(100);
+
+      expect(conn.send).toHaveBeenCalled();
+      const payload = conn.send.mock.calls[0]?.[0];
+      expect(payload.type).toBe("state-update");
+      // Must be a fresh game state, NOT the previous game's Ended state
+      expect(payload.payload.payload.status).toBe(GameStatus.Playing);
+      expect(payload.payload.payload.tick).toBeGreaterThan(0);
     } finally {
       vi.useRealTimers();
     }
