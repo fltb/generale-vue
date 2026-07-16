@@ -59,6 +59,10 @@ function Harness(props: { init: { value: number } }) {
           })
         }
       />
+      <button
+        data-testid="reset"
+        onClick={() => state.reset({ value: 0 }, 0)}
+      />
     </div>
   );
 }
@@ -125,5 +129,30 @@ describe("useVersionedOptimisticState", () => {
     // merged = applyEvent({ value: 200 }, SET(42)) = { value: 42 }
     expect(JSON.parse(screen.getByTestId("state").textContent!)).toEqual({ value: 42 });
     expect(screen.getByTestId("version").textContent).toBe("3");
+  });
+
+  it("reset clears pending events, restores initial state, and resets version", () => {
+    render(() => <Harness init={{ value: 0 }} />);
+    // Build up some state
+    fireEvent.click(screen.getByTestId("dispatch"));
+    fireEvent.click(screen.getByTestId("dispatch-99"));
+    expect(JSON.parse(screen.getByTestId("pending").textContent!).length).toBe(2);
+    expect(JSON.parse(screen.getByTestId("state").textContent!)).toEqual({ value: 99 });
+
+    // Simulate first game running and ending with high version
+    fireEvent.click(screen.getByTestId("reconcile-confirm-all"));
+    expect(screen.getByTestId("version").textContent).toBe("3");
+
+    // Add another optimistic event after game1 ended
+    fireEvent.click(screen.getByTestId("dispatch"));
+    expect(JSON.parse(screen.getByTestId("pending").textContent!).length).toBe(1);
+
+    // reset() simulates the new game about to start — clear all state
+    fireEvent.click(screen.getByTestId("reset"));
+
+    // After reset: base is back to { value: 0 }, version 0, no pending events
+    expect(JSON.parse(screen.getByTestId("state").textContent!)).toEqual({ value: 0 });
+    expect(screen.getByTestId("version").textContent).toBe("0");
+    expect(JSON.parse(screen.getByTestId("pending").textContent!).length).toBe(0);
   });
 });

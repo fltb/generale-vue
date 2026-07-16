@@ -348,6 +348,16 @@ export function useSyncedState<
     return !!sub && !!sub.ready;
   }
 
+  /**
+   * Discard current state and pending optimistic events.
+   * Use when the underlying domain has changed (e.g., new game round) and stale
+   * state should not bleed into the fresh session. The next reconcileFromServer
+   * will populate the new base; until then state() reads as the provided initial.
+   */
+  function reset(newInitialState: TState, newInitialVersion = 0) {
+    stateManager.reset(newInitialState, newInitialVersion);
+  }
+
   return {
     state: stateManager.mergedState,
     dispatch,
@@ -355,5 +365,6 @@ export function useSyncedState<
     connect,
     disconnect,
     isReady,
+    reset,
   };
 }

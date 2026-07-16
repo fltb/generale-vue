@@ -103,11 +103,25 @@ export function useVersionedOptimisticState<T, E extends { readonly optimisticId
     }));
   }
 
+  /**
+   * Reset the state to a fresh initial value and clear all pending optimistic events.
+   * Use this when the underlying domain changes (e.g., a new game round starts) and
+   * the old state should be discarded entirely.
+   */
+  function reset(newInitialState: T, newInitialVersion = 0) {
+    setState({
+      version: newInitialVersion,
+      base: newInitialState as unknown as T,
+      optimisticQueue: [],
+    });
+  }
+
   return {
     mergedState,
     version: () => state.version,
     getPendingEvents,
     dispatchOptimisticEvent,
     reconcileFromServer,
+    reset,
   };
 }

@@ -211,6 +211,11 @@ export function useBombermanRoomSession(params: { id: string; password?: string 
           setGameJustEnded(true);
           setPhase("ended");
           gameSync.disconnect();
+          // Reset gameSync state to its initial null value. The next startGame()
+          // will receive a fresh snapshot — without this reset, the old game's
+          // final state (status: Ended, lingering bombs/explosions) and any
+          // stale optimistic events would persist in the store.
+          gameSync.reset(null as unknown as BombermanState);
           // Fallback: if game component doesn't dismiss, force clear after 15s
           cancelGameEndFallback();
           gameEndFallbackTimer = setTimeout(() => {
