@@ -139,11 +139,12 @@ describe("BombermanService — startGame", () => {
       const room = (service as any).room as BombermanRoom;
       room.addPlayer({ id: "host-1", name: "Host" }, mockConnector("host-1", "Host"));
 
+      service.startGame();
+
       // Manually add a game connector (simulating a player connecting to game domain)
+      // Must be AFTER startGame() since startGame recreates the sync manager
       const gameConnector = mockConnector("host-1", "Host");
       (service as any).sync.addPlayer("host-1", gameConnector);
-
-      service.startGame();
 
       // Advance 3s to trigger startTicking
       vi.advanceTimersByTime(3000);

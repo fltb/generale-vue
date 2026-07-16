@@ -28,22 +28,26 @@ export class BombermanService {
   private chat: GameChatInstance;
 
   // Sync layer: game-agnostic connector + patch/snapshot management
-  private sync = new GameSyncManager<BombermanState>({
-    send: {
-      sendSnapshot: (conn, state, version, confirmedOp) =>
-        conn.send({
-          type: SyncedStateServerEventType.STATE_UPDATE,
-          payload: { type: "snapshot", version, confirmedOp, payload: state },
-        }),
-      sendPatch: (conn, patches, version, confirmedOp) =>
-        conn.send({
-          type: SyncedStateServerEventType.STATE_UPDATE,
-          payload: { type: "patch", version, confirmedOp, payload: patches },
-        }),
-    },
-    customEventType: "CUSTOM" as never,
-    displacedPayloadType: "DISPLACED" as never,
-  });
+  private sync = this.createSyncManager();
+
+  private createSyncManager(): GameSyncManager<BombermanState> {
+    return new GameSyncManager<BombermanState>({
+      send: {
+        sendSnapshot: (conn, state, version, confirmedOp) =>
+          conn.send({
+            type: SyncedStateServerEventType.STATE_UPDATE,
+            payload: { type: "snapshot", version, confirmedOp, payload: state },
+          }),
+        sendPatch: (conn, patches, version, confirmedOp) =>
+          conn.send({
+            type: SyncedStateServerEventType.STATE_UPDATE,
+            payload: { type: "patch", version, confirmedOp, payload: patches },
+          }),
+      },
+      customEventType: "CUSTOM" as never,
+      displacedPayloadType: "DISPLACED" as never,
+    });
+  }
 
   private disconnectTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
@@ -157,6 +161,12 @@ export class BombermanService {
   }
 
   startGame(): void {
+    // Recreate sync manager for each game — the previous one was destroyed in onEnd.
+    // Without this, the new game's onTick and game-domain handler would use a
+    // destroyed sync, preventing any state from reaching the frontend and leaving
+    // the client displaying the previous game's final (Ended) state.
+    this.sync = this.createSyncManager();
+
     const roomPlayers = this.room.getPlayers().map((p) => ({ id: p.id, name: p.name }));
     const config = this.room.getConfig();
     this.game = new BombermanGame(config, roomPlayers);
