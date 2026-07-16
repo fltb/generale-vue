@@ -184,6 +184,16 @@ export class BombermanRoom {
       clearTimeout(this.hostReclaimTimer);
       this.hostReclaimTimer = undefined;
     }
+
+    // During game, keep the player in the roster — only clear the connector.
+    // The player can reconnect later or be cleaned up by resumeGame().
+    // Removing them during playing would break GAME_ENDED delivery and make
+    // the room appear disbanded before the game even finishes.
+    if (this.state.phase === "playing") {
+      this.connectors.delete(pid);
+      return;
+    }
+
     this.removePlayer(pid);
   }
 

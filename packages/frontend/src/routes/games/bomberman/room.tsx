@@ -335,7 +335,7 @@ export function BombermanRoom() {
         <BombermanGame
           gameSync={session.gameSync}
           onBackToRoom={() => {
-            // phase will be reset by server event or navigation
+            handleDismissGameEnd();
           }}
           playerId={session.playerId()}
           displaced={session.displaced}
