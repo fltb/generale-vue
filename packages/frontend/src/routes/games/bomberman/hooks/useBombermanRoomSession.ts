@@ -78,6 +78,9 @@ export interface BombermanRoomSession {
   gameJustEnded: () => boolean;
   /** True when the current session started a fresh game (not a reconnect). */
   startedThisSession: () => boolean;
+
+  /** Dismiss the game-ended overlay and return to lobby */
+  handleDismissGameEnd: () => void;
 }
 
 /**
@@ -285,6 +288,7 @@ export function useBombermanRoomSession(params: { id: string; password?: string 
       } else if (d.data.phase === "playing") {
         setPhase("playing");
         setSelfStatus("playing");
+        roomSync.connect();
         gameSync.connect();
         startGameWatchdog();
       } else {
@@ -317,6 +321,14 @@ export function useBombermanRoomSession(params: { id: string; password?: string 
     setSelfStatus("lobby");
   }
 
+  function handleDismissGameEnd() {
+    cancelGameEndFallback();
+    setGameJustEnded(false);
+    setStartedThisSession(false);
+    setGameEnded(null);
+    setPhase("lobby");
+  }
+
   // ─── Bridge: expose state for E2E testing & console debugging ───
   bridge.roomId = params.id;
   bridge.onOperationQueued = (op) => gameSync.dispatch(op as never);
@@ -342,5 +354,6 @@ export function useBombermanRoomSession(params: { id: string; password?: string 
     showingGameUI,
     gameJustEnded,
     startedThisSession,
+    handleDismissGameEnd,
   };
 }

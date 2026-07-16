@@ -46,7 +46,7 @@ export function BombermanRoom() {
   createEffect(() => {
     if (session.phase() === "ended") {
       autoDismissTimer = setTimeout(() => {
-        navigate("/bomberman");
+        session.handleDismissGameEnd();
       }, GAME_END_AUTO_DISMISS_MS);
     }
     return () => {
@@ -62,7 +62,7 @@ export function BombermanRoom() {
       clearTimeout(autoDismissTimer);
       autoDismissTimer = null;
     }
-    navigate("/bomberman");
+    session.handleDismissGameEnd();
   }
 
   return (

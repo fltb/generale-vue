@@ -183,10 +183,12 @@ describe("BombermanRoom — handleDisconnect", () => {
 describe("BombermanRoom — handleClose", () => {
   it("removes player on close", () => {
     const room = new BombermanRoom("Test", defaultBombermanConfig(), "host-1", "Host");
-    room.addPlayer({ id: "host-1", name: "Host" }, mockConnector());
-    room.addPlayer({ id: "p2", name: "P2" }, mockConnector());
+    const hostConn = mockConnector();
+    const p2Conn = mockConnector();
+    room.addPlayer({ id: "host-1", name: "Host" }, hostConn);
+    room.addPlayer({ id: "p2", name: "P2" }, p2Conn);
 
-    room.handleClose("p2");
+    room.handleClose("p2", p2Conn);
 
     const state = room.getState();
     expect(state.players.find((p) => p.id === "p2")).toBeUndefined();
@@ -195,9 +197,10 @@ describe("BombermanRoom — handleClose", () => {
 
   it("last player close disbands the room", () => {
     const room = new BombermanRoom("Test", defaultBombermanConfig(), "host-1", "Host");
-    room.addPlayer({ id: "host-1", name: "Host" }, mockConnector());
+    const hostConn = mockConnector();
+    room.addPlayer({ id: "host-1", name: "Host" }, hostConn);
 
-    room.handleClose("host-1");
+    room.handleClose("host-1", hostConn);
 
     expect(room.isDisbanded()).toBe(true);
     expect(room.getState().phase).toBe("disbanded");
@@ -313,14 +316,15 @@ describe("BombermanRoom — getters and callbacks", () => {
 
   it("onDisbanded callback fires when room empties via handleClose", () => {
     const room = new BombermanRoom("Test", defaultBombermanConfig(), "host-1", "Host");
-    room.addPlayer({ id: "host-1", name: "Host" }, mockConnector());
+    const hostConn = mockConnector();
+    room.addPlayer({ id: "host-1", name: "Host" }, hostConn);
 
     let callbackFired = false;
     room.onDisbanded(() => {
       callbackFired = true;
     });
 
-    room.handleClose("host-1");
+    room.handleClose("host-1", hostConn);
 
     expect(callbackFired).toBe(true);
   });

@@ -79,13 +79,13 @@ export interface BombermanState {
 }
 
 export type BombermanOperation =
-  | { type: "MOVE"; direction: "up" | "down" | "left" | "right" }
-  | { type: "SET_DIRECTION"; direction: "up" | "down" | "left" | "right" | null }
-  | { type: "PLACE_BOMB" }
-  | { type: "ACTION" }
-  | { type: "DETONATE" }
-  | { type: "SURRENDER" }
-  | { type: "NOOP" };
+  | { type: "MOVE"; direction: "up" | "down" | "left" | "right"; optimisticId?: number }
+  | { type: "SET_DIRECTION"; direction: "up" | "down" | "left" | "right" | null; optimisticId?: number }
+  | { type: "PLACE_BOMB"; optimisticId?: number }
+  | { type: "ACTION"; optimisticId?: number }
+  | { type: "DETONATE"; optimisticId?: number }
+  | { type: "SURRENDER"; optimisticId?: number }
+  | { type: "NOOP"; optimisticId?: number };
 
 // ─── PreGame Types ───
 

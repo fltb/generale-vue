@@ -25,9 +25,7 @@
     "check:conventions": "bun run scripts/check-conventions.ts",
     "check:architecture": "depcruise packages/frontend/src packages/backend/src --config .dependency-cruiser.cjs",
     "arch": "bunx ts-archunit check",
-    "arch:baseline": "bunx ts-archunit baseline",
-    "arch": "ts-archunit check",
-    "arch:baseline": "ts-archunit baseline"
+    "arch:baseline": "bunx ts-archunit baseline"
   },
   "type": "module",
   "workspaces": [

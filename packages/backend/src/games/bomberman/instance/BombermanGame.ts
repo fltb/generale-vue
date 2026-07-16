@@ -17,8 +17,10 @@ export class BombermanGame {
   private onEndCallbacks: Array<(result: BombermanGameEndResult) => void> = [];
   private onTickCallbacks: Array<(state: BombermanState) => void> = [];
   private queues: Record<PlayerId, BombermanOperation[]> = {};
-  private playerDirections: Record<string, "up" | "down" | "left" | "right" | null> = {};
+  /** Tracks the most recent direction intent per player, used to inject SET_DIRECTION into queues before each tick. */
+  private directionIntents: Record<PlayerId, "up" | "down" | "left" | "right" | null> = {};
   private bots: Array<{ playerId: PlayerId; getAction: (state: BombermanState) => BombermanOperation }> = [];
+  private syncData: Record<PlayerId, { lastConfirmedOp: number }> = {};
 
   constructor(config: BombermanConfig, players: { id: string; name: string }[]) {
     const width = config.mapWidth;
@@ -61,6 +63,10 @@ export class BombermanGame {
     for (const p of players) this.queues[p.id] = [];
   }
 
+  getSyncData(): Record<PlayerId, { lastConfirmedOp: number }> {
+    return this.syncData;
+  }
+
   addBot(playerId: PlayerId, getAction: (state: BombermanState) => BombermanOperation): void {
     const w = this.state.config.mapWidth;
     const h = this.state.config.mapHeight;
@@ -90,13 +96,29 @@ export class BombermanGame {
     this.queues[playerId] = [];
   }
 
-  handleAction(pid: PlayerId, op: BombermanOperation, _optimisticId?: number): void {
-    if (op.type === "SET_DIRECTION") {
-      this.playerDirections[pid] = op.direction;
-      return; // don't queue — direction is stored server-side
+  handleAction(pid: PlayerId, op: BombermanOperation, optimisticId?: number): void {
+    // Track per-player confirmedOp — drop stale events
+    if (!this.syncData[pid]) this.syncData[pid] = { lastConfirmedOp: 0 };
+    if (typeof optimisticId === "number" && this.syncData[pid].lastConfirmedOp >= optimisticId) {
+      return; // stale event, already confirmed
     }
+
     if (!this.queues[pid]) this.queues[pid] = [];
-    this.queues[pid].push(op);
+
+    if (op.type === "SET_DIRECTION") {
+      // Deduplicate: filter out any pending SET_DIRECTION, then push the new one.
+      // This ensures only the latest direction intent is in the queue.
+      this.queues[pid] = this.queues[pid].filter((o) => o.type !== "SET_DIRECTION");
+      this.queues[pid].push(op);
+      this.directionIntents[pid] = op.direction;
+    } else {
+      this.queues[pid].push(op);
+    }
+
+    // Update lastConfirmedOp
+    if (typeof optimisticId === "number") {
+      this.syncData[pid].lastConfirmedOp = optimisticId;
+    }
   }
 
   startTicking(): void {
@@ -108,8 +130,52 @@ export class BombermanGame {
         if (!this.queues[bot.playerId]) this.queues[bot.playerId] = [];
         this.queues[bot.playerId]?.push(action);
       }
-      // tick() consumes ops from the persistent queue — only removes what was processed
-      this.state = tick(this.state, this.queues, this.playerDirections);
+
+      // Inject direction intent into queues for alive players that have a non-null direction
+      for (const [pid, dir] of Object.entries(this.directionIntents)) {
+        if (dir === null || dir === undefined) continue;
+        const player = this.state.players[pid];
+        if (!player?.alive) continue;
+        if (!this.queues[pid]) this.queues[pid] = [];
+        // Only inject if there isn't already a pending SET_DIRECTION (client may have sent one)
+        if (!this.queues[pid].some((o) => o.type === "SET_DIRECTION")) {
+          this.queues[pid].push({ type: "SET_DIRECTION", direction: dir });
+        }
+      }
+
+      // Snapshot queues before tick — tick() is pure, does not mutate this.queues
+      const snapshot: Record<PlayerId, BombermanOperation[]> = {};
+      for (const [pid, ops] of Object.entries(this.queues)) {
+        snapshot[pid] = [...ops];
+      }
+
+      // Call pure tick — returns new state + which ops remain unconsumed
+      const { state: nextState, remainingOps } = tick(this.state, snapshot);
+      this.state = nextState;
+
+      // Update queues: keep only remaining (unconsumed) ops
+      for (const pid of Object.keys(this.queues)) {
+        this.queues[pid] = remainingOps[pid] ?? [];
+      }
+
+      // Re-inject direction from pre-tick snapshot so direction intent survives across ticks
+      for (const [pid, ops] of Object.entries(snapshot)) {
+        // Find the last SET_DIRECTION op in the pre-tick snapshot
+        let lastDir: BombermanOperation | undefined;
+        for (let i = ops.length - 1; i >= 0; i--) {
+          if (ops[i]?.type === "SET_DIRECTION") {
+            lastDir = ops[i];
+            break;
+          }
+        }
+        if (lastDir) {
+          if (!this.queues[pid]) this.queues[pid] = [];
+          // Only re-inject if no newer SET_DIRECTION was added during tick processing
+          if (!this.queues[pid].some((o) => o.type === "SET_DIRECTION")) {
+            this.queues[pid].push(lastDir);
+          }
+        }
+      }
 
       for (const cb of this.onTickCallbacks) {
         try {

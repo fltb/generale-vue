@@ -176,9 +176,14 @@ export class BombermanService {
       });
     }
 
-    // Tick → broadcast: delegate to sync manager instead of manual forEach
+    // Tick → broadcast per-player: each player gets their own confirmedOp
+    // so the frontend can correctly prune its optimistic event queue
     g.onTick((state) => {
-      this.sync.broadcastToAllPlayers(state, state.tick, 0);
+      const syncData = g.getSyncData();
+      for (const pid of this.sync.getConnectedPlayerIds()) {
+        const confirmedOp = syncData[pid]?.lastConfirmedOp ?? 0;
+        this.sync.sendToPlayer(pid, state, state.tick, confirmedOp);
+      }
     });
 
     // Game end: broadcast GAME_ENDED + cleanup

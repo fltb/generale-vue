@@ -1,5 +1,5 @@
 /**
- * Frame definitions for bomb_party_v4.png (240×320, 15 cols × 20 rows, 16×16 frames).
+ * Frame definitions for bomberman.png (240×336, 15 cols × 21 rows, 16×16 frames).
  * Coordinates sourced from dennis/bombermanjs Tiled map + sprites.json.
  *
  * Conversion: col = (tiledId - 1) % 15, row = floor((tiledId - 1) / 15)
@@ -130,22 +130,20 @@ export const EXPLOSION_ALL = [
 ];
 
 // ─── Tiles ───
-export const SOFT_WALL = tid(204); // crate/box (128, 208)
+export const SOFT_WALL = tid(205); // crate/box (col 9, row 13) — tid(204) is empty
 export const HARD_WALL = tid(266); // wall/block (160, 272)
 export const FLOOR_1 = tid(197); // grass/floor 1 (16, 208)
 export const FLOOR_2 = tid(198); // grass/floor 2 (32, 208)
 
-// ─── Items (approximate — spritesheet has few item icons) ───
-// Row 13 has some tiles that look item-like. We map best-effort.
-// Kick: boot-like shape, Glove: gauntlet, etc. Use nearby tiles as fallbacks.
+// ─── Items (custom 16×16 pixel art, row 20, cols 0–8) ───
 export const ITEM_FRAMES: Record<string, FrameDef> = {
-  BOMB_UP: tid(274), // reuse bomb frame
-  FIRE_UP: tid(278), // reuse bomb pulse frame
-  SPEED_UP: tid(218), // reuse up-walk as "speed" indicator
-  KICK: tid(198), // floor tile as placeholder
-  GLOVE: tid(197), // floor tile as placeholder
-  PUNCH: tid(204), // crate as placeholder
-  REMOTE: tid(272), // explosion center as placeholder
-  PIERCE: tid(266), // wall as placeholder
-  SPIRIT: tid(196), // nearby tile
+  BOMB_UP: tid(301), // row 20, col 0 — black bomb with lit fuse
+  FIRE_UP: tid(302), // row 20, col 1 — orange/red flame
+  SPEED_UP: tid(303), // row 20, col 2 — yellow lightning bolt
+  KICK: tid(304), // row 20, col 3 — brown boot
+  GLOVE: tid(305), // row 20, col 4 — red boxing glove
+  PUNCH: tid(306), // row 20, col 5 — closed fist
+  REMOTE: tid(307), // row 20, col 6 — gray remote with red button
+  PIERCE: tid(308), // row 20, col 7 — upward arrowhead
+  SPIRIT: tid(309), // row 20, col 8 — white ghost
 };

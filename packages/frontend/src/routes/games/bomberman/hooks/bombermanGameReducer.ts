@@ -1,6 +1,21 @@
 import type { BombermanState, BombermanOperation } from "@generale/types";
 
 /**
+ * Tracks which optimistic event IDs have already placed a bomb.
+ * Prevents duplicate bombs when useVersionedOptimisticState re-applies
+ * pending optimistic events from a fresh structuredClone(base) on every
+ * server reconciliation — if the player moved between ticks, hasBombHere
+ * would check the NEW position, find no bomb, and create a duplicate.
+ *
+ * This Map is module-level because the optimistic queue is shared across
+ * the component's lifetime (useVersionedOptimisticState's optimisticQueue signal).
+ * Clearing it on unmount is unnecessary — IDs are monotonically increasing
+ * and collisions across component remounts are harmless (worst case: a bomb
+ * that should appear doesn't on the very first render of a new session).
+ */
+const placedBombs = new Map<number, boolean>();
+
+/**
  * Local optimistic reducer for bomberman game state.
  * Pure function — no UI/connection dependencies.
  *
@@ -34,7 +49,17 @@ export function applyBombermanEventLocal(
 
   if (op.type === "PLACE_BOMB") {
     const player = next.players?.[localPlayerId];
+    // Idempotency guard: if this optimisticId already placed a bomb, skip.
+    // Prevents duplicates when useVersionedOptimisticState re-applies
+    // pending events from structuredClone(base) on each reconciliation.
+    if (op.optimisticId !== undefined && placedBombs.has(op.optimisticId)) {
+      return next;
+    }
     if (player?.alive && player.bombActive < player.bombMax) {
+      // Also check: don't place if a bomb already exists at this tile
+      const hasBombHere = (next.bombs ?? []).some((b) => b.x === player.x && b.y === player.y);
+      if (hasBombHere) return next;
+
       player.bombActive++;
       const bomb = {
         id: `bomb-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -45,6 +70,9 @@ export function applyBombermanEventLocal(
         blastRadius: player.blastRadius,
       };
       next.bombs = [...(next.bombs ?? []), bomb];
+      // Record that this optimisticId has been consumed, so re-applications
+      // by useVersionedOptimisticState don't create duplicate bombs.
+      if (op.optimisticId !== undefined) placedBombs.set(op.optimisticId, true);
     }
   }
 

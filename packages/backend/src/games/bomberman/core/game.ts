@@ -411,46 +411,52 @@ function punchBomb(state: BombermanState, bombIdx: number, dx: number, dy: numbe
   }
 }
 
-// ─── Main tick ───
+// ─── Pure tick: transforms state + ops → new state + unconsumed ops ───
 
-export function tick(
-  state: BombermanState,
-  queues: Record<PlayerId, BombermanOperation[]>,
-  playerDirections?: Record<string, "up" | "down" | "left" | "right" | null>,
-): BombermanState {
+export type PlayerOps = BombermanOperation[];
+
+export interface TickResult {
+  state: BombermanState;
+  remainingOps: Record<PlayerId, PlayerOps>;
+}
+
+export function tick(state: BombermanState, queues: Record<PlayerId, BombermanOperation[]>): TickResult {
   const next = cloneState(state);
   next.tick++;
 
   if (next.bombIdCounter === undefined) next.bombIdCounter = state.bombIdCounter ?? 0;
 
+  const remainingOps: Record<string, PlayerOps> = {};
+
   for (const [pid, ops] of Object.entries(queues)) {
     const player = next.players[pid];
     if (!player?.alive) {
-      queues[pid] = [];
+      remainingOps[pid] = [];
       continue;
     }
-    if (ops.length === 0) continue;
-
-    // ─── MOVE: direction from playerDirections (current-intent) or last queued MOVE (fallback) ───
-    const moveOps = ops.filter((o) => o.type === "MOVE");
-    const lastMove = moveOps.length > 0 ? moveOps[moveOps.length - 1] : undefined;
-
-    // Current-intent direction takes precedence
-    const storedDir = playerDirections?.[pid];
-    const moveDir = storedDir ?? lastMove?.direction ?? null;
-
-    if (moveDir) {
-      player.facing = moveDir;
-      const steps = Math.max(1, player.speed);
-      for (let i = 0; i < steps; i++) {
-        const result = moveOneTile(player, moveDir, next);
-        if (!result.moved) break; // blocked by wall/player/bomb
-      }
+    if (ops.length === 0) {
+      remainingOps[pid] = [];
+      continue;
     }
 
-    // ─── Non-move actions: process all ───
+    // Process ALL ops from the queue uniformly:
+    //   SET_DIRECTION/MOVE → update direction, apply movement inline (makes one-shot actions at new pos)
+    //   PLACE_BOMB/DETONATE/ACTION/SURRENDER → one-shot at current position
     for (const op of ops) {
       switch (op.type) {
+        case "SET_DIRECTION":
+        case "MOVE": {
+          const dir = op.direction ?? null;
+          if (dir) {
+            player.facing = dir;
+            const steps = Math.max(1, player.speed);
+            for (let i = 0; i < steps; i++) {
+              const moved = moveOneTile(player, dir, next);
+              if (!moved.moved) break;
+            }
+          }
+          break;
+        }
         case "PLACE_BOMB":
           placeBomb(player, next);
           break;
@@ -470,11 +476,12 @@ export function tick(
         case "SURRENDER":
           player.alive = false;
           break;
+        // NOOP and unknown types: consume without effect
       }
     }
 
-    // Remove consumed ops from persistent queue
-    queues[pid] = [];
+    // All ops consumed — one-shot model (nothing remains unconsumed)
+    remainingOps[pid] = [];
   }
 
   // Phase order: bombs → explosions → cleanup
@@ -545,5 +552,5 @@ export function tick(
 
   killOutOfBounds(next);
 
-  return next;
+  return { state: next, remainingOps };
 }

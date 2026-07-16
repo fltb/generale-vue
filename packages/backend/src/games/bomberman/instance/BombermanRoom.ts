@@ -14,6 +14,7 @@ import {
   SyncedStateServerStateUpdatePayloadType,
 } from "@generale/types";
 import { StateSyncState } from "../../../game/instance/state-sync";
+import { displaceConnector } from "../../../game/instance/connector-manager";
 import { validateBombermanConfig } from "../settings";
 
 export type BombermanRoomConnector = ServerSyncConnector<
@@ -28,6 +29,7 @@ export class BombermanRoom {
   private stateSync = new StateSyncState<BombermanRoomState>();
   private version = 0;
   private destroyed = false;
+  private suspended = false;
   private hostReclaimTimer: ReturnType<typeof setTimeout> | undefined;
   private bannedPlayers = new Map<PlayerId, number>();
   private creatorId: PlayerId;
@@ -103,10 +105,20 @@ export class BombermanRoom {
         clearTimeout(this.hostReclaimTimer);
         this.hostReclaimTimer = undefined;
       }
-      this.connectors.set(user.id, connector);
+      // Displacement pattern: write new connector first, then close old one.
+      // This ensures the old connector's onClose source guard short-circuits.
+      displaceConnector(
+        user.id,
+        connector,
+        this.connectors,
+        this.stateSync,
+        this.syncData,
+        SyncedGameServerEventType.CUSTOM,
+        BombermanPreGameServerEventType.DISPLACED,
+      );
       this.wireConnector(user.id, connector);
       this.version++;
-      this.sendState(user.id, true);
+      this.broadcastState();
       return { success: true };
     }
 
@@ -139,7 +151,7 @@ export class BombermanRoom {
     connector.onDisconnect(() => this.handleDisconnect(pid, connector));
     connector.onReconnect(() => this.sendState(pid, true));
     connector.onClientMessage((evt) => this.handleClientAction(pid, evt));
-    connector.onClose(() => this.handleClose(pid));
+    connector.onClose(() => this.handleClose(pid, connector));
   }
 
   private handleDisconnect(pid: PlayerId, connector: BombermanRoomConnector): void {
@@ -164,7 +176,10 @@ export class BombermanRoom {
     this.broadcastState();
   }
 
-  private handleClose(pid: PlayerId): void {
+  private handleClose(pid: PlayerId, source: BombermanRoomConnector): void {
+    // Source guard: if this connector has been displaced, ignore the close
+    if (this.connectors.get(pid) !== source) return;
+
     if (this.hostReclaimTimer) {
       clearTimeout(this.hostReclaimTimer);
       this.hostReclaimTimer = undefined;
@@ -219,6 +234,16 @@ export class BombermanRoom {
     }
     if (typeof evt.optimisticId === "number" && synced.lastConfirmedOp >= evt.optimisticId) return;
 
+    // During suspend (game in progress), only allow spectate toggles
+    if (this.suspended) {
+      if (evt.type !== "ENTER_SPECTATE" && evt.type !== "LEAVE_SPECTATE") {
+        if (typeof evt.optimisticId === "number") {
+          synced.lastConfirmedOp = evt.optimisticId;
+        }
+        return;
+      }
+    }
+
     switch (evt.type) {
       case "READY":
         if (!player.isHost) player.ready = true;
@@ -259,6 +284,7 @@ export class BombermanRoom {
         if (this.state.players.length < 2) return;
         if (!this.state.players.filter((p) => !p.isHost).every((p) => p.ready)) return;
         this.state.phase = "playing";
+        this.suspend();
         this.version++;
         // Only include non-spectating players in the game
         const gamePlayerIds = this.state.players.filter((p) => p.status !== "spectating").map((p) => p.id);
@@ -297,7 +323,14 @@ export class BombermanRoom {
     }
   }
 
+  suspend(): void {
+    if (this.suspended) return;
+    this.suspended = true;
+    this.stateSync.clearAll();
+  }
+
   resumeGame(): void {
+    this.suspended = false;
     this.state.phase = "lobby";
     for (const p of this.state.players) {
       if (!p.isHost) p.ready = false;
