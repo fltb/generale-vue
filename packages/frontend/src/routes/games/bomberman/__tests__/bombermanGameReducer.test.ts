@@ -147,92 +147,32 @@ describe("applyBombermanEventLocal — PLACE_BOMB", () => {
     const r1 = applyBombermanEventLocal(state, { type: "PLACE_BOMB", optimisticId: 301 }, "p1");
     expect(r1.bombs).toHaveLength(1);
 
-    // Move player to (2,1) then place second bomb
-    const afterMove = applyBombermanEventLocal(r1, { type: "SET_DIRECTION", direction: "right" }, "p1");
-    const r2 = applyBombermanEventLocal(afterMove, { type: "PLACE_BOMB", optimisticId: 302 }, "p1");
+    // Move player to (2,1) directly (SET_DIRECTION no longer changes x/y)
+    r1.players.p1!.x = 2;
+    const r2 = applyBombermanEventLocal(r1, { type: "PLACE_BOMB", optimisticId: 302 }, "p1");
     expect(r2.bombs).toHaveLength(2);
 
-    // Move player to (3,1) then place third bomb
-    const afterMove2 = applyBombermanEventLocal(r2, { type: "SET_DIRECTION", direction: "right" }, "p1");
-    const r3 = applyBombermanEventLocal(afterMove2, { type: "PLACE_BOMB", optimisticId: 303 }, "p1");
+    // Move player to (3,1) directly
+    r2.players.p1!.x = 3;
+    const r3 = applyBombermanEventLocal(r2, { type: "PLACE_BOMB", optimisticId: 303 }, "p1");
     expect(r3.bombs).toHaveLength(3);
   });
 });
 
-describe("applyBombermanEventLocal — SET_DIRECTION (wall-aware)", () => {
-  it("moves player 1 tile in open space", () => {
+describe("applyBombermanEventLocal — SET_DIRECTION (facing only)", () => {
+  it("non-null direction changes facing without changing x or y", () => {
     const state = makeBaseState();
     const r = applyBombermanEventLocal(state, { type: "SET_DIRECTION", direction: "right" }, "p1");
-    expect(r.players.p1!.x).toBe(2);
-    expect(r.players.p1!.y).toBe(1);
     expect(r.players.p1!.facing).toBe("right");
-  });
-
-  it("does not move into hard wall", () => {
-    const state = makeBaseState();
-    state.map.tiles[1]![2] = { type: "hard_wall" };
-    const r = applyBombermanEventLocal(state, { type: "SET_DIRECTION", direction: "right" }, "p1");
     expect(r.players.p1!.x).toBe(1);
     expect(r.players.p1!.y).toBe(1);
   });
 
-  it("does not move into soft wall", () => {
-    const state = makeBaseState();
-    state.map.tiles[1]![2] = { type: "soft_wall" };
-    const r = applyBombermanEventLocal(state, { type: "SET_DIRECTION", direction: "right" }, "p1");
-    expect(r.players.p1!.x).toBe(1);
-    expect(r.players.p1!.y).toBe(1);
-  });
-
-  it("does not move into another player", () => {
-    const state = makeBaseState();
-    state.players.p2 = {
-      playerId: "p2", name: "Bob", alive: true, x: 2, y: 1,
-      bombMax: 1, bombActive: 0, blastRadius: 2, speed: 1,
-      items: [], facing: "down",
-    };
-    const r = applyBombermanEventLocal(state, { type: "SET_DIRECTION", direction: "right" }, "p1");
-    expect(r.players.p1!.x).toBe(1);
-    expect(r.players.p1!.y).toBe(1);
-  });
-
-  it("does not move into another player's bomb", () => {
-    const state = makeBaseState();
-    state.bombs = [{ id: "b1", playerId: "p2", x: 2, y: 1, fuse: 5, blastRadius: 1 }];
-    const r = applyBombermanEventLocal(state, { type: "SET_DIRECTION", direction: "right" }, "p1");
-    expect(r.players.p1!.x).toBe(1);
-    expect(r.players.p1!.y).toBe(1);
-  });
-
-  it("can walk onto own bomb (immune — server uses immunePlayerId)", () => {
-    const state = makeBaseState();
-    state.bombs = [{ id: "b1", playerId: "p1", x: 2, y: 1, fuse: 5, blastRadius: 1 }];
-    const r = applyBombermanEventLocal(state, { type: "SET_DIRECTION", direction: "right" }, "p1");
-    expect(r.players.p1!.x).toBe(2);
-    expect(r.players.p1!.y).toBe(1);
-  });
-
-  it("SPIRIT item lets player walk through other bombs", () => {
-    const state = makeBaseState();
-    state.players.p1!.items = ["SPIRIT"];
-    state.bombs = [{ id: "b1", playerId: "p2", x: 2, y: 1, fuse: 5, blastRadius: 1 }];
-    const r = applyBombermanEventLocal(state, { type: "SET_DIRECTION", direction: "right" }, "p1");
-    expect(r.players.p1!.x).toBe(2);
-    expect(r.players.p1!.y).toBe(1);
-  });
-
-  it("clamps to map bounds", () => {
-    const state = makeBaseState();
-    state.players.p1!.x = 0;
-    const r = applyBombermanEventLocal(state, { type: "SET_DIRECTION", direction: "left" }, "p1");
-    expect(r.players.p1!.x).toBe(0);
-  });
-
-  it("null direction updates facing only, no movement", () => {
+  it("null direction changes neither facing nor coordinates", () => {
     const state = makeBaseState();
     const r = applyBombermanEventLocal(state, { type: "SET_DIRECTION", direction: null }, "p1");
+    expect(r.players.p1!.facing).toBe("down");
     expect(r.players.p1!.x).toBe(1);
     expect(r.players.p1!.y).toBe(1);
-    // facing is preserved (was "down")
   });
 });

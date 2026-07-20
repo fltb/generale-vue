@@ -1,3 +1,4 @@
+import type { Operation } from "fast-json-patch";
 import {
   BombermanPreGameServerEventType,
   type BombermanConfig,
@@ -372,6 +373,36 @@ export class BombermanRoom {
     this.onDisbandedCallback?.();
   }
 
+  private sendStateUpdate(
+    conn: BombermanRoomConnector,
+    ...[payloadType, version, confirmedOp, payload]:
+      | [
+          payloadType: SyncedStateServerStateUpdatePayloadType.SNAPSHOT,
+          version: number,
+          confirmedOp: number,
+          payload: BombermanRoomState,
+        ]
+      | [
+          payloadType: SyncedStateServerStateUpdatePayloadType.PATCH,
+          version: number,
+          confirmedOp: number,
+          payload: Operation[],
+        ]
+  ): void {
+    if (payloadType === SyncedStateServerStateUpdatePayloadType.SNAPSHOT) {
+      conn.send({
+        type: SyncedStateServerEventType.STATE_UPDATE,
+        payload: { type: payloadType, version, confirmedOp, payload },
+      });
+      return;
+    }
+
+    conn.send({
+      type: SyncedStateServerEventType.STATE_UPDATE,
+      payload: { type: payloadType, version, confirmedOp, payload },
+    });
+  }
+
   sendState(pid: PlayerId, forceSnapshot: boolean): void {
     const conn = this.connectors.get(pid);
     if (!conn) return;
@@ -382,26 +413,8 @@ export class BombermanRoom {
       this.state,
       this.version,
       confirmedOp,
-      (state, ver, op) =>
-        conn.send({
-          type: SyncedStateServerEventType.STATE_UPDATE,
-          payload: {
-            type: SyncedStateServerStateUpdatePayloadType.SNAPSHOT,
-            version: ver,
-            confirmedOp: op,
-            payload: state,
-          },
-        }),
-      (patches, ver, op) =>
-        conn.send({
-          type: SyncedStateServerEventType.STATE_UPDATE,
-          payload: {
-            type: SyncedStateServerStateUpdatePayloadType.PATCH,
-            version: ver,
-            confirmedOp: op,
-            payload: patches,
-          },
-        }),
+      (state, ver, op) => this.sendStateUpdate(conn, SyncedStateServerStateUpdatePayloadType.SNAPSHOT, ver, op, state),
+      (patches, ver, op) => this.sendStateUpdate(conn, SyncedStateServerStateUpdatePayloadType.PATCH, ver, op, patches),
     );
   }
 

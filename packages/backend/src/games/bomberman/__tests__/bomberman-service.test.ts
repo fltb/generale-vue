@@ -1,8 +1,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { BombermanService } from "../service/BombermanService";
+import { BombermanService, decodeBombermanOperation } from "../service/BombermanService";
 import { BombermanRoom } from "../instance/BombermanRoom";
 import { BombermanGame } from "../instance/BombermanGame";
 import { defaultBombermanConfig } from "../settings";
+import { domainHandlers } from "../../../plugins/websocket";
 import { GameStatus } from "@generale/types";
 
 function makeConfig() {
@@ -329,5 +330,183 @@ describe("BombermanService — getSummary / getPlayerCount", () => {
     room.addPlayer({ id: "p2", name: "P2" }, mockConnector("p2", "P2"));
 
     expect(service.getPlayerCount()).toBe(2);
+  });
+});
+
+describe("decodeBombermanOperation", () => {
+  it("SET_DIRECTION null with optimisticId survives", () => {
+    const result = decodeBombermanOperation({ type: "SET_DIRECTION", direction: null, optimisticId: 2 });
+    expect(result).toEqual({ type: "SET_DIRECTION", direction: null, optimisticId: 2 });
+  });
+
+  it("malformed directions return null", () => {
+    expect(decodeBombermanOperation({ type: "SET_DIRECTION", direction: "diagonal" })).toBeNull();
+    expect(decodeBombermanOperation({ type: "SET_DIRECTION", direction: 123 })).toBeNull();
+    expect(decodeBombermanOperation({ type: "SET_DIRECTION", direction: "" })).toBeNull();
+  });
+
+  it("absent direction handles as null", () => {
+    const result = decodeBombermanOperation({ type: "SET_DIRECTION" });
+    expect(result).toEqual({ type: "SET_DIRECTION", direction: null });
+  });
+
+  it("unknown type returns null", () => {
+    expect(decodeBombermanOperation({ type: "FLY" })).toBeNull();
+    expect(decodeBombermanOperation({ type: "" })).toBeNull();
+  });
+
+  it("valid one-shot action survives", () => {
+    expect(decodeBombermanOperation({ type: "PLACE_BOMB" })).toEqual({ type: "PLACE_BOMB" });
+    expect(decodeBombermanOperation({ type: "PLACE_BOMB", optimisticId: 5 })).toEqual({ type: "PLACE_BOMB", optimisticId: 5 });
+    expect(decodeBombermanOperation({ type: "ACTION" })).toEqual({ type: "ACTION" });
+    expect(decodeBombermanOperation({ type: "DETONATE" })).toEqual({ type: "DETONATE" });
+    expect(decodeBombermanOperation({ type: "SURRENDER" })).toEqual({ type: "SURRENDER" });
+  });
+
+  it("MOVE with valid direction survives", () => {
+    expect(decodeBombermanOperation({ type: "MOVE", direction: "up" })).toEqual({ type: "MOVE", direction: "up" });
+    expect(decodeBombermanOperation({ type: "MOVE", direction: "down", optimisticId: 3 })).toEqual({ type: "MOVE", direction: "down", optimisticId: 3 });
+  });
+  it("non-object value returns null", () => {
+    expect(decodeBombermanOperation(null)).toBeNull();
+    expect(decodeBombermanOperation(undefined)).toBeNull();
+    expect(decodeBombermanOperation("string")).toBeNull();
+    expect(decodeBombermanOperation(42)).toBeNull();
+    expect(decodeBombermanOperation(true)).toBeNull();
+  });
+
+  it("malformed optimisticId returns null", () => {
+    expect(decodeBombermanOperation({ type: "MOVE", direction: "up", optimisticId: "abc" })).toBeNull();
+    expect(decodeBombermanOperation({ type: "MOVE", direction: "up", optimisticId: null })).toBeNull();
+    expect(decodeBombermanOperation({ type: "PLACE_BOMB", optimisticId: true })).toBeNull();
+    expect(decodeBombermanOperation({ type: "PLACE_BOMB", optimisticId: [1, 2] })).toBeNull();
+  });
+  
+});
+
+describe("game-domain handler — action forwarding", () => {
+  let service: BombermanService;
+
+  afterEach(() => {
+    vi.useRealTimers();
+    try {
+      service?.destroy();
+    } catch {
+      // ignore cleanup errors
+    }
+  });
+
+  it("SET_DIRECTION null reaches BombermanGame.handleAction with direction null and ID 2", () => {
+    service = new BombermanService("test-handler-1", "Room", makeConfig(), "host-1", "Host");
+    service.registerHandlers();
+    const room = (service as any).room as BombermanRoom;
+    room.addPlayer({ id: "host-1", name: "Host" }, mockConnector("host-1", "Host"));
+    room.addPlayer({ id: "p2", name: "P2" }, mockConnector("p2", "P2"));
+    service.startGame();
+
+    const gameHandler = domainHandlers.get(`game-${service.gameId}`);
+    expect(gameHandler).toBeDefined();
+
+    const game = (service as any).game as BombermanGame;
+    const spy = vi.spyOn(game, "handleAction");
+
+    const conn = mockConnector("host-1", "Host");
+    gameHandler(conn);
+
+    // Invoke the onClientMessage callback registered by the handler
+    const onMsg = conn.onClientMessage.mock.calls[0]?.[0];
+    expect(onMsg).toBeDefined();
+    onMsg({ type: "SET_DIRECTION", direction: null, optimisticId: 2 });
+
+    expect(spy).toHaveBeenCalledWith("host-1", { type: "SET_DIRECTION", direction: null, optimisticId: 2 });
+  });
+
+  it("malformed event does not call handleAction", () => {
+    service = new BombermanService("test-handler-2", "Room", makeConfig(), "host-1", "Host");
+    service.registerHandlers();
+    const room = (service as any).room as BombermanRoom;
+    room.addPlayer({ id: "host-1", name: "Host" }, mockConnector("host-1", "Host"));
+    room.addPlayer({ id: "p2", name: "P2" }, mockConnector("p2", "P2"));
+    service.startGame();
+
+    const gameHandler = domainHandlers.get(`game-${service.gameId}`);
+    const game = (service as any).game as BombermanGame;
+    const spy = vi.spyOn(game, "handleAction");
+
+    const conn = mockConnector("host-1", "Host");
+    gameHandler(conn);
+
+    const onMsg = conn.onClientMessage.mock.calls[0]?.[0];
+    expect(onMsg).toBeDefined();
+
+    // Unknown type
+    onMsg({ type: "FLY" });
+    expect(spy).not.toHaveBeenCalled();
+
+    // Malformed direction
+    onMsg({ type: "SET_DIRECTION", direction: "diagonal" });
+    expect(spy).not.toHaveBeenCalled();
+  });
+});
+
+describe("game-domain handler — connector close", () => {
+  let service: BombermanService;
+
+  afterEach(() => {
+    vi.useRealTimers();
+    try {
+      service?.destroy();
+    } catch {
+      // ignore cleanup errors
+    }
+  });
+
+  it("game connector close invokes stopMovement before surrender timeout", () => {
+    vi.useFakeTimers();
+    try {
+      service = new BombermanService("test-stop-1", "Room", makeConfig(), "host-1", "Host");
+      service.registerHandlers();
+      const room = (service as any).room as BombermanRoom;
+      room.addPlayer({ id: "host-1", name: "Host" }, mockConnector("host-1", "Host"));
+      room.addPlayer({ id: "p2", name: "P2" }, mockConnector("p2", "P2"));
+      service.startGame();
+
+      const gameHandler = domainHandlers.get(`game-${service.gameId}`);
+      expect(gameHandler).toBeDefined();
+
+      const game = (service as any).game as BombermanGame;
+      const stopSpy = vi.spyOn(game, "stopMovement");
+      const handleSpy = vi.spyOn(game, "handleAction");
+
+      const conn = mockConnector("host-1", "Host");
+      gameHandler(conn);
+
+      // The handler registers two onClose callbacks:
+      //   calls[0] = sync.addPlayer's internal cleanup
+      //   calls[1] = game handler's stopMovement + surrender timer
+      const syncOnClose = conn.onClose.mock.calls[0]?.[0];
+      const gameOnClose = conn.onClose.mock.calls[1]?.[0];
+      expect(syncOnClose).toBeDefined();
+      expect(gameOnClose).toBeDefined();
+
+      stopSpy.mockClear();
+
+      // Simulate full close sequence: sync cleanup first, then game handler
+      syncOnClose();
+      gameOnClose();
+
+      // stopMovement called immediately (synchronously, before any timer)
+      expect(stopSpy).toHaveBeenCalledWith("host-1");
+
+      // Surrender should not have been called yet (30s timer)
+      expect(handleSpy).not.toHaveBeenCalled();
+
+      // Advance 30s: surrender timer fires (sync cleanup already removed the
+      // connector from the map, so getPlayerConnector returns undefined)
+      vi.advanceTimersByTime(30000);
+      expect(handleSpy).toHaveBeenCalledWith("host-1", { type: "SURRENDER" });
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

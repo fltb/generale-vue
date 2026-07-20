@@ -1,6 +1,7 @@
 import type {
   BombermanState,
   BombermanOperation,
+  BombermanDirection,
   BombermanPlayer,
   PlayerId,
   BombermanConfig,
@@ -20,6 +21,10 @@ export class BombermanGame {
   private bots: Array<{ playerId: PlayerId; getAction: (state: BombermanState) => BombermanOperation }> = [];
   private syncData: Record<PlayerId, { lastConfirmedOp: number }> = {};
 
+  private intents: Record<
+    PlayerId,
+    { activeDirection: BombermanDirection | null; pendingDirection: BombermanDirection | null }
+  > = {};
   constructor(config: BombermanConfig, players: { id: string; name: string }[]) {
     const width = config.mapWidth;
     const height = config.mapHeight;
@@ -59,6 +64,7 @@ export class BombermanGame {
     };
 
     for (const p of players) this.queues[p.id] = [];
+    for (const p of players) this.intents[p.id] = { activeDirection: null, pendingDirection: null };
   }
 
   getSyncData(): Record<PlayerId, { lastConfirmedOp: number }> {
@@ -91,11 +97,13 @@ export class BombermanGame {
       facing: "down",
     };
     this.bots.push({ playerId, getAction });
+    this.intents[playerId] = { activeDirection: null, pendingDirection: null };
     this.queues[playerId] = [];
   }
 
-  handleAction(pid: PlayerId, op: BombermanOperation, optimisticId?: number): void {
+  handleAction(pid: PlayerId, op: BombermanOperation): void {
     // Track per-player confirmedOp — drop stale events
+    const optimisticId = op.optimisticId;
     if (!this.syncData[pid]) this.syncData[pid] = { lastConfirmedOp: 0 };
     if (typeof optimisticId === "number" && this.syncData[pid].lastConfirmedOp >= optimisticId) {
       return; // stale event, already confirmed
@@ -104,21 +112,18 @@ export class BombermanGame {
     if (!this.queues[pid]) this.queues[pid] = [];
 
     if (op.type === "SET_DIRECTION") {
-      // Discrete model: each SET_DIRECTION is exactly 1 tile. Client controls
-      // the rate (1 on keydown, re-sends every 100ms while held, null on keyup).
-      // This guarantees "1 press = 1 tile" without race conditions between
-      // keyup-null and server tick auto-injection.
-      if (op.direction === null) {
-        // Null = stop intent. DON'T dedup the existing SET_DIRECTION in queue —
-        // let the pending move process first, so brief keypresses still
-        // result in 1 tile of movement. The null is informational only; the
-        // next non-null event will overwrite, or queue exhaustion will end movement.
+      // Direction intent — does not enter the ordinary queue.
+      // Non-null direction both activates and marks a pending step.
+      // Null clears only activeDirection, preserving pending for one final step.
+      if (!this.intents[pid]) this.intents[pid] = { activeDirection: null, pendingDirection: null };
+      if (op.direction !== null) {
+        this.intents[pid].activeDirection = op.direction;
+        this.intents[pid].pendingDirection = op.direction;
       } else {
-        // Non-null: dedup existing SET_DIRECTION (replace intent), push new
-        this.queues[pid] = this.queues[pid].filter((o) => o.type !== "SET_DIRECTION");
-        this.queues[pid].push(op);
+        this.intents[pid].activeDirection = null;
       }
     } else {
+      // All other operations (MOVE, PLACE_BOMB, ACTION, DETONATE, SURRENDER, etc.)
       this.queues[pid].push(op);
     }
 
@@ -138,6 +143,23 @@ export class BombermanGame {
         this.queues[bot.playerId]?.push(action);
       }
 
+      // Materialize movement intent into queues before snapshot
+      for (const pid of Object.keys(this.queues)) {
+        const intent = this.intents[pid];
+        if (!intent) continue;
+        if (intent.pendingDirection) {
+          this.queues[pid]!.push({ type: "MOVE", direction: intent.pendingDirection });
+          intent.pendingDirection = null;
+        } else if (intent.activeDirection) {
+          const player = this.state.players[pid];
+          const speed = player?.speed ?? 1;
+          const steps = Math.max(1, speed);
+          for (let i = 0; i < steps; i++) {
+            this.queues[pid]!.push({ type: "MOVE", direction: intent.activeDirection });
+          }
+        }
+      }
+
       // Snapshot queues before tick — tick() is pure, does not mutate this.queues
       const snapshot: Record<PlayerId, BombermanOperation[]> = {};
       for (const [pid, ops] of Object.entries(this.queues)) {
@@ -153,24 +175,7 @@ export class BombermanGame {
         this.queues[pid] = remainingOps[pid] ?? [];
       }
 
-      // Re-inject direction from pre-tick snapshot so direction intent survives across ticks
-      for (const [pid, ops] of Object.entries(snapshot)) {
-        // Find the last SET_DIRECTION op in the pre-tick snapshot
-        let lastDir: BombermanOperation | undefined;
-        for (let i = ops.length - 1; i >= 0; i--) {
-          if (ops[i]?.type === "SET_DIRECTION") {
-            lastDir = ops[i];
-            break;
-          }
-        }
-        if (lastDir) {
-          if (!this.queues[pid]) this.queues[pid] = [];
-          // Only re-inject if no newer SET_DIRECTION was added during tick processing
-          if (!this.queues[pid].some((o) => o.type === "SET_DIRECTION")) {
-            this.queues[pid].push(lastDir);
-          }
-        }
-      }
+      // No direction re-injection — intents are materialized each tick above
 
       for (const cb of this.onTickCallbacks) {
         try {
@@ -179,16 +184,31 @@ export class BombermanGame {
       }
 
       if (this.state.status === GameStatus.Ended) {
-        this.stopTicking();
+        this.clearTickTimer();
         this.triggerEnd();
       }
     }, intervalMs);
   }
 
   stopTicking(): void {
-    if (this.tickTimerId) {
-      clearInterval(this.tickTimerId);
-      this.tickTimerId = null;
+    this.clearTickTimer();
+  }
+
+  private clearTickTimer(): void {
+    const tickTimerId = this.tickTimerId;
+    this.tickTimerId = null;
+
+    if (tickTimerId !== null) {
+      clearInterval(tickTimerId);
+    }
+  }
+
+  /** Stop movement for a player — clears both active and pending direction without changing confirmation. */
+  stopMovement(pid: PlayerId): void {
+    const intent = this.intents[pid];
+    if (intent) {
+      intent.activeDirection = null;
+      intent.pendingDirection = null;
     }
   }
 

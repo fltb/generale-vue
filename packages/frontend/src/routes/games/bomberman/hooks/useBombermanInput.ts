@@ -1,15 +1,13 @@
 import { createSignal, onCleanup } from "solid-js";
-import type { BombermanOperation, BombermanKeybindings } from "@generale/types";
+import type { BombermanOperation, BombermanKeybindings, BombermanDirection } from "@generale/types";
 import { bombermanSettingsSchema } from "@generale/types";
 import { useGameSettings } from "~/hooks/useGameSettings";
-
-type Direction = "up" | "down" | "left" | "right";
 
 function isDirectionKey(key: string, configured: string, wasd: string): boolean {
   return key === configured || key === wasd || key === wasd.toUpperCase();
 }
 
-function keyToDirection(key: string, kb: BombermanKeybindings): Direction | null {
+function keyToDirection(key: string, kb: BombermanKeybindings): BombermanDirection | null {
   if (isDirectionKey(key, kb.up, "w")) return "up";
   if (isDirectionKey(key, kb.down, "s")) return "down";
   if (isDirectionKey(key, kb.left, "a")) return "left";
@@ -22,63 +20,43 @@ export function useBombermanInput(onAction: (op: BombermanOperation) => void) {
   const [showVirtualControls, setShowVirtualControls] = createSignal(false);
   setShowVirtualControls(window.matchMedia("(pointer: coarse)").matches);
 
-  const held = new Set<string>();
-  // Track press order: last element is most-recently-pressed direction key
-  const pressOrder: string[] = [];
-  let lastSentDirection: Direction | null = null;
-  // Hold-repeat: re-send SET_DIRECTION every 100ms while a direction key is held.
-  // The server processes each SET_DIRECTION as exactly 1 tile, so this gives
-  // smooth continuous movement (1 tile/tick = 10 tiles/sec at 10 tps).
-  let holdRepeatTimer: number | null = null;
-  const HOLD_REPEAT_MS = 100;
+  // Track held direction sources with press order
+  const sources = new Map<string, { direction: BombermanDirection; order: number }>();
+  let nextOrder = 0;
+  let currentDirection: BombermanDirection | null = null;
 
-  function getLastPressedDirection(): Direction | null {
-    const kb = settings().keybindings;
-    // Walk pressOrder from back to front — first still-held direction key wins
-    for (let i = pressOrder.length - 1; i >= 0; i--) {
-      const key = pressOrder[i]!;
-      if (held.has(key)) {
-        const dir = keyToDirection(key, kb);
-        if (dir) return dir;
+  function getMostRecentDirection(): BombermanDirection | null {
+    let best: { direction: BombermanDirection; order: number } | null = null;
+    for (const entry of sources.values()) {
+      if (!best || entry.order > best.order) {
+        best = entry;
       }
     }
-    return null;
+    return best?.direction ?? null;
   }
 
-  function stopHoldRepeat() {
-    if (holdRepeatTimer !== null) {
-      window.clearInterval(holdRepeatTimer);
-      holdRepeatTimer = null;
+  function emitDirection(dir: BombermanDirection | null) {
+    if (dir !== currentDirection) {
+      currentDirection = dir;
+      onAction({ type: "SET_DIRECTION", direction: dir });
     }
   }
 
-  function startHoldRepeat(dir: Direction) {
-    stopHoldRepeat();
-    holdRepeatTimer = window.setInterval(() => {
-      // If the key that started this repeat is no longer held, stop.
-      // (We re-check via getLastPressedDirection to handle key-binding changes.)
-      const current = getLastPressedDirection();
-      if (current !== dir) {
-        stopHoldRepeat();
-        return;
-      }
-      // Re-send — server dedups queue so duplicate SET_DIRECTIONs are no-ops,
-      // and the optimistic queue sends each as a separate optimistic event.
-      onAction({ type: "SET_DIRECTION", direction: dir });
-    }, HOLD_REPEAT_MS);
+  function pressDirection(sourceId: string, direction: BombermanDirection) {
+    sources.set(sourceId, { direction, order: nextOrder++ });
+    emitDirection(getMostRecentDirection());
   }
 
-  function sendCurrentDirection() {
-    const dir = getLastPressedDirection();
-    if (dir !== lastSentDirection) {
-      lastSentDirection = dir;
-      onAction({ type: "SET_DIRECTION", direction: dir });
-      // Start hold-repeat for the new direction (only if non-null)
-      if (dir) {
-        startHoldRepeat(dir);
-      } else {
-        stopHoldRepeat();
-      }
+  function releaseDirection(sourceId: string) {
+    if (sources.delete(sourceId)) {
+      emitDirection(getMostRecentDirection());
+    }
+  }
+
+  function releaseAllDirections() {
+    if (sources.size > 0) {
+      sources.clear();
+      emitDirection(null);
     }
   }
 
@@ -86,52 +64,67 @@ export function useBombermanInput(onAction: (op: BombermanOperation) => void) {
     const key = e.key === "Spacebar" ? " " : e.key;
     const kb = settings().keybindings;
 
-    if (key === kb.placeBomb) {
+    // Ignore auto-repeat for all keys — exactly one dispatch per physical press
+    if (e.repeat) return;
+
+    // One-shot actions (match against both e.key and e.code for rebind robustness)
+    if (key === kb.placeBomb || e.code === kb.placeBomb) {
       e.preventDefault();
       onAction({ type: "PLACE_BOMB" });
       return;
     }
-    if (key === kb.action) {
+    if (key === kb.action || e.code === kb.action) {
       e.preventDefault();
       onAction({ type: "ACTION" });
       return;
     }
-    if (key === kb.detonate) {
+    if (key === kb.detonate || e.code === kb.detonate) {
       e.preventDefault();
       onAction({ type: "DETONATE" });
       return;
     }
-    if (key === kb.surrender) {
+    if (key === kb.surrender || e.code === kb.surrender) {
       e.preventDefault();
       onAction({ type: "SURRENDER" });
       return;
     }
 
-    held.add(key);
-    // Track press order for direction keys
-    if (keyToDirection(key, kb)) {
-      pressOrder.push(key);
+    // Direction key — ignore duplicate sources
+    const sourceId = `keyboard:${e.code}`;
+    if (sources.has(sourceId)) return;
+    const dir = keyToDirection(key, kb);
+    if (dir) {
+      pressDirection(sourceId, dir);
     }
-    sendCurrentDirection();
   }
 
   function onKeyUp(e: KeyboardEvent) {
-    const key = e.key === "Spacebar" ? " " : e.key;
-    held.delete(key);
-    // If we're releasing a direction key, immediately switch to the next held direction
-    if (keyToDirection(key, settings().keybindings)) {
-      sendCurrentDirection();
+    const sourceId = `keyboard:${e.code}`;
+    releaseDirection(sourceId);
+  }
+
+  function onBlur() {
+    releaseAllDirections();
+  }
+
+  function onVisibilityChange() {
+    if (document.hidden) {
+      releaseAllDirections();
     }
   }
 
   window.addEventListener("keydown", onKeyDown);
   window.addEventListener("keyup", onKeyUp);
+  window.addEventListener("blur", onBlur);
+  window.addEventListener("visibilitychange", onVisibilityChange);
 
   onCleanup(() => {
     window.removeEventListener("keydown", onKeyDown);
     window.removeEventListener("keyup", onKeyUp);
-    stopHoldRepeat();
+    window.removeEventListener("blur", onBlur);
+    window.removeEventListener("visibilitychange", onVisibilityChange);
+    releaseAllDirections();
   });
 
-  return { showVirtualControls };
+  return { showVirtualControls, pressDirection, releaseDirection, releaseAllDirections };
 }

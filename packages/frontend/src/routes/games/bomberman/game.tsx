@@ -32,7 +32,9 @@ interface BombermanGameProps {
 export function BombermanGame(props: BombermanGameProps) {
   const { t } = useT();
   const session = useBombermanGameSession(props.gameSync, () => props.playerId ?? "", props.spectate);
-  const { showVirtualControls } = useBombermanInput(props.spectate ? () => {} : session.onAction);
+  const { showVirtualControls, pressDirection, releaseDirection } = useBombermanInput(
+    props.spectate ? () => {} : session.onAction,
+  );
   const { settings: gameSettings } = useGameSettings(bombermanSettingsSchema);
   const [showScoreboard, setShowScoreboard] = createSignal(false);
   const [rankings, setRankings] = createSignal<{ name: string; rank: number }[]>([]);
@@ -194,6 +196,7 @@ export function BombermanGame(props: BombermanGameProps) {
               bombs={state().bombs ?? []}
               explosions={state().explosions ?? []}
               items={state().items ?? []}
+              tickRate={state().config.tickRate}
             />
           </Application>
         </Show>
@@ -232,7 +235,11 @@ export function BombermanGame(props: BombermanGameProps) {
         </div>
       </Show>
       <Show when={!props.spectate && showVirtualControls()}>
-        <VirtualControls onAction={session.onAction} />
+        <VirtualControls
+          pressDirection={pressDirection}
+          releaseDirection={releaseDirection}
+          onAction={session.onAction}
+        />
       </Show>
       {/* Spectate mode badge + leave button */}
       <Show when={props.spectate}>

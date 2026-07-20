@@ -13,8 +13,8 @@ export interface FrameDef {
   h: number;
 }
 
-const FRAME = 16;
-const COLS = 15;
+export const FRAME = 16;
+export const COLS = 15;
 
 /** Convert Tiled tile ID (1-based) to pixel frame coordinates */
 function tid(id: number): FrameDef {
@@ -41,8 +41,8 @@ export interface PlayerFrames {
 }
 
 /**
- * Player 0 (blue-ish): Row 13-19
- *   up=210, down=211, right=214, left=288
+ * Player 0 (blue-ish): Row 15
+ *   up=217, down=211, right=214, left=288
  *   walk-down: 212,213  walk-right: 215,216,217  walk-up: 218,219  walk-left: 285,286,287
  */
 const p0: PlayerFrames = {
@@ -50,15 +50,15 @@ const p0: PlayerFrames = {
   walkDown: [tid(212), tid(213)],
   idleRight: tid(214),
   walkRight: [tid(215), tid(216), tid(217)],
-  idleUp: tid(210),
+  idleUp: tid(217),
   walkUp: [tid(218), tid(219)],
   walkLeft: [tid(285), tid(286), tid(287)],
   idleLeft: tid(288),
 };
 
 /**
- * Player 1 (green): Row 13-18
- *   up=255, down=256, right=259, left=202
+ * Player 1 (green): Row 18
+ *   up=262, down=256, right=259, left=202
  *   walk-down: 257,258  walk-right: 260,261,262  walk-up: 263,264  walk-left: 199,200,201
  */
 const p1: PlayerFrames = {
@@ -66,15 +66,15 @@ const p1: PlayerFrames = {
   walkDown: [tid(257), tid(258)],
   idleRight: tid(259),
   walkRight: [tid(260), tid(261), tid(262)],
-  idleUp: tid(255),
+  idleUp: tid(262),
   walkUp: [tid(263), tid(264)],
   walkLeft: [tid(199), tid(200), tid(201)],
   idleLeft: tid(202),
 };
 
 /**
- * Player 2 (red): Row 14-19
- *   up=225, down=226, right=229, left=292
+ * Player 2 (red): Row 16
+ *   up=232, down=226, right=229, left=292
  *   walk-down: 227,228  walk-right: 230,231,232  walk-up: 233,234  walk-left: 289,290,291
  */
 const p2: PlayerFrames = {
@@ -82,15 +82,15 @@ const p2: PlayerFrames = {
   walkDown: [tid(227), tid(228)],
   idleRight: tid(229),
   walkRight: [tid(230), tid(231), tid(232)],
-  idleUp: tid(225),
+  idleUp: tid(232),
   walkUp: [tid(233), tid(234)],
   walkLeft: [tid(289), tid(290), tid(291)],
   idleLeft: tid(292),
 };
 
 /**
- * Player 3 (purple): Row 15-19
- *   up=240, down=241, right=244(=walk-right0), left=296
+ * Player 3 (purple): Row 17
+ *   up=247, down=241, right=244(=walk-right0), left=296
  *   walk-down: 242,243  walk-right: 244,245,246  walk-up: 248,249  walk-left: 293,294,295
  */
 const p3: PlayerFrames = {
@@ -98,7 +98,7 @@ const p3: PlayerFrames = {
   walkDown: [tid(242), tid(243)],
   idleRight: tid(244),
   walkRight: [tid(244), tid(245), tid(246)],
-  idleUp: tid(240),
+  idleUp: tid(247),
   walkUp: [tid(248), tid(249)],
   walkLeft: [tid(293), tid(294), tid(295)],
   idleLeft: tid(296),

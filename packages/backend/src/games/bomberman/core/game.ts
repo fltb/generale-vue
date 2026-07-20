@@ -449,11 +449,7 @@ export function tick(state: BombermanState, queues: Record<PlayerId, BombermanOp
           const dir = op.direction ?? null;
           if (dir) {
             player.facing = dir;
-            const steps = Math.max(1, player.speed);
-            for (let i = 0; i < steps; i++) {
-              const moved = moveOneTile(player, dir, next);
-              if (!moved.moved) break;
-            }
+            moveOneTile(player, dir, next);
           }
           break;
         }

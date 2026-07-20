@@ -29,6 +29,7 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 
 # OpenCode / AI agent instruction files (local-only)
 AGENTS.md
+.omp/
 
 # IntelliJ based IDEs
 .idea

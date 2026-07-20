@@ -1,45 +1,48 @@
-import type { BombermanOperation } from "@generale/types";
+import type { BombermanOperation, BombermanDirection } from "@generale/types";
 import { useT } from "~/i18n/useT";
 
 interface VirtualControlsProps {
+  pressDirection: (sourceId: string, direction: BombermanDirection) => void;
+  releaseDirection: (sourceId: string) => void;
   onAction: (op: BombermanOperation) => void;
 }
 
-function createDirectionButton(
-  direction: "up" | "down" | "left" | "right",
-  symbol: string,
-  onAction: (op: BombermanOperation) => void,
-) {
-  let interval: ReturnType<typeof setInterval> | null = null;
+function DirectionButton(props: {
+  direction: BombermanDirection;
+  symbol: string;
+  pressDirection: (sourceId: string, direction: BombermanDirection) => void;
+  releaseDirection: (sourceId: string) => void;
+}) {
+  const activePointerIds = new Set<number>();
+
+  const handlePointerRelease = (e: PointerEvent) => {
+    if (activePointerIds.has(e.pointerId)) {
+      activePointerIds.delete(e.pointerId);
+      const btn = e.currentTarget as HTMLButtonElement;
+      // Only release capture if it is still held — otherwise NotFoundError per spec §4.5
+      if (btn.hasPointerCapture(e.pointerId)) {
+        btn.releasePointerCapture(e.pointerId);
+      }
+      props.releaseDirection(`pointer:${e.pointerId}`);
+    }
+  };
 
   return (
     <button
       type="button"
       class="w-14 h-14 bg-gray-700/80 rounded text-white text-2xl active:bg-gray-500 select-none touch-none"
-      onTouchStart={(e) => {
+      onPointerDown={(e) => {
         e.preventDefault();
-        onAction({ type: "MOVE", direction }); // immediate first move
-        // Then repeat every 80ms to match server tick rate
-        interval = setInterval(() => {
-          onAction({ type: "MOVE", direction });
-        }, 80);
+        const btn = e.currentTarget as HTMLButtonElement;
+        btn.setPointerCapture(e.pointerId);
+        activePointerIds.add(e.pointerId);
+        props.pressDirection(`pointer:${e.pointerId}`, props.direction);
       }}
-      onTouchEnd={(e) => {
-        e.preventDefault();
-        if (interval) {
-          clearInterval(interval);
-          interval = null;
-        }
-      }}
-      onTouchCancel={(e) => {
-        e.preventDefault();
-        if (interval) {
-          clearInterval(interval);
-          interval = null;
-        }
-      }}
+      onPointerUp={handlePointerRelease}
+      onPointerCancel={handlePointerRelease}
+      onLostPointerCapture={handlePointerRelease}
     >
-      {symbol}
+      {props.symbol}
     </button>
   );
 }
@@ -50,13 +53,33 @@ export function VirtualControls(props: VirtualControlsProps) {
     <div class="fixed bottom-4 left-4 right-4 flex justify-between pointer-events-none z-50">
       <div class="pointer-events-auto grid grid-cols-3 gap-1">
         <div />
-        {createDirectionButton("up", "▲", props.onAction)}
+        <DirectionButton
+          direction="up"
+          symbol="▲"
+          pressDirection={props.pressDirection}
+          releaseDirection={props.releaseDirection}
+        />
         <div />
-        {createDirectionButton("left", "◀", props.onAction)}
+        <DirectionButton
+          direction="left"
+          symbol="◀"
+          pressDirection={props.pressDirection}
+          releaseDirection={props.releaseDirection}
+        />
         <div class="w-14 h-14" />
-        {createDirectionButton("right", "▶", props.onAction)}
+        <DirectionButton
+          direction="right"
+          symbol="▶"
+          pressDirection={props.pressDirection}
+          releaseDirection={props.releaseDirection}
+        />
         <div />
-        {createDirectionButton("down", "▼", props.onAction)}
+        <DirectionButton
+          direction="down"
+          symbol="▼"
+          pressDirection={props.pressDirection}
+          releaseDirection={props.releaseDirection}
+        />
         <div />
       </div>
       <div class="pointer-events-auto flex flex-col items-center gap-2">

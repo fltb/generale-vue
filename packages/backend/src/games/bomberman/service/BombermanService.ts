@@ -1,6 +1,7 @@
 import type {
   BombermanConfig,
   BombermanOperation,
+  BombermanDirection,
   BombermanState,
   ChatClientToServer,
   ChatServerToClient,
@@ -19,6 +20,60 @@ import type { SyncConnector } from "../../../game/instance/sync-manager";
 import { BombermanGame } from "../instance/BombermanGame";
 import { BombermanRoom } from "../instance/BombermanRoom";
 
+function isBombermanDirection(value: unknown): value is BombermanDirection {
+  return value === "up" || value === "down" || value === "left" || value === "right";
+}
+
+export function decodeBombermanOperation(value: unknown): BombermanOperation | null {
+  if (typeof value !== "object" || value === null) return null;
+  const event = value as Record<string, unknown>;
+  const type = event["type"];
+  if (typeof type !== "string") return null;
+
+  // Reject present non-number optimisticId — absent remains valid
+  if ("optimisticId" in event && typeof event["optimisticId"] !== "number") return null;
+  const optimisticId = typeof event["optimisticId"] === "number" ? event["optimisticId"] : undefined;
+
+  switch (type) {
+    case "SET_DIRECTION": {
+      const dir = event["direction"];
+      if (dir === null || dir === undefined) {
+        return { type: "SET_DIRECTION", direction: null, ...(optimisticId !== undefined ? { optimisticId } : {}) };
+      }
+      if (isBombermanDirection(dir)) {
+        return {
+          type: "SET_DIRECTION",
+          direction: dir,
+          ...(optimisticId !== undefined ? { optimisticId } : {}),
+        };
+      }
+      return null; // malformed direction
+    }
+    case "MOVE": {
+      const dir = event["direction"];
+      if (isBombermanDirection(dir)) {
+        return {
+          type: "MOVE",
+          direction: dir,
+          ...(optimisticId !== undefined ? { optimisticId } : {}),
+        };
+      }
+      return null;
+    }
+    case "PLACE_BOMB":
+      return { type: "PLACE_BOMB", ...(optimisticId !== undefined ? { optimisticId } : {}) };
+    case "ACTION":
+      return { type: "ACTION", ...(optimisticId !== undefined ? { optimisticId } : {}) };
+    case "DETONATE":
+      return { type: "DETONATE", ...(optimisticId !== undefined ? { optimisticId } : {}) };
+    case "SURRENDER":
+      return { type: "SURRENDER", ...(optimisticId !== undefined ? { optimisticId } : {}) };
+    case "NOOP":
+      return { type: "NOOP", ...(optimisticId !== undefined ? { optimisticId } : {}) };
+    default:
+      return null;
+  }
+}
 export class BombermanService {
   public gameId: GameId;
   public roomName: string;
@@ -121,16 +176,13 @@ export class BombermanService {
 
       // Register action handler (game-specific — NOT in sync manager)
       connector.onClientMessage((evt) => {
-        const e = evt as Record<string, unknown>;
-        const op = {
-          type: e["type"],
-          ...(e["direction"] ? { direction: e["direction"] } : {}),
-        } as unknown as BombermanOperation;
-        g.handleAction(userid, op, e["optimisticId"] as number | undefined);
+        const op = decodeBombermanOperation(evt);
+        if (!op) return;
+        g.handleAction(userid, op);
       });
-
       // Auto-surrender after 30s of disconnection
       connector.onClose(() => {
+        g.stopMovement(userid);
         const timer = setTimeout(() => {
           if (this.game && !this.sync.getPlayerConnector(userid)) {
             this.game.handleAction(userid, { type: "SURRENDER" });
@@ -175,7 +227,7 @@ export class BombermanService {
     // Solo test bot
     if (roomPlayers.length === 1) {
       const botId = `bot-${this.gameId}`;
-      const dirs: Array<"up" | "down" | "left" | "right"> = ["up", "down", "left", "right"];
+      const dirs: BombermanDirection[] = ["up", "down", "left", "right"];
       g.addBot(botId, () => {
         const roll = Math.random();
         const dir = dirs[Math.floor(Math.random() * dirs.length)];

@@ -1,9 +1,10 @@
 import type { BombermanPlayer, Bomb, Explosion, Item } from "@generale/types";
 import type { Graphics as PIXIGraphics, Texture } from "pixi.js";
-import { For, Show, createEffect, createMemo, createSignal } from "solid-js";
+import { For, Show, createEffect, createMemo, createSignal, onCleanup, type Accessor } from "solid-js";
 import { Container, Graphics as PGraphics, Sprite } from "solid-pixi";
 import { useSprites, type PlayerTextures } from "../hooks/useSprites";
 import { TILE_SIZE } from "../sprites/spritesheet";
+import { useInterpolatedBombermanPosition } from "../hooks/useInterpolatedBombermanPosition";
 
 // ─── Fallback colors for items without sprites ───
 const ITEM_DOT_COLORS: Record<string, number> = {
@@ -19,6 +20,7 @@ interface EntityLayerProps {
   bombs: Bomb[];
   explosions: Explosion[];
   items: Item[];
+  tickRate: number;
 }
 
 /** Pick idle or walk frame based on facing direction and animation tick. */
@@ -30,15 +32,60 @@ function getPlayerTexture(pt: PlayerTextures, facing: string, frame: number): Te
   return pt.idleDown;
 }
 
+function PlayerSprite(props: {
+  player: BombermanPlayer;
+  sprites: PlayerTextures[];
+  colorIdx: number;
+  tick: Accessor<number>;
+  tickRate: number;
+}) {
+  const target = () => ({
+    x: props.player.x,
+    y: props.player.y,
+    speed: props.player.speed,
+    tickRate: props.tickRate,
+    alive: props.player.alive,
+  });
+  const { x, y, moving } = useInterpolatedBombermanPosition(target);
+
+  const tex = () => {
+    const pt = props.sprites[props.colorIdx];
+    if (!moving()) {
+      const key = props.player.facing === "right" ? "left" : props.player.facing;
+      if (key === "up") return pt.idleUp;
+      if (key === "down") return pt.idleDown;
+      if (key === "left") return pt.idleLeft;
+      return pt.idleDown;
+    }
+    return getPlayerTexture(pt, props.player.facing, props.tick());
+  };
+
+  const flipX = () => (props.player.facing === "right" ? -1 : 1);
+
+  return (
+    <Sprite
+      texture={tex()}
+      x={x() * TILE_SIZE + TILE_SIZE / 2}
+      y={y() * TILE_SIZE + TILE_SIZE / 2}
+      anchor={{ x: 0.5, y: 0.5 }}
+      scale={{
+        x: (TILE_SIZE / 16) * 0.9 * flipX(),
+        y: (TILE_SIZE / 16) * 0.9,
+      }}
+      zIndex={10}
+    />
+  );
+}
+
 export function EntityLayer(props: EntityLayerProps) {
   const s = useSprites();
 
-  // ── Tick counter for animation ──
+  // ── Tick counter for walk animation frame cycling ──
   const [tick, setTick] = createSignal(0);
-  createEffect(() => {
-    // Increment tick on every effect run to drive frame animation
+  const animTimer = setInterval(() => {
     setTick((t) => (t + 1) % 1000);
-  });
+  }, 150);
+  onCleanup(() => clearInterval(animTimer));
 
   // ── Items only with sprites ──
   const spritedItems = createMemo(() => {
@@ -56,9 +103,10 @@ export function EntityLayer(props: EntityLayerProps) {
             {(item) => (
               <Sprite
                 texture={sprites().items[item.type]}
-                x={item.x * TILE_SIZE + 2}
-                y={item.y * TILE_SIZE + 2}
-                scale={{ x: (TILE_SIZE / 16) * 0.6, y: (TILE_SIZE / 16) * 0.6 }}
+                x={item.x * TILE_SIZE + TILE_SIZE / 2}
+                y={item.y * TILE_SIZE + TILE_SIZE / 2}
+                anchor={{ x: 0.5, y: 0.5 }}
+                scale={{ x: (TILE_SIZE / 16) * 0.85, y: (TILE_SIZE / 16) * 0.85 }}
                 zIndex={1}
               />
             )}
@@ -107,17 +155,13 @@ export function EntityLayer(props: EntityLayerProps) {
             {(player, idx) => {
               if (!player.alive) return null;
               const colorIdx = idx() % sprites().players.length;
-              const pt = sprites().players[colorIdx];
-              const tex = getPlayerTexture(pt, player.facing, tick());
-              const flipX = player.facing === "right" ? -1 : 1;
               return (
-                <Sprite
-                  texture={tex}
-                  x={player.x * TILE_SIZE + TILE_SIZE / 2}
-                  y={player.y * TILE_SIZE + TILE_SIZE / 2}
-                  anchor={{ x: 0.5, y: 0.5 }}
-                  scale={{ x: (TILE_SIZE / 16) * 0.9 * flipX, y: (TILE_SIZE / 16) * 0.9 }}
-                  zIndex={10}
+                <PlayerSprite
+                  player={player}
+                  sprites={sprites().players}
+                  colorIdx={colorIdx}
+                  tick={tick}
+                  tickRate={props.tickRate}
                 />
               );
             }}

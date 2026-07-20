@@ -1,6 +1,7 @@
 import type { GameStatus } from "../core-type";
 
 export type ItemType = "BOMB_UP" | "FIRE_UP" | "SPEED_UP" | "KICK" | "GLOVE" | "PUNCH" | "REMOTE" | "PIERCE" | "SPIRIT";
+export type BombermanDirection = "up" | "down" | "left" | "right";
 
 export interface BombermanTile {
   type: "empty" | "hard_wall" | "soft_wall";
@@ -23,7 +24,7 @@ export interface BombermanPlayer {
   blastRadius: number;
   speed: number;
   items: ItemType[];
-  facing: "up" | "down" | "left" | "right";
+  facing: BombermanDirection;
   carriedBomb?: string;
 }
 
@@ -79,8 +80,8 @@ export interface BombermanState {
 }
 
 export type BombermanOperation =
-  | { type: "MOVE"; direction: "up" | "down" | "left" | "right"; optimisticId?: number }
-  | { type: "SET_DIRECTION"; direction: "up" | "down" | "left" | "right" | null; optimisticId?: number }
+  | { type: "MOVE"; direction: BombermanDirection; optimisticId?: number }
+  | { type: "SET_DIRECTION"; direction: BombermanDirection | null; optimisticId?: number }
   | { type: "PLACE_BOMB"; optimisticId?: number }
   | { type: "ACTION"; optimisticId?: number }
   | { type: "DETONATE"; optimisticId?: number }

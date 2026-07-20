@@ -51,53 +51,49 @@ export class BombermanManager {
 
   // subscribe helpers — return unsubscribe function
   public onRoomCreated(cb: (roomId: string) => void): () => void {
-    this.roomCreatedCallbacks.push(cb);
-    return () => {
-      const i = this.roomCreatedCallbacks.indexOf(cb);
-      if (i >= 0) this.roomCreatedCallbacks.splice(i, 1);
-    };
+    return this.subscribe(this.roomCreatedCallbacks, cb);
   }
+
   public onRoomUpdated(cb: (roomId: string) => void): () => void {
-    this.roomUpdatedCallbacks.push(cb);
-    return () => {
-      const i = this.roomUpdatedCallbacks.indexOf(cb);
-      if (i >= 0) this.roomUpdatedCallbacks.splice(i, 1);
-    };
+    return this.subscribe(this.roomUpdatedCallbacks, cb);
   }
+
   public onRoomDeleted(cb: (roomId: string) => void): () => void {
-    this.roomDeletedCallbacks.push(cb);
+    return this.subscribe(this.roomDeletedCallbacks, cb);
+  }
+
+  private subscribe<T>(callbacks: T[], callback: T): () => void {
+    callbacks.push(callback);
     return () => {
-      const i = this.roomDeletedCallbacks.indexOf(cb);
-      if (i >= 0) this.roomDeletedCallbacks.splice(i, 1);
+      const index = callbacks.indexOf(callback);
+      if (index >= 0) callbacks.splice(index, 1);
     };
   }
 
-  private notifyRoomCreated(roomId: string) {
-    for (const cb of this.roomCreatedCallbacks) {
-      try {
-        cb(roomId);
-      } catch (err) {
-        console.error("[BombermanManager] notifyRoomCreated error", err);
-      }
+  private notify<T>(callbacks: readonly ((value: T) => void)[], value: T, diagnosticMessage: string): void {
+    callbacks.forEach((callback) => {
+      this.notifyCallback(callback, value, diagnosticMessage);
+    });
+  }
+
+  private notifyCallback<T>(callback: (value: T) => void, value: T, diagnosticMessage: string): void {
+    try {
+      callback(value);
+    } catch (error) {
+      console.error(diagnosticMessage, error);
     }
   }
-  private notifyRoomUpdated(roomId: string) {
-    for (const cb of this.roomUpdatedCallbacks) {
-      try {
-        cb(roomId);
-      } catch (err) {
-        console.error("[BombermanManager] notifyRoomUpdated error", err);
-      }
-    }
+
+  private notifyRoomCreated(roomId: string): void {
+    this.notify(this.roomCreatedCallbacks, roomId, "[BombermanManager] notifyRoomCreated error");
   }
-  private notifyRoomDeleted(roomId: string) {
-    for (const cb of this.roomDeletedCallbacks) {
-      try {
-        cb(roomId);
-      } catch (err) {
-        console.error("[BombermanManager] notifyRoomDeleted error", err);
-      }
-    }
+
+  private notifyRoomUpdated(roomId: string): void {
+    this.notify(this.roomUpdatedCallbacks, roomId, "[BombermanManager] notifyRoomUpdated error");
+  }
+
+  private notifyRoomDeleted(roomId: string): void {
+    this.notify(this.roomDeletedCallbacks, roomId, "[BombermanManager] notifyRoomDeleted error");
   }
 
   createGame(

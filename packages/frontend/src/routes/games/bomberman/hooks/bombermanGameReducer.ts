@@ -36,44 +36,11 @@ export function applyBombermanEventLocal(
   if (op.type === "SET_DIRECTION") {
     const player = next.players?.[localPlayerId];
     if (player?.alive) {
-      player.facing = op.direction ?? player.facing;
-      // Wall-aware optimistic movement: only move if the target tile is
-      // walkable (no hard/soft wall), not occupied by another player, and
-      // not blocked by a bomb (except own bomb or SPIRIT item).
-      // Without these checks, the player visually walks into walls/bombs
-      // and the server "snaps" them back, producing a jarring pop-out effect.
-      if (op.direction) {
-        let tx = player.x;
-        let ty = player.y;
-        if (op.direction === "up") ty -= 1;
-        else if (op.direction === "down") ty += 1;
-        else if (op.direction === "left") tx -= 1;
-        else if (op.direction === "right") tx += 1;
-
-        // Bounds check
-        const mapW = state.config.mapWidth ?? 0;
-        const mapH = state.config.mapHeight ?? 0;
-        if (tx < 0 || ty < 0 || tx >= mapW || ty >= mapH) return next;
-
-        // Wall check: hard_wall and soft_wall block movement
-        const tile = state.map.tiles?.[ty]?.[tx];
-        if (tile?.type === "hard_wall" || tile?.type === "soft_wall") return next;
-
-        // Player collision: another alive player on the target tile
-        const blockedByPlayer = Object.values(next.players).some(
-          (p) => p.playerId !== localPlayerId && p.alive && p.x === tx && p.y === ty,
-        );
-        if (blockedByPlayer) return next;
-
-        // Bomb collision: block unless SPIRIT or own bomb
-        const hasSpirit = player.items?.includes("SPIRIT");
-        const blockedByBomb = (next.bombs ?? []).some(
-          (b) => b.x === tx && b.y === ty && !hasSpirit && b.playerId !== localPlayerId,
-        );
-        if (blockedByBomb) return next;
-
-        player.x = tx;
-        player.y = ty;
+      // Non-null direction updates facing only; position is authoritative from server.
+      // No client-side position prediction — server materializes movement intents
+      // during each tick and the interpolation hook smooths the result.
+      if (op.direction !== null) {
+        player.facing = op.direction;
       }
     }
   }

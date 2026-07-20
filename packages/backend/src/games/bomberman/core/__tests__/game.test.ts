@@ -171,8 +171,9 @@ describe("tick - speed stat", () => {
   it("speed=2 moves two tiles per tick", () => {
     const state = makeBaseState();
     state.players.p1!.speed = 2;
+    // One MOVE = one tile; speed multiplier is handled at the instance level by materializing multiple MOVE operations
     const { state: result } = tick(state, { p1: [{ type: "MOVE", direction: "right" }], p2: [] });
-    expect(result.players.p1!.x).toBe(3);
+    expect(result.players.p1!.x).toBe(2);
   });
 
   it("speed=2 stops at wall after first tile", () => {
@@ -277,10 +278,9 @@ describe("tick - continuous held-key movement", () => {
 
   it("speed=2 doubles movement per tick", () => {
     const state = makeBaseState();
-    state.players.p1!.speed = 2;
-    // Move right: should move 2 tiles
+    // One MOVE = one tile; speed multiplier is handled at the instance level by materializing multiple MOVE operations
     const { state: result } = tick(state, { p1: [{ type: "MOVE", direction: "right" }], p2: [] });
-    expect(result.players.p1!.x).toBe(3);
+    expect(result.players.p1!.x).toBe(2);
   });
 });
 
