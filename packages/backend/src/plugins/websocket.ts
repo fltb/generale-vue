@@ -88,7 +88,8 @@ export type WebSocketMessage<T = unknown, Context extends WSContextBase = WSCont
   | { domain: string; type: "open"; payload: Context }
   | { domain: string; type: "close"; payload?: { code?: number; reason?: string } }
   | { domain: string; type: "message"; payload: T }
-  | { domain: string; type: "reconnect"; payload?: unknown };
+  | { domain: string; type: "reconnect"; payload?: unknown }
+  | { type: "ping"; payload?: { sentAt?: number } };
 
 export interface SubConnector<CEvt = unknown, SEvt = unknown, Ctx extends WSContextBase = WSContextBase>
   extends ServerSyncConnector<CEvt, SEvt> {
@@ -230,13 +231,13 @@ export class SubConnectorImpl<CEvt = unknown, SEvt = unknown, Ctx extends WSCont
   }
 }
 
-interface RawElysiaWs {
+export interface RawElysiaWs {
   send(data: unknown, compress?: boolean): number;
   close(code?: number, reason?: string): void;
   data?: Record<string, unknown>;
 }
 
-class WebSocketConnectionManager<T = unknown, Context extends WSContextBase = WSContextBase> {
+export class WebSocketConnectionManager<T = unknown, Context extends WSContextBase = WSContextBase> {
   context: Context = {} as Context;
   private ws: RawElysiaWs | null = null;
   private subConnectors = new Map<string, SubConnectorImpl<unknown, unknown, WSContextBase>>();
@@ -261,6 +262,15 @@ class WebSocketConnectionManager<T = unknown, Context extends WSContextBase = WS
   }
 
   handleMessage(message: WebSocketMessage<T, Context>) {
+    if (message.type === "ping") {
+      const sentAt = message.payload?.sentAt;
+      if (Number.isFinite(sentAt)) {
+        this.sendRaw({ type: "pong", payload: { sentAt, serverAt: Date.now() } });
+      } else {
+        console.warn("Invalid ping payload: sentAt must be a finite number");
+      }
+      return;
+    }
     const { domain, type, payload } = message;
     console.debug(`recv event type ${type} to domain ${domain}`);
     switch (type) {
