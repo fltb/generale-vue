@@ -1,19 +1,30 @@
-import type { BombermanRoomState, BombermanPreGameClientDispatch } from "@generale/types";
+import type { BombermanMatchState, BombermanPreGameClientDispatch, BombermanRoomState } from "@generale/types";
 
 /**
  * Local optimistic reducer for bomberman room (pregame) state.
  * Pure function — no UI/connection dependencies.
  *
- * Handles: CHANGE_CONFIG, READY, UNREADY, KICK_PLAYER, START_GAME, DISBAND_ROOM.
+ * Handles client actions and local lifecycle match synchronization.
  */
+export type BombermanRoomLifecycleAction =
+  | { type: "ROUND_STARTED"; match: BombermanMatchState }
+  | { type: "ROUND_ENDED"; match: BombermanMatchState }
+  | { type: "MATCH_ENDED"; match: BombermanMatchState };
+
 export function applyBombermanRoomEventLocal(
   state: BombermanRoomState,
-  action: BombermanPreGameClientDispatch,
-  localPlayerId: string,
+  action: BombermanPreGameClientDispatch | BombermanRoomLifecycleAction,
+  localPlayerId = "",
 ): BombermanRoomState {
   const next = JSON.parse(JSON.stringify(state)) as BombermanRoomState;
 
   switch (action.type) {
+    case "ROUND_STARTED":
+    case "ROUND_ENDED":
+    case "MATCH_ENDED": {
+      next.match = structuredClone(action.match);
+      break;
+    }
     case "CHANGE_CONFIG": {
       const payload = action.payload;
       if (payload.playerLimit !== undefined) next.maxPlayers = payload.playerLimit;

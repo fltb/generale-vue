@@ -213,6 +213,7 @@ export function useBombermanRoomSession(params: {
     onCustomEvent: (evt: BombermanPreGameServerEvent) => {
       switch (evt.type) {
         case "roundstarted":
+          applyLifecycleMatch("ROUND_STARTED", evt.match);
           setPhase("playing");
           setSelfStatus("playing");
           setTimeout(() => {
@@ -221,11 +222,13 @@ export function useBombermanRoomSession(params: {
           }, 500);
           break;
         case "roundended":
+          applyLifecycleMatch("ROUND_ENDED", evt.match);
           setPhase("between_rounds");
           gameSync.disconnect();
           gameSync.reset(null as unknown as BombermanState);
           break;
         case "matchended":
+          applyLifecycleMatch("MATCH_ENDED", evt.match);
           setPhase("ended");
           setMatchRankings(evt.rankings);
           setGameJustEnded(true);
@@ -277,6 +280,14 @@ export function useBombermanRoomSession(params: {
     },
     autoOpen: false,
   });
+
+  function applyLifecycleMatch(
+    type: "ROUND_STARTED" | "ROUND_ENDED" | "MATCH_ENDED",
+    match: BombermanRoomState["match"],
+  ) {
+    const nextRoomState = applyBombermanRoomEventLocal(roomSync.state(), { type, match });
+    roomSync.reset(nextRoomState);
+  }
 
   onMount(async () => {
     try {

@@ -16,9 +16,10 @@ function connector() {
   };
 }
 
-function createService(format: "single" | "bo3" | "bo5") {
+function createService(format: "single" | "bo3" | "bo5", teamMode: "ffa" | "team" = "ffa") {
   const config = defaultBombermanConfig();
   config.matchFormat = format;
+  config.teamMode = teamMode;
   const service = new BombermanService("series", "Series", config, "p1", "P1");
   const room = (service as unknown as { room: BombermanRoom }).room;
   const p1Connector = connector();
@@ -65,7 +66,10 @@ describe("Bomberman match lifecycle", () => {
         currentRound: 2,
         currentAttempt: 1,
         nextRoundStartsAt: expect.any(Number),
-        scores: [{ competitor: { kind: "player", id: "p1" }, wins: 1 }],
+        scores: [
+          { competitor: { kind: "player", id: "p1" }, wins: 1 },
+          { competitor: { kind: "player", id: "p2" }, wins: 0 },
+        ],
         winner: null,
       },
     });
@@ -81,7 +85,10 @@ describe("Bomberman match lifecycle", () => {
         currentRound: 2,
         currentAttempt: 1,
         nextRoundStartsAt: null,
-        scores: [{ competitor: { kind: "player", id: "p1" }, wins: 2 }],
+        scores: [
+          { competitor: { kind: "player", id: "p1" }, wins: 2 },
+          { competitor: { kind: "player", id: "p2" }, wins: 0 },
+        ],
         winner: { kind: "player", id: "p1" },
       },
     });
@@ -90,6 +97,30 @@ describe("Bomberman match lifecycle", () => {
     ).toHaveLength(1);
     expect(room.getState().match.scores[0]?.wins).toBe(2);
     expect(room.getState().match.winner).toEqual({ kind: "player", id: "p1" });
+    service.destroy();
+  });
+
+  it("initializes one score per active team", () => {
+    vi.useFakeTimers();
+    const { service, room, p1Connector } = createService("bo3", "team");
+    service.handleRoundEnd(result("p1", "last_alive"));
+
+    const roundEnded = p1Connector.send.mock.calls
+      .map(([message]) => message)
+      .find((message) => message.payload?.type === "roundended")?.payload;
+    expect(roundEnded).toMatchObject({
+      type: "roundended",
+      match: {
+        scores: [
+          { competitor: { kind: "team", id: "team1" }, wins: 1 },
+          { competitor: { kind: "team", id: "team2" }, wins: 0 },
+        ],
+      },
+    });
+    expect(room.getState().match.scores).toEqual([
+      { competitor: { kind: "team", id: "team1" }, wins: 1 },
+      { competitor: { kind: "team", id: "team2" }, wins: 0 },
+    ]);
     service.destroy();
   });
 
@@ -108,7 +139,10 @@ describe("Bomberman match lifecycle", () => {
         currentRound: 1,
         currentAttempt: 2,
         nextRoundStartsAt: expect.any(Number),
-        scores: [],
+        scores: [
+          { competitor: { kind: "player", id: "p1" }, wins: 0 },
+          { competitor: { kind: "player", id: "p2" }, wins: 0 },
+        ],
         winner: null,
       },
     });

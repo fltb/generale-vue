@@ -313,20 +313,6 @@ export class BombermanService {
       this.replayId = null;
     }
 
-    let maps: BombermanMapDefinition[];
-    if (state.frozenMaps && state.frozenMaps.length > 0) {
-      maps = state.frozenMaps;
-    } else {
-      const resolved = await this.resolveMatchMaps(config);
-      if (!resolved.ok) {
-        this.rejectStart(resolved.reason, resolved.issues);
-        return;
-      }
-      maps = resolved.maps;
-      state.frozenMaps = maps.map((map) => structuredClone(map));
-    }
-
-    this.sync = this.createSyncManager();
     const roomPlayers = this.room.getPlayers().filter((player) => participants.includes(player.id));
     const gamePlayers: BombermanGameOptions["players"] = roomPlayers.map((player) => ({
       id: player.id,
@@ -352,6 +338,33 @@ export class BombermanService {
     }
 
     const match = state.match;
+    if (match.scores.length === 0) {
+      if (config.teamMode === "team") {
+        const teamIds = new Set<TeamId>();
+        for (const player of gamePlayers) teamIds.add(player.teamId);
+        match.scores = [...teamIds].map((id) => ({ competitor: { kind: "team", id }, wins: 0 }));
+      } else {
+        match.scores = gamePlayers.map((player) => ({
+          competitor: { kind: "player", id: player.id },
+          wins: 0,
+        }));
+      }
+    }
+
+    let maps: BombermanMapDefinition[];
+    if (state.frozenMaps && state.frozenMaps.length > 0) {
+      maps = state.frozenMaps;
+    } else {
+      const resolved = await this.resolveMatchMaps(config);
+      if (!resolved.ok) {
+        this.rejectStart(resolved.reason, resolved.issues);
+        return;
+      }
+      maps = resolved.maps;
+      state.frozenMaps = maps.map((map) => structuredClone(map));
+    }
+
+    this.sync = this.createSyncManager();
     const roundSeed = fnv1a(`${this.gameId}:${match.currentRound}:${match.currentAttempt}`);
     const mapIndex = (match.currentRound - 1) % maps.length;
     const map = maps[mapIndex];
