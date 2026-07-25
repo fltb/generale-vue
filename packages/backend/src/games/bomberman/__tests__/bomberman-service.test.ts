@@ -4,7 +4,15 @@ import { BombermanRoom } from "../instance/BombermanRoom";
 import { BombermanGame } from "../instance/BombermanGame";
 import { defaultBombermanConfig } from "../settings";
 import { domainHandlers } from "../../../plugins/websocket";
-import { GameStatus } from "@generale/types";
+import { GameStatus, BombermanPreGameServerEventType } from "@generale/types";
+vi.mock("../../../services/bombermanReplayService", () => ({
+  bombermanReplayService: {
+    startRecording: vi.fn(() => "mock-replay-id"),
+    appendRound: vi.fn(),
+    complete: vi.fn(),
+    discard: vi.fn(),
+  },
+}));
 
 function makeConfig() {
   const cfg = defaultBombermanConfig();
@@ -312,6 +320,81 @@ describe("BombermanService — prepConnectionForPlayer", () => {
         }),
       }),
     );
+  });
+
+  it("delivers next-round startup and a game snapshot after between-rounds reconnect", async () => {
+    vi.useFakeTimers();
+    try {
+      const config = makeConfig();
+      config.matchFormat = "bo3";
+      service = new BombermanService("test-reconnect-next-round", "Room", config, "host-1", "Host");
+      service.registerHandlers();
+      const room = getRoom(service);
+      const host = mockConnector("host-1", "Host");
+      const p2 = mockConnector("p2", "P2");
+      room.addPlayer({ id: "host-1", name: "Host" }, host);
+      room.addPlayer({ id: "p2", name: "P2" }, p2);
+
+      // Start and complete a non-final BO3 round.
+      await service.startGame(undefined, Date.now());
+      vi.advanceTimersByTime(0);
+      const firstGameValue: unknown = Reflect.get(service, "game");
+      if (!(firstGameValue instanceof BombermanGame)) throw new Error("Expected first game to be created");
+      for (const playerId of Object.keys(firstGameValue.getState().players)) {
+        firstGameValue.handleAction(playerId, { type: "SURRENDER" });
+      }
+      vi.advanceTimersByTime(100);
+      expect(room.getState().phase).toBe("between_rounds");
+
+      // Disconnect and rejoin the participant while the five-second deadline is running.
+      const roomInternals = room as unknown as {
+        handleClose: (id: string, connector: unknown) => void;
+      };
+      roomInternals.handleClose("p2", p2);
+      const roomHandler = domainHandlers.get(`room-${service.gameId}`);
+      expect(roomHandler).toBeDefined();
+      const reconnectedRoom = mockConnector("p2", "P2");
+      roomHandler?.(reconnectedRoom);
+      reconnectedRoom.send.mockClear();
+
+      // The scheduled callback must fire only at the server's five-second deadline.
+      vi.advanceTimersByTime(4_999);
+      expect(reconnectedRoom.send).not.toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: "custom",
+          payload: expect.objectContaining({ type: BombermanPreGameServerEventType.ROUND_STARTED }),
+        }),
+      );
+      await vi.advanceTimersByTimeAsync(1);
+
+      const now = Date.now();
+      const roundStarted = reconnectedRoom.send.mock.calls
+        .map(([event]) => event)
+        .find(
+          (event) =>
+            event?.type === "custom" &&
+            event.payload?.type === BombermanPreGameServerEventType.ROUND_STARTED,
+        );
+      expect(roundStarted).toBeDefined();
+      expect(roundStarted.payload.startedAt).toBe(now + 3_000);
+
+      // The event opens the game domain; its handler must immediately provide a snapshot.
+      const gameHandler = domainHandlers.get(`game-${service.gameId}`);
+      expect(gameHandler).toBeDefined();
+      const reconnectedGame = mockConnector("p2", "P2");
+      gameHandler?.(reconnectedGame);
+      expect(reconnectedGame.send).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: "state-update",
+          payload: expect.objectContaining({
+            type: "snapshot",
+            payload: expect.objectContaining({ status: GameStatus.Playing }),
+          }),
+        }),
+      );
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 

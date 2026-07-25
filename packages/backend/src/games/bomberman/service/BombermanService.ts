@@ -445,6 +445,18 @@ export class BombermanService {
       this.sync.broadcastToAllSpectators(currentState, currentState.tick);
     });
     game.onEnd((result) => this.handleGameEnd(game, result));
+    const deadline = startedAt ?? Date.now() + 3_000;
+
+    // Broadcast ROUND_STARTED so reconnected (and all) clients connect game sync
+    // for the new round. The first round's ROUND_STARTED is already broadcast by
+    // BombermanRoom.handleClientAction, so skip when phase is "playing".
+    if (this.room.getPhase() !== "playing") {
+      this.room.broadcastCustom({
+        type: BombermanPreGameServerEventType.ROUND_STARTED,
+        startedAt: deadline,
+        match: structuredClone(this.room.getState().match),
+      });
+    }
 
     this.chat.addSystemMessage(
       "chat.bomberman.roundStarted",
@@ -454,7 +466,6 @@ export class BombermanService {
         fallbackContent: `Round ${match.currentRound} started`,
       },
     );
-    const deadline = startedAt ?? Date.now() + 3_000;
     const delay = Math.max(0, deadline - Date.now());
     this.roundStartTimer = setTimeout(() => {
       this.roundStartTimer = undefined;
@@ -543,8 +554,11 @@ export class BombermanService {
       bombermanReplayService.appendRound(this.replayId, replayRound);
       this.roundRecording = null;
     }
-    this.handleRoundEnd(result);
+    // Tear down the finished game before scheduling the next round. cleanupRound
+    // clears the startup timer, so doing this after handleRoundEnd would cancel
+    // the five-second between-rounds deadline just installed there.
     this.cleanupRound(game);
+    this.handleRoundEnd(result);
   }
 
   private makeRoundResult(result: BombermanGameEndResult) {
