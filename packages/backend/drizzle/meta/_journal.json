@@ -57,6 +57,13 @@
       "when": 1784910082663,
       "tag": "0007_sloppy_eddie_brock",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1784990345210,
+      "tag": "0008_naive_wild_pack",
+      "breakpoints": true
     }
   ]
 }
