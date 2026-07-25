@@ -28,6 +28,11 @@ import NotfoundPage from "./routes/[...404]";
 import GeneraleHub from "./routes/games/generale/routes/index";
 import { BombermanHub } from "~/routes/games/bomberman/hub";
 import { BombermanRoom } from "~/routes/games/bomberman/room";
+import { BombermanReplays } from "~/routes/games/bomberman/replays";
+import { BombermanReplayPlayer } from "~/routes/games/bomberman/replay-player";
+import BombermanMapsList from "~/routes/games/bomberman/map-workshop/BombermanMapsList";
+import BombermanMapEditor from "~/routes/games/bomberman/map-workshop/BombermanMapEditor";
+import BombermanMapPreview from "~/routes/games/bomberman/map-workshop/BombermanMapPreview";
 import BombermanLayout from "~/routes/games/bomberman/components/BombermanLayout";
 import MapEditorPage from "./routes/map-editor";
 import MapPreviewPage from "./routes/map-preview";
@@ -195,6 +200,12 @@ export default function App() {
                 <Route path="/bomberman" component={BombermanLayout}>
                   <Route path="/" component={BombermanHub} />
                   <Route path="/room/:id" component={BombermanRoom} />
+                  <Route path="/maps" component={BombermanMapsList} />
+                  <Route path="/maps/editor" component={BombermanMapEditor} />
+                  <Route path="/maps/editor/:id" component={BombermanMapEditor} />
+                  <Route path="/maps/preview/:id" component={BombermanMapPreview} />
+                  <Route path="/replays" component={BombermanReplays} />
+                  <Route path="/replay/:id" component={BombermanReplayPlayer} />
                 </Route>
 
                 {/* Generale game routes */}

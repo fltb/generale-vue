@@ -299,6 +299,15 @@ export function useChat(options: {
     _sendOrBuffer(payload);
   }
 
+  function sendQuickMessage(key: string, scope?: ChatMessageScope) {
+    const payload: ChatClientToServer = {
+      type: "send_quick_message",
+      key,
+      ...(scope ? { scope } : {}),
+    };
+    _sendOrBuffer(payload);
+  }
+
   function fetchMoreHistory(beforeId?: string, limit = 30) {
     const payload: ChatClientToServer = {
       type: "fetch_history",
@@ -340,6 +349,7 @@ export function useChat(options: {
     connect,
     disconnect,
     sendMessage,
+    sendQuickMessage,
     fetchMoreHistory,
   };
 }

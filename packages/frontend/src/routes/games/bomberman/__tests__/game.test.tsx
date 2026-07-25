@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen } from "@solidjs/testing-library";
 import type { BombermanState, BombermanOperation } from "@generale/types";
-import { GameStatus, bombermanSettingsSchema } from "@generale/types";
+import { bombermanSettingsSchema } from "@generale/types";
 import { BombermanGame } from "../game";
 import type { SyncedState } from "../hooks/useBombermanRoomSession";
 
@@ -69,12 +69,16 @@ vi.mock("~/ui/sound", () => ({
 
 vi.mock("../hooks/useBombermanInput", () => ({
   useBombermanInput: () => ({
-    showVirtualControls: () => false,
+    showVirtualControls: () => true,
   }),
 }));
 
+let capturedOnAction: ((op: BombermanOperation) => void) | null = null;
 vi.mock("../components/VirtualControls", () => ({
-  VirtualControls: () => <div data-testid="virtual-controls" />,
+  VirtualControls: (props: any) => {
+    capturedOnAction = props.onAction;
+    return <div data-testid="virtual-controls" />;
+  },
 }));
 
 vi.mock("../components/Scoreboard", () => ({
@@ -143,7 +147,6 @@ function makeState(overrides: Partial<BombermanState> = {}): BombermanState {
     bombs: [],
     explosions: [],
     items: [],
-    status: GameStatus.Running,
     ...overrides,
   };
 }
@@ -303,33 +306,35 @@ describe("BombermanGame", () => {
 
   // ── Scoreboard on game end ──
 
-  it("shows scoreboard when game ends", () => {
+
+  it("gates virtual ACTION/DETONATE behind countdown when freshStart is true", () => {
+    const state = makeState();
+    const gameSync = makeGameSync(state);
     render(() => (
       <BombermanGame
-        gameSync={makeGameSync(makeState({
-          status: GameStatus.Ended,
-          players: {
-            player1: {
-              playerId: "player1",
-              name: "Winner",
-              alive: true,
-              x: 1,
-              y: 1,
-              facing: "down",
-              bombMax: 2,
-              bombActive: 2,
-              blastRadius: 2,
-              speed: 1,
-              items: [],
-            },
-          },
-        }))}
+        gameSync={gameSync}
         onBackToRoom={() => {}}
         playerId="player1"
+        freshStart={true}
       />
     ));
 
+    // Should have captured the onAction prop from VirtualControls
+    expect(capturedOnAction).toBeTruthy();
+
+    // Before countdown completes — gate should block
+    capturedOnAction!({ type: "ACTION" });
+    capturedOnAction!({ type: "DETONATE" });
+    expect(gameSync.dispatch).not.toHaveBeenCalled();
+
+    // Complete countdown
     vi.advanceTimersByTime(100);
-    expect(screen.getByTestId("scoreboard")).toBeInTheDocument();
+
+    // After countdown completes — gate should forward
+    capturedOnAction!({ type: "ACTION" });
+    expect(gameSync.dispatch).toHaveBeenCalledWith({ type: "ACTION" });
+
+    capturedOnAction!({ type: "DETONATE" });
+    expect(gameSync.dispatch).toHaveBeenCalledWith({ type: "DETONATE" });
   });
 });

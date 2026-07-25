@@ -27,7 +27,7 @@ export function useGameSettings<T extends object>(schema: GameSettingsSchema<T>)
   }));
 
   const mutation = createMutation(() => ({
-    mutationFn: async (partial: Partial<T>) => {
+    mutationFn: (partial: Partial<T>) => {
       const body: Record<string, string> = {};
       for (const [key, value] of Object.entries(partial)) {
         body[key] = schema.serialize(key as keyof T & string, value as T[keyof T & string]);

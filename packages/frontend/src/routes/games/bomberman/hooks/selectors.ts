@@ -1,4 +1,4 @@
-import type { BombermanState, BombermanPlayer } from "@generale/types";
+import type { BombermanState, BombermanPlayer, BombermanRoomState, BombermanWinner } from "@generale/types";
 
 /**
  * Pure selector functions for bomberman game state.
@@ -29,23 +29,41 @@ export function isGameInProgress(players: Record<string, BombermanPlayer>): bool
   return Object.values(players ?? {}).some((p) => p.alive);
 }
 
-export interface EndgameResult {
-  rankings: Array<{ name: string; rank: number; playerId: string }>;
-  winnerId?: string;
+export interface BombermanScoreRow {
+  competitor: BombermanWinner;
+  label: string;
+  wins: number;
+  targetWins: number;
+  isMatchPoint: boolean;
 }
 
 /**
- * Compute endgame rankings sorted by alive status (alive players first).
+ * Build score rows from match state for scoreboard display.
+ * Resolves competitor IDs to player/team labels.
  */
-export function computeEndgameResult(state: BombermanState): EndgameResult {
-  const players = Object.values(state.players ?? {});
-  const sorted = [...players]
-    .sort((a, b) => (a.alive === b.alive ? 0 : a.alive ? -1 : 1))
-    .map((p, i) => ({
-      name: p.name ?? p.playerId.slice(0, 8),
-      rank: i + 1,
-      playerId: p.playerId,
-    }));
-  const winner = sorted.find((r) => r.rank === 1);
-  return { rankings: sorted, winnerId: winner?.playerId };
+export function getBombermanScoreRows(state: BombermanRoomState): BombermanScoreRow[] {
+  const { scores, targetWins } = state.match;
+  const playerMap = new Map(state.players.map((p) => [p.id, p]));
+  const teamMap = new Map(state.teams.map((t) => [t.id, t]));
+  return scores.map(({ competitor, wins }) => {
+    const label =
+      competitor.kind === "player"
+        ? (playerMap.get(competitor.id)?.name ?? competitor.id.slice(0, 8))
+        : (teamMap.get(competitor.id)?.name ?? competitor.id.slice(0, 8));
+    return {
+      competitor,
+      label,
+      wins,
+      targetWins,
+      isMatchPoint: wins >= targetWins - 1,
+    };
+  });
+}
+
+/**
+ * Returns true when any competitor is one win away from winning the match.
+ */
+export function isBombermanMatchPoint(state: BombermanRoomState): boolean {
+  const { scores, targetWins } = state.match;
+  return scores.some((s) => s.wins >= targetWins - 1);
 }

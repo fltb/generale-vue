@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { createRoot } from "solid-js";
+import { createRoot, createSignal } from "solid-js";
 import { useBombermanInput } from "../useBombermanInput";
+import type { BombermanDirection } from "@generale/types";
 
 // ─── Mocks ───
 
@@ -16,6 +17,18 @@ const { mockSettings } = vi.hoisted(() => ({
       detonate: "e",
       surrender: "Escape",
     },
+    gamepad: {
+      enabled: true,
+      index: 0,
+      deadzone: 0.55,
+      bindings: { placeBomb: 0, action: 2, detonate: 1, menu: 9 },
+    },
+    highContrast: false,
+    colorVision: "default",
+    touchLayout: "compact",
+    haptics: false,
+    showInputOverlay: false,
+    selectedSkinId: "classic-blue",
   },
 }));
 
@@ -27,14 +40,16 @@ vi.mock("~/hooks/useGameSettings", () => ({
 
 // ─── Helpers ───
 
-function createHook() {
+function createHook(enabled?: () => boolean) {
   const onAction = vi.fn();
+  const onMenu = vi.fn();
   let dispose!: () => void;
+  let hook: ReturnType<typeof useBombermanInput>;
   createRoot((d) => {
     dispose = d;
-    useBombermanInput(onAction);
+    hook = useBombermanInput({ onAction, enabled, onMenu });
   });
-  return { onAction, dispose };
+  return { onAction, onMenu, dispose, ...hook! };
 }
 
 function pressKey(key: string, code: string, repeat = false) {
@@ -63,6 +78,12 @@ describe("useBombermanInput", () => {
       detonate: "e",
       surrender: "Escape",
     };
+    mockSettings.gamepad = {
+      enabled: true,
+      index: 0,
+      deadzone: 0.55,
+      bindings: { placeBomb: 0, action: 2, detonate: 1, menu: 9 },
+    };
     vi.useFakeTimers();
     // happy-dom lacks matchMedia by default
     window.matchMedia = vi.fn().mockImplementation((query: string) => ({
@@ -75,6 +96,8 @@ describe("useBombermanInput", () => {
       removeEventListener: vi.fn(),
       dispatchEvent: vi.fn(),
     }));
+    // Mock getGamepads for gamepad tests
+    (navigator as any).getGamepads = () => [];
   });
 
   afterEach(() => {
@@ -279,9 +302,31 @@ describe("useBombermanInput", () => {
 
     pressKey("e", "KeyE");
     expect(onAction).toHaveBeenCalledWith({ type: "DETONATE" });
+  });
+
+  it("Escape surrender key triggers onMenu not SURRENDER", () => {
+    const { onAction, onMenu } = createHook();
 
     pressKey("Escape", "Escape");
-    expect(onAction).toHaveBeenCalledWith({ type: "SURRENDER" });
+    // No SURRENDER dispatched
+    expect(onAction).not.toHaveBeenCalled();
+    // onMenu called instead
+    expect(onMenu).toHaveBeenCalledTimes(1);
+  });
+
+  it("surrender key releases directions when onMenu is present", () => {
+    const { onAction, onMenu, pressDirection } = createHook();
+
+    // Press a direction
+    pressDirection("touch:0", "up");
+    expect(onAction).toHaveBeenCalledWith({ type: "SET_DIRECTION", direction: "up" });
+
+    onAction.mockClear();
+
+    // Press Escape — triggers onMenu and releases direction
+    pressKey("Escape", "Escape");
+    expect(onMenu).toHaveBeenCalledTimes(1);
+    expect(onAction).toHaveBeenCalledWith({ type: "SET_DIRECTION", direction: null });
   });
 
   it("Spacebar normalization works", () => {
@@ -340,5 +385,145 @@ describe("useBombermanInput", () => {
 
     pressKey("Enter", "Enter");
     expect(onAction).not.toHaveBeenCalled();
+  });
+
+  describe("enabled gate", () => {
+    it("blocks keyboard directions when disabled", () => {
+      const { onAction } = createHook(() => false);
+
+      pressKey("ArrowUp", "ArrowUp");
+      expect(onAction).not.toHaveBeenCalled();
+
+      pressKey("ArrowDown", "ArrowDown");
+      expect(onAction).not.toHaveBeenCalled();
+
+      pressKey("ArrowLeft", "ArrowLeft");
+      expect(onAction).not.toHaveBeenCalled();
+
+      pressKey("ArrowRight", "ArrowRight");
+      expect(onAction).not.toHaveBeenCalled();
+    });
+
+    it("blocks keyboard action keys when disabled", () => {
+      const { onAction } = createHook(() => false);
+
+      pressKey(" ", "Space");
+      expect(onAction).not.toHaveBeenCalled();
+
+      pressKey("q", "KeyQ");
+      expect(onAction).not.toHaveBeenCalled();
+
+      pressKey("e", "KeyE");
+      expect(onAction).not.toHaveBeenCalled();
+
+      pressKey("Escape", "Escape");
+      expect(onAction).not.toHaveBeenCalled();
+    });
+
+    it("blocks virtual direction presses when disabled", () => {
+      const { onAction, pressDirection } = createHook(() => false);
+
+      pressDirection("touch:0", "up");
+      expect(onAction).not.toHaveBeenCalled();
+
+      pressDirection("touch:1", "down");
+      expect(onAction).not.toHaveBeenCalled();
+    });
+
+    it("transitions from disabled to enabled", () => {
+      let enabled = false;
+      const { onAction } = createHook(() => enabled);
+
+      // Disabled — nothing gets through
+      pressKey("ArrowUp", "ArrowUp");
+      expect(onAction).not.toHaveBeenCalled();
+
+      // Enable
+      enabled = true;
+
+      // Now direction press works
+      pressKey("ArrowDown", "ArrowDown");
+      expect(onAction).toHaveBeenCalledWith({ type: "SET_DIRECTION", direction: "down" });
+
+      // Action keys also work
+      pressKey(" ", "Space");
+      expect(onAction).toHaveBeenCalledWith({ type: "PLACE_BOMB" });
+    });
+
+    it("releases held direction on disable transition", () => {
+      const onAction = vi.fn();
+      let dispose!: () => void;
+      let pressDir!: (sourceId: string, direction: BombermanDirection) => void;
+      let setEnabled!: (v: boolean) => void;
+
+      createRoot((d) => {
+        dispose = d;
+        const [enabled, set] = createSignal(true);
+        setEnabled = set;
+        const result = useBombermanInput({ onAction, enabled });
+        pressDir = result.pressDirection;
+      });
+
+      // Press and hold up
+      pressDir("touch:0", "up");
+      expect(onAction).toHaveBeenCalledWith({ type: "SET_DIRECTION", direction: "up" });
+      onAction.mockClear();
+
+      // Disable — createEffect should release held direction
+      setEnabled(false);
+
+      expect(onAction).toHaveBeenCalledWith({ type: "SET_DIRECTION", direction: null });
+
+      dispose();
+    });
+  });
+
+  describe("gamepad input", () => {
+    it("does not crash when getGamepads is undefined", () => {
+      // Simulate no Gamepad API
+      (navigator as any).getGamepads = undefined;
+
+      const { onAction } = createHook();
+      // Should not throw when mounted
+      expect(onAction).not.toHaveBeenCalled();
+    });
+
+    it("disconnected/null gamepads produce no operation", () => {
+      (navigator as any).getGamepads = () => [null, null];
+      const { onAction } = createHook();
+
+      // Advance timers enough for gamepad polling to run
+      vi.advanceTimersByTime(100);
+      expect(onAction).not.toHaveBeenCalled();
+    });
+
+    it("does not fire actions when gamepad is disabled in settings", () => {
+      mockSettings.gamepad = { ...mockSettings.gamepad, enabled: false };
+
+      (navigator as any).getGamepads = () => [
+        {
+          axes: [0, 0],
+          buttons: Array.from({ length: 18 }, () => ({ pressed: false })),
+        },
+      ];
+
+      const { onAction } = createHook();
+      vi.advanceTimersByTime(100);
+      expect(onAction).not.toHaveBeenCalled();
+    });
+
+    it("disabled gate cancels gamepad polling", () => {
+      const { onAction } = createHook(() => false);
+
+      (navigator as any).getGamepads = () => [
+        {
+          axes: [-1, 0], // Left
+          buttons: Array.from({ length: 18 }, () => ({ pressed: false })),
+        },
+      ];
+
+      vi.advanceTimersByTime(100);
+      expect(onAction).not.toHaveBeenCalled();
+    });
   });
 });

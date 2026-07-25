@@ -7,12 +7,13 @@ export type WebSocketMessage<T = unknown, Context extends WSOpenPayloadBase = WS
   | { domain: string; type: "open"; payload: Context }
   | { domain: string; type: "close"; payload?: { code?: number; reason?: string } }
   | { domain: string; type: "message"; payload: T }
-  | { domain: string; type: "reconnect"; payload?: unknown }
-  // server-level control messages
   | { type: "connection_ack"; payload: { connectionId: string } }
   | { type: "reconnection_ack"; payload: { success: boolean; connectionId?: string } }
-  | { type: "error"; payload: unknown };
-
+  | { type: "error"; payload: unknown }
+  // Ping/pong for RTT measurement
+  | { type: "ping"; domain?: undefined; payload: { sentAt: number } }
+  | { type: "pong"; payload: { sentAt: number; serverAt: number } }
+  | { domain: string; type: "reconnect"; payload?: undefined };
 /**
  * SubConnectorClient: client-side mirror of server SubConnectorImpl
  */
@@ -117,6 +118,21 @@ export class ClientConnectionManager<OpenPayload extends WSOpenPayloadBase = WSO
   public connectionId: string | null = null;
   public isConnected = false;
 
+  // Ping/pong for RTT measurement
+  private pingIntervalId = 0;
+  private rttSamples: number[] = [];
+  private pendingPingSentAt: number | null = null;
+  /** Estimated offset between server time and local time, computed from latest pong */
+  public serverTimeOffset: number | null = null;
+
+  /** Reactive connection state: "connecting" | "connected" | "reconnecting" | "disconnected" */
+  public connectionStateSignal = createSignal<"connecting" | "connected" | "reconnecting" | "disconnected">(
+    "disconnected",
+  );
+
+  /** Reactive latency signal: average of last 5 RTT samples, or null */
+  public latencyMsSignal = createSignal<number | null>(null);
+
   private subConnectors = new Map<string, SubConnectorClient<unknown, unknown, OpenPayload>>();
 
   /** domains we've asked the server to open but haven't yet received server 'open' ack */
@@ -141,10 +157,9 @@ export class ClientConnectionManager<OpenPayload extends WSOpenPayloadBase = WSO
   constructor(url: string) {
     this.url = url;
   }
-
-  // Establish the websocket. If reconnectId provided, attempt reattach using persisted connectionId.
   connect(reattach = true) {
     this.manualClose = false;
+    this.connectionStateSignal[1]("connecting");
     this._connectInternal(reattach);
   }
 
@@ -174,7 +189,11 @@ export class ClientConnectionManager<OpenPayload extends WSOpenPayloadBase = WSO
         console.debug("[WS] onopen readyState", this.ws?.readyState);
         this.isConnected = true;
         this.isConnectedSignal[1](true);
+        this.connectionStateSignal[1]("connected");
         this.reconnectAttempts = 0;
+
+        // Start ping interval (every 5 seconds)
+        this._startPing();
 
         // flush any queued messages
         this._flushOutbox();
@@ -189,11 +208,17 @@ export class ClientConnectionManager<OpenPayload extends WSOpenPayloadBase = WSO
           console.error("ws parse error", e, "raw:", ev.data);
         }
       };
-
       this.ws.onclose = (ev) => {
         console.debug("[WS] onclose", ev);
         this.isConnected = false;
         this.isConnectedSignal[1](false);
+        this._stopPing();
+
+        if (this.manualClose) {
+          this.connectionStateSignal[1]("disconnected");
+        } else {
+          this.connectionStateSignal[1]("reconnecting");
+        }
 
         for (const sc of this.subConnectors.values()) sc._triggerDisconnect(new Error("socket closed"));
 
@@ -232,6 +257,8 @@ export class ClientConnectionManager<OpenPayload extends WSOpenPayloadBase = WSO
   // close entire websocket and mark manual close
   close() {
     this.manualClose = true;
+    this._stopPing();
+    this.connectionStateSignal[1]("disconnected");
     if (this.ws) {
       this.ws.close();
     }
@@ -240,6 +267,55 @@ export class ClientConnectionManager<OpenPayload extends WSOpenPayloadBase = WSO
     this.isConnectedSignal[1](false);
   }
 
+  // ── Ping/pong for RTT ──
+
+  private _startPing() {
+    this._stopPing();
+    this.pingIntervalId = window.setInterval(() => {
+      this._sendPing();
+    }, 5000);
+    // Send first ping immediately
+    this._sendPing();
+  }
+
+  private _stopPing() {
+    this.pendingPingSentAt = null;
+    this.rttSamples = [];
+    this.latencyMsSignal[1](null);
+    if (this.pingIntervalId !== 0) {
+      clearInterval(this.pingIntervalId);
+      this.pingIntervalId = 0;
+    }
+  }
+
+  private _sendPing() {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
+    const sentAt = Date.now();
+    this.pendingPingSentAt = sentAt;
+    this.sendRaw({ type: "ping", payload: { sentAt } });
+  }
+
+  private _handlePong(serverAt: number, sentAt: number) {
+    const now = Date.now();
+    const rtt = now - sentAt;
+    // Ignore stale pongs (mismatch with current pending ping)
+    if (this.pendingPingSentAt !== sentAt) return;
+    this.pendingPingSentAt = null;
+
+    // Estimate server time offset: serverAt + one-way delay - local time
+    // (assumes symmetric network latency)
+    this.serverTimeOffset = serverAt + Math.round(rtt / 2) - now;
+
+    // Keep last 5 samples
+    this.rttSamples.push(rtt);
+    if (this.rttSamples.length > 5) {
+      this.rttSamples.shift();
+    }
+
+    // Update latency to average of samples
+    const avg = this.rttSamples.reduce((a, b) => a + b, 0) / this.rttSamples.length;
+    this.latencyMsSignal[1](Math.round(avg));
+  }
   // send out a raw object (encoded to JSON)
   sendRaw(obj: object) {
     try {
@@ -390,6 +466,11 @@ export class ClientConnectionManager<OpenPayload extends WSOpenPayloadBase = WSO
     }
     if (msg.type === "error") {
       console.error("[WS] received error:", msg.payload);
+      return;
+    }
+    // Ping/pong for RTT measurement
+    if (msg.type === "pong") {
+      this._handlePong(msg.payload.serverAt, msg.payload.sentAt);
       return;
     }
 

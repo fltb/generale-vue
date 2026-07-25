@@ -32,9 +32,10 @@ function getPlayerTexture(pt: PlayerTextures, facing: string, frame: number): Te
   return pt.idleDown;
 }
 
-function PlayerSprite(props: {
+export function PlayerSprite(props: {
   player: BombermanPlayer;
   sprites: PlayerTextures[];
+  bombTextures: Texture[];
   colorIdx: number;
   tick: Accessor<number>;
   tickRate: number;
@@ -63,17 +64,32 @@ function PlayerSprite(props: {
   const flipX = () => (props.player.facing === "right" ? -1 : 1);
 
   return (
-    <Sprite
-      texture={tex()}
-      x={x() * TILE_SIZE + TILE_SIZE / 2}
-      y={y() * TILE_SIZE + TILE_SIZE / 2}
-      anchor={{ x: 0.5, y: 0.5 }}
-      scale={{
-        x: (TILE_SIZE / 16) * 0.9 * flipX(),
-        y: (TILE_SIZE / 16) * 0.9,
-      }}
-      zIndex={10}
-    />
+    <Container sortableChildren>
+      <Sprite
+        texture={tex()}
+        x={x() * TILE_SIZE + TILE_SIZE / 2}
+        y={y() * TILE_SIZE + TILE_SIZE / 2}
+        anchor={{ x: 0.5, y: 0.5 }}
+        scale={{
+          x: (TILE_SIZE / 16) * 0.9 * flipX(),
+          y: (TILE_SIZE / 16) * 0.9,
+        }}
+        zIndex={10}
+      />
+      <Show when={props.player.carriedBomb}>
+        <Sprite
+          texture={props.bombTextures[0]}
+          x={x() * TILE_SIZE + TILE_SIZE / 2}
+          y={y() * TILE_SIZE + TILE_SIZE / 2 - TILE_SIZE * 0.55}
+          anchor={{ x: 0.5, y: 0.5 }}
+          scale={{
+            x: (TILE_SIZE / 16) * 0.5,
+            y: (TILE_SIZE / 16) * 0.5,
+          }}
+          zIndex={11}
+        />
+      </Show>
+    </Container>
   );
 }
 
@@ -159,6 +175,7 @@ export function EntityLayer(props: EntityLayerProps) {
                 <PlayerSprite
                   player={player}
                   sprites={sprites().players}
+                  bombTextures={sprites().bombs}
                   colorIdx={colorIdx}
                   tick={tick}
                   tickRate={props.tickRate}

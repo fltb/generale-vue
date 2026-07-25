@@ -216,6 +216,26 @@ describe("useChat", () => {
     dispose();
   });
 
+  it("sendQuickMessage sends send_quick_message protocol", async () => {
+    const { chat, sub, dispose } = await setupChat({ autoOpen: false });
+    sub.ready = true;
+    chat.sendQuickMessage("help");
+    expect(sub.send).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "send_quick_message", key: "help" }),
+    );
+    dispose();
+  });
+
+  it("sendQuickMessage includes scope when provided", async () => {
+    const { chat, sub, dispose } = await setupChat({ autoOpen: false });
+    sub.ready = true;
+    chat.sendQuickMessage("danger", "game");
+    expect(sub.send).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "send_quick_message", key: "danger", scope: "game" }),
+    );
+    dispose();
+  });
+
   it("cleanup closes sub and clears pending", async () => {
     const { chat, sub, dispose } = await setupChat({ autoOpen: false });
     chat.sendMessage("test");

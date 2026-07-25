@@ -7,12 +7,20 @@ import { Button, Input, Select, Modal, Checkbox, LabelText, Badge, Alert } from 
 import { RoomFilter, type BombermanRoomFilter } from "./components/RoomFilter";
 import { useT } from "~/i18n/useT";
 import { listBombermanRoomsApi, type RoomSummary } from "./api/rooms";
+import type { BombermanMapSource, BombermanMatchFormat } from "@generale/types";
+import { BombermanMapSourcePicker } from "./map-workshop/BombermanMapSourcePicker";
 
 const MAP_SIZES = [
   { key: "small" as const, w: 9, h: 9 },
   { key: "medium" as const, w: 11, h: 11 },
   { key: "large" as const, w: 15, h: 13 },
 ] as const;
+
+const MATCH_FORMATS: Array<{ key: BombermanMatchFormat; labelKey: string }> = [
+  { key: "single", labelKey: "bomberman.single" },
+  { key: "bo3", labelKey: "bomberman.bo3" },
+  { key: "bo5", labelKey: "bomberman.bo5" },
+];
 
 function CreateRoomModal(props: {
   open: boolean;
@@ -28,6 +36,8 @@ function CreateRoomModal(props: {
   const [bombLimit, setBombLimit] = createSignal(2);
   const [suddenDeath, setSuddenDeath] = createSignal(true);
   const [dropRate, setDropRate] = createSignal(0.6);
+  const [matchFormat, setMatchFormat] = createSignal<BombermanMatchFormat>("single");
+  const [mapSource, setMapSource] = createSignal<BombermanMapSource>({ type: "procedural", themeId: "classic" });
   const [loading, setLoading] = createSignal(false);
   const [error, setError] = createSignal("");
 
@@ -49,6 +59,8 @@ function CreateRoomModal(props: {
       bombLimit: bombLimit(),
       shrinkEnabled: suddenDeath(),
       itemDropRate: dropRate(),
+      matchFormat: matchFormat(),
+      mapSource: mapSource(),
     };
     const body: Record<string, unknown> = { roomName: name, config };
     if (pw) body.password = pw;
@@ -69,7 +81,7 @@ function CreateRoomModal(props: {
 
   return (
     <Show when={props.open}>
-      <Modal boxClass="max-w-md">
+      <Modal boxClass="max-w-lg">
         <div class="flex justify-between items-start mb-4">
           <h2 class="text-xl font-bold">{t("bomberman.createRoom")}</h2>
           <Button size="sm" variant="ghost" onClick={props.onClose}>
@@ -133,6 +145,17 @@ function CreateRoomModal(props: {
               </Select>
             </div>
             <div class="block">
+              <LabelText>{t("bomberman.matchFormat")}</LabelText>
+              <Select
+                bordered
+                class="w-full"
+                value={matchFormat()}
+                onChange={(e) => setMatchFormat(e.currentTarget.value as BombermanMatchFormat)}
+              >
+                <For each={MATCH_FORMATS}>{(fmt) => <option value={fmt.key}>{t(fmt.labelKey as never)}</option>}</For>
+              </Select>
+            </div>
+            <div class="block">
               <LabelText>{t("bomberman.roundTime")}</LabelText>
               <Select
                 bordered
@@ -141,7 +164,6 @@ function CreateRoomModal(props: {
                 onChange={(e) => setRoundTime(Number(e.currentTarget.value))}
               >
                 <option value={60}>60s</option>
-                <option value={120}>120s</option>
                 <option value={120}>120s</option>
                 <option value={180}>180s</option>
                 <option value={300}>300s</option>
@@ -181,6 +203,9 @@ function CreateRoomModal(props: {
               <LabelText>{t("bomberman.suddenDeath")}</LabelText>
             </div>
           </div>
+          <div class="border-t border-base-300 pt-3 mt-2">
+            <BombermanMapSourcePicker value={mapSource()} onChange={(v) => setMapSource(v)} />
+          </div>
           {error() && (
             <Alert variant="error" class="text-sm">
               {error()}
@@ -216,7 +241,6 @@ export function BombermanHub() {
 
   useLobbyRealtime(
     () => {
-      // build server-friendly filter record matching what backend expects
       const f = filter();
       const q: Record<string, string | undefined> = {};
       if (f.roomName) q.roomName = f.roomName;

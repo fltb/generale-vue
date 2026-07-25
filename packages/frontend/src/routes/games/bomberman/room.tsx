@@ -1,13 +1,113 @@
-import type { BombermanPreGameClientDispatch } from "@generale/types";
+import type {
+  BombermanMatchState,
+  BombermanPreGameClientDispatch,
+  BombermanMatchFormat,
+  PreGameTeamMode,
+  GamePhase,
+  PreGamePlayerStatus,
+  PreGameRoomState,
+} from "@generale/types";
 import { useParams, useNavigate } from "@solidjs/router";
-import { createMemo, createEffect, createSignal, Show, For, Switch, Match } from "solid-js";
+import { createMemo, createSignal, createEffect, onCleanup, Show, For, Switch, Match } from "solid-js";
 import { ProtectedRoute } from "~/components/ProtectedRoute";
 import { BombermanGame } from "./game";
 import { useT } from "~/i18n/useT";
 import { Button, Badge, Alert, Select, Spinner, Card, Input } from "~/ui";
 import { useBombermanRoomSession } from "./hooks/useBombermanRoomSession";
+import { getBombermanScoreRows, type BombermanScoreRow } from "./hooks/selectors";
+import { Scoreboard } from "./components/Scoreboard";
 import { TakeoverOverlay } from "~/ui/Overlay";
 import ChatPanel from "~/components/ChatPanel";
+
+interface BetweenRoundsStateProps {
+  match: BombermanMatchState;
+  scoreRows: BombermanScoreRow[];
+  players: Array<{ id: string; name: string }>;
+}
+
+function BetweenRoundsState(props: BetweenRoundsStateProps) {
+  const { t } = useT();
+  const [countdown, setCountdown] = createSignal<number | null>(null);
+  const lastRound = createMemo(() => props.match.roundResults[props.match.roundResults.length - 1] ?? null);
+  let countdownTimer: number | undefined;
+
+  createEffect(() => {
+    window.clearInterval(countdownTimer);
+    const deadline = props.match.nextRoundStartsAt;
+    if (deadline == null) {
+      countdownTimer = undefined;
+      setCountdown(null);
+      return;
+    }
+    const updateCountdown = () => {
+      setCountdown(Math.max(0, Math.ceil((deadline - Date.now()) / 1000)));
+    };
+    updateCountdown();
+    countdownTimer = window.setInterval(updateCountdown, 500);
+    onCleanup(() => {
+      window.clearInterval(countdownTimer);
+      countdownTimer = undefined;
+    });
+  });
+
+  const winnerLabel = createMemo(() => {
+    const winner = lastRound()?.winner;
+    if (!winner) return t("bomberman.draw");
+    if (winner.kind === "player") {
+      return props.players.find((player) => player.id === winner.id)?.name ?? winner.id.slice(0, 8);
+    }
+    return winner.id.slice(0, 8);
+  });
+
+  return (
+    <div
+      data-testid="bomberman-between-rounds"
+      class="fixed inset-0 z-40 flex items-center justify-center bg-black/70"
+    >
+      <div class="w-full max-w-md rounded border-2 border-gray-600 bg-gray-900 p-8 text-center pixel-border">
+        <Show when={lastRound()}>
+          {(round) => (
+            <div class="mb-6">
+              <div class="text-xl font-bold text-white">
+                {t("bomberman.roundResult", {
+                  n: String(round().roundNumber),
+                  winner: winnerLabel(),
+                })}
+              </div>
+            </div>
+          )}
+        </Show>
+
+        <Show when={props.scoreRows.length > 0}>
+          <div data-testid="bomberman-between-rounds-score" class="mb-6">
+            <h2 class="mb-3 text-sm uppercase text-white/70">{t("bomberman.finalScore")}</h2>
+            <div class="space-y-2">
+              <For each={props.scoreRows}>
+                {(row) => (
+                  <div class="flex items-center justify-between rounded bg-white/5 px-3 py-1.5 text-lg text-white">
+                    <span>{row.label}</span>
+                    <span class="font-mono">
+                      {row.wins} / {props.match.targetWins}
+                    </span>
+                  </div>
+                )}
+              </For>
+            </div>
+          </div>
+        </Show>
+
+        <Show when={countdown() !== null}>
+          <div data-testid="bomberman-between-rounds-countdown">
+            <div class="font-mono text-4xl font-bold text-yellow-400">{countdown()}</div>
+            <div class="mt-1 text-sm text-white/70">
+              {t("bomberman.nextRoundIn", { s: String(countdown() ?? 0) })}
+            </div>
+          </div>
+        </Show>
+      </div>
+    </div>
+  );
+}
 
 export function BombermanRoom() {
   const { t } = useT();
@@ -18,8 +118,14 @@ export function BombermanRoom() {
 
   // Read password from URL search params
   const urlPassword = new URLSearchParams(window.location.search).get("password") || undefined;
+  // Read role from URL search params (e.g., ?role=spectator)
+  const urlRoleParam = new URLSearchParams(window.location.search).get("role") as "player" | "spectator" | null;
 
-  const session = useBombermanRoomSession({ id: params.id ?? "", password: urlPassword });
+  const session = useBombermanRoomSession({
+    id: params.id ?? "",
+    password: urlPassword,
+    role: urlRoleParam ?? undefined,
+  });
 
   const selfPlayer = createMemo(() =>
     (session.roomSync.state().players ?? []).find((p) => p.id === session.playerId()),
@@ -30,40 +136,49 @@ export function BombermanRoom() {
     return players.length >= 2 && players.every((p) => p.ready);
   });
 
+  const teamMode = createMemo<PreGameTeamMode>(() => session.roomSync.state().config?.teamMode ?? "ffa");
+  const teamColors: Record<string, string> = {
+    team1: "#3b82f6",
+    team2: "#ef4444",
+    team3: "#22c55e",
+    team4: "#a855f7",
+  };
+  const teamMarkers: Record<string, string> = {
+    team1: "\u25CF circle",
+    team2: "\u25B3 triangle",
+    team3: "\u25A0 square",
+    team4: "\u25C6 diamond",
+  };
+
+  function handleTeamModeChange(e: Event) {
+    const teamMode = (e.currentTarget as HTMLSelectElement).value as PreGameTeamMode;
+    session.roomSync.dispatch({ type: "CHANGE_TEAM_MODE", teamMode } as BombermanPreGameClientDispatch);
+  }
+
+  function handleTeamSwitch(playerId: string, teamId: string) {
+    session.roomSync.dispatch({
+      type: "CHANGE_TEAM",
+      playerId,
+      teamId,
+    } as BombermanPreGameClientDispatch);
+  }
+
   function startGame() {
     if (isHost() && allReady()) session.startGame();
   }
-
-  const winnerName = createMemo(() => {
-    const ge = session.gameEnded();
-    if (!ge) return null;
-    return ge.rankings.find((r) => r.playerId === ge.winnerId)?.name ?? null;
-  });
-
-  // ── Auto-dismiss game ended overlay after 5s ──
-  const GAME_END_AUTO_DISMISS_MS = 5000;
-  let autoDismissTimer: ReturnType<typeof setTimeout> | null = null;
-  createEffect(() => {
-    if (session.phase() === "ended") {
-      autoDismissTimer = setTimeout(() => {
-        session.handleDismissGameEnd();
-      }, GAME_END_AUTO_DISMISS_MS);
-    }
-    return () => {
-      if (autoDismissTimer) {
-        clearTimeout(autoDismissTimer);
-        autoDismissTimer = null;
-      }
-    };
-  });
-
   function handleDismissGameEnd() {
-    if (autoDismissTimer) {
-      clearTimeout(autoDismissTimer);
-      autoDismissTimer = null;
-    }
     session.handleDismissGameEnd();
   }
+
+  // Compute score rows from match state
+  const scoreRows = createMemo(() => getBombermanScoreRows(session.roomSync.state()));
+
+  const matchState = createMemo(() => session.roomSync.state().match);
+
+  // Room player list for scoreboard
+  const playerListMemo = createMemo(() => {
+    return (session.roomSync.state().players ?? []).map((p) => ({ id: p.id, name: p.name }));
+  });
 
   return (
     <ProtectedRoute>
@@ -213,6 +328,26 @@ export function BombermanRoom() {
                   </div>
                   <div>
                     <div class="label text-xs">
+                      <span class="label-text">{t("bomberman.matchFormat")}</span>
+                    </div>
+                    <Select
+                      size="sm"
+                      class="w-full"
+                      value={matchState()?.format ?? "single"}
+                      onChange={(e) =>
+                        session.roomSync.dispatch({
+                          type: "CHANGE_CONFIG",
+                          payload: { matchFormat: e.currentTarget.value as BombermanMatchFormat },
+                        } as BombermanPreGameClientDispatch)
+                      }
+                    >
+                      <option value="single">{t("bomberman.single")}</option>
+                      <option value="bo3">{t("bomberman.bo3")}</option>
+                      <option value="bo5">{t("bomberman.bo5")}</option>
+                    </Select>
+                  </div>
+                  <div>
+                    <div class="label text-xs">
                       <span class="label-text">{t("bomberman.mapSize")}</span>
                     </div>
                     <Select
@@ -252,21 +387,43 @@ export function BombermanRoom() {
                       ))}
                     </Select>
                   </div>
+                  <div>
+                    <div class="label text-xs">
+                      <span class="label-text">Team Mode</span>
+                    </div>
+                    <Select size="sm" class="w-full" value={teamMode()} onChange={handleTeamModeChange}>
+                      <option value="ffa">Free-for-All</option>
+                      <option value="team">Teams</option>
+                    </Select>
+                  </div>
                 </div>
               </Show>
             </div>
           </Show>
-
           <div class="grid gap-2 mb-4">
             <For each={session.roomSync.state().players ?? []}>
               {(p) => (
                 <div class="flex items-center gap-3 p-3 bg-base-200 rounded pixel-border">
-                  <div class="w-10 h-10 rounded-full bg-base-300 flex items-center justify-center text-sm font-bold text-base-content/60">
+                  <div
+                    class="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold text-white shrink-0"
+                    style={{ "background-color": teamColors[p.teamId] ?? "#666" }}
+                  >
                     {p.name.charAt(0).toUpperCase()}
                   </div>
-                  <div class="flex-1">
-                    <div class="font-bold">
+                  <div class="flex-1 min-w-0">
+                    <div class="font-bold flex items-center gap-2">
                       {p.name}
+                      <Show when={teamMode() === "team" && p.teamId}>
+                        <span
+                          class="text-xs px-1.5 py-0.5 rounded"
+                          style={{
+                            "background-color": `${teamColors[p.teamId] ?? "#666"}33`,
+                            color: teamColors[p.teamId] ?? "#666",
+                          }}
+                        >
+                          {teamMarkers[p.teamId]?.split(" ")[1] ?? p.teamId}
+                        </span>
+                      </Show>
                       <Show when={p.isHost}>
                         <span class="text-xs text-warning ml-1">{t("bomberman.host")}</span>
                       </Show>
@@ -281,6 +438,40 @@ export function BombermanRoom() {
                   <Badge variant={p.ready ? "success" : "neutral"} size="sm" ghost={!p.ready}>
                     {p.ready ? t("bomberman.ready") : t("bomberman.wait")}
                   </Badge>
+                  <Show
+                    when={
+                      teamMode() === "team" && session.phase() === "lobby" && (isHost() || p.id === session.playerId())
+                    }
+                  >
+                    <div class="flex gap-1">
+                      <button
+                        type="button"
+                        class="w-6 h-6 rounded text-xs font-bold flex items-center justify-center border"
+                        style={{
+                          "background-color": p.teamId === "team1" ? "#3b82f6" : "transparent",
+                          "border-color": "#3b82f6",
+                          color: p.teamId === "team1" ? "#fff" : "#3b82f6",
+                        }}
+                        onClick={() => handleTeamSwitch(p.id, "team1")}
+                        title="Switch to Team Alpha"
+                      >
+                        A
+                      </button>
+                      <button
+                        type="button"
+                        class="w-6 h-6 rounded text-xs font-bold flex items-center justify-center border"
+                        style={{
+                          "background-color": p.teamId === "team2" ? "#ef4444" : "transparent",
+                          "border-color": "#ef4444",
+                          color: p.teamId === "team2" ? "#fff" : "#ef4444",
+                        }}
+                        onClick={() => handleTeamSwitch(p.id, "team2")}
+                        title="Switch to Team Beta"
+                      >
+                        B
+                      </button>
+                    </div>
+                  </Show>
                   <Show when={isHost() && p.id !== session.playerId()}>
                     <Button
                       size="xs"
@@ -330,6 +521,11 @@ export function BombermanRoom() {
           </div>
         </div>
       </Show>
+      <Show when={session.showingGameUI() && session.phase() === "between_rounds" && matchState()}>
+        {(match) => (
+          <BetweenRoundsState match={match()} scoreRows={scoreRows()} players={playerListMemo()} />
+        )}
+      </Show>
 
       <Show when={session.showingGameUI() && session.gameSync.state()}>
         <BombermanGame
@@ -342,38 +538,29 @@ export function BombermanRoom() {
           spectate={session.selfStatus() === "spectating"}
           onLeaveSpectate={() => session.leaveSpectate()}
           freshStart={session.startedThisSession()}
+          phase={session.phase() === "between_rounds" ? "between_rounds" : "playing"}
+          matchState={matchState()}
+          scoreRows={scoreRows()}
+          chatDomain={session.chatDomain()}
+          selfStatus={session.selfStatus()}
         />
       </Show>
 
-      <Show when={session.phase() === "ended"}>
-        <div class="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
-          <div class="bg-base-200 p-8 rounded pixel-border text-center">
-            <h2 class="text-2xl font-bold mb-4">{t("bomberman.gameOver")}</h2>
-            <Show when={session.gameEnded()}>
-              <div class="mb-4">
-                <p class="text-lg mb-2">
-                  {t("bomberman.winner")}: {winnerName() ?? t("bomberman.draw")}
-                </p>
-                <For each={session.gameEnded()?.rankings ?? []}>
-                  {(r) => (
-                    <p>
-                      #{r.rank}: {r.name}
-                    </p>
-                  )}
-                </For>
-              </div>
-            </Show>
-            <div class="flex gap-2 justify-center">
-              <Button variant="primary" onClick={handleDismissGameEnd}>
-                {t("bomberman.playAgain")}
-              </Button>
-              <Button outline onClick={handleDismissGameEnd}>
-                {t("bomberman.backToLobby")}
-              </Button>
-            </div>
-          </div>
-        </div>
+      <Show when={session.phase() === "ended" && matchState()}>
+        {(match) => (
+          <Show when={session.matchRankings()}>
+            {(rankings) => (
+              <Scoreboard
+                match={match()}
+                rankings={rankings()}
+                players={playerListMemo()}
+                onBackToRoom={handleDismissGameEnd}
+              />
+            )}
+          </Show>
+        )}
       </Show>
+
       {/* Floating chat window */}
       <Show when={session.chatDomain() && session.playerId()}>
         <div class="fixed bottom-4 right-4 z-50">
@@ -390,9 +577,18 @@ export function BombermanRoom() {
                   ✕
                 </Button>
               </div>
-              <div class="p-2">
-                <ChatPanel domain={session.chatDomain() as string} userId={session.playerId() as string} />
-              </div>
+              <ChatPanel
+                domain={session.chatDomain() as string}
+                userId={session.playerId() as string}
+                phase={session.phase() as GamePhase | undefined}
+                selfStatus={session.selfStatus() as PreGamePlayerStatus | undefined}
+                room={session.roomSync.state() as unknown as PreGameRoomState | null}
+                quickMessageKeys={["help", "danger", "nice", "follow_me"]}
+                transparent
+                scopes={["room", "game", "team"]}
+                activeScope={null}
+                onScopeChange={() => {}}
+              />
             </div>
           </Show>
         </div>

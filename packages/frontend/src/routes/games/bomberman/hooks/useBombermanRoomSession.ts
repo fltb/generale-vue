@@ -6,6 +6,7 @@ import type {
   BombermanPreGameServerEvent,
   BombermanState,
   BombermanOperation,
+  BombermanMatchRanking,
 } from "@generale/types";
 import { createMemo, createSignal, onMount, onCleanup } from "solid-js";
 import { useSyncedState } from "~/hooks/useSyncedState";
@@ -25,14 +26,9 @@ export interface SyncedState<TState, TAction> {
   isReady: () => boolean;
 }
 
-export interface GameEndedInfo {
-  rankings: { playerId: string; name: string; rank: number }[];
-  winnerId: string | null;
-}
-
 export interface BombermanRoomSession {
   /** Current phase of the room lifecycle. */
-  phase: () => "loading" | "lobby" | "playing" | "ended" | "error";
+  phase: () => "loading" | "lobby" | "playing" | "between_rounds" | "ended" | "error";
   /** Error message if phase is "error". */
   error: () => string;
   /** The local player's id (empty string until connected). */
@@ -45,8 +41,8 @@ export interface BombermanRoomSession {
   /** Game sync handle — used during active play. */
   gameSync: SyncedState<BombermanState, BombermanOperation>;
 
-  /** Game-ended info (set when phase transitions to "ended" via server event). */
-  gameEnded: () => GameEndedInfo | null;
+  /** Server-driven match rankings (set when phase transitions to "ended" via MATCH_ENDED event). */
+  matchRankings: () => BombermanMatchRanking[] | null;
 
   /** Current player status within the room (lobby / playing / spectating). */
   selfStatus: () => "lobby" | "playing" | "spectating";
@@ -89,34 +85,39 @@ export interface BombermanRoomSession {
  * Manages:
  *  - Phase state machine (loading → lobby/playing → ended/error)
  *  - Connection to the room (pregame) domain
- *  - Connection to the game domain (started when phase transitions to playing)
- *  - Lifecycle cleanup
+/**
+ * Room-level sync orchestrator for bomberman.
  *
- * Follows the pattern established by generale/useRoomSession.ts.
+ * Creates two useSyncedState instances — one for the room (pregame) domain
+ * and one for the game (in-play) domain. Handles the phase transitions,
+ * password flow, game-start signaling, disconnect deadlines, spectate modes,
+ * and both client-driven and server-driven state transitions.
+ *
+ * Supports role-aware entry: pass `role: "spectator"` to connect as a
+ * spectator rather than a player. The backend verifies this and returns
+ * the resolved role in BombermanConnectResponse.role.
  */
-export function useBombermanRoomSession(params: { id: string; password?: string }): BombermanRoomSession {
+export function useBombermanRoomSession(params: {
+  id: string;
+  password?: string;
+  role?: "player" | "spectator";
+}): BombermanRoomSession {
   const [playerId, setPlayerId] = createSignal("");
-  const [phase, setPhase] = createSignal<"loading" | "lobby" | "playing" | "ended" | "error">("loading");
+  const [phase, setPhase] = createSignal<"loading" | "lobby" | "playing" | "between_rounds" | "ended" | "error">(
+    "loading",
+  );
   const [error, setError] = createSignal("");
-  const [gameEnded, setGameEnded] = createSignal<GameEndedInfo | null>(null);
+  const [matchRankings, setMatchRankings] = createSignal<BombermanMatchRanking[] | null>(null);
   const [chatDomain, setChatDomain] = createSignal<string | null>(null);
   const [displaced, setDisplaced] = createSignal(false);
   const [selfStatus, setSelfStatus] = createSignal<"lobby" | "playing" | "spectating">("lobby");
   const [gameJustEnded, setGameJustEnded] = createSignal(false);
-  const [startedThisSession, setStartedThisSession] = createSignal(false);
-
-  const GAME_END_FALLBACK_MS = 15_000;
-  let gameEndFallbackTimer: ReturnType<typeof setTimeout> | null = null;
-  function cancelGameEndFallback() {
-    if (gameEndFallbackTimer) {
-      clearTimeout(gameEndFallbackTimer);
-      gameEndFallbackTimer = null;
-    }
-  }
-  onCleanup(() => cancelGameEndFallback());
+  const [startedThisSession] = createSignal(false);
 
   const showingGameUI = createMemo(
-    () => phase() === "playing" && (selfStatus() === "playing" || selfStatus() === "spectating" || gameJustEnded()),
+    () =>
+      (phase() === "playing" || phase() === "between_rounds") &&
+      (selfStatus() === "playing" || selfStatus() === "spectating" || gameJustEnded()),
   );
 
   // ── Game sync resync watchdog ──
@@ -191,37 +192,49 @@ export function useBombermanRoomSession(params: { id: string; password?: string 
       phase: "lobby",
       maxPlayers: 4,
       hostId: "",
+      match: {
+        format: "single",
+        targetWins: 1,
+        currentRound: 1,
+        currentAttempt: 1,
+        scores: [],
+        roundResults: [],
+        winner: null,
+        nextRoundStartsAt: null,
+      },
+      teams: [],
+      spectators: [],
     },
     applyEvent: (state, action) =>
       applyBombermanRoomEventLocal(state, action as unknown as BombermanPreGameClientDispatch, playerId()),
-    openPayload: effectivePassword ? { password: effectivePassword } : {},
+    openPayload: effectivePassword
+      ? { password: effectivePassword, role: params.role ?? "player" }
+      : { role: params.role ?? "player" },
     onCustomEvent: (evt: BombermanPreGameServerEvent) => {
       switch (evt.type) {
-        case "gamestarted":
+        case "roundstarted":
           setPhase("playing");
           setSelfStatus("playing");
-          setStartedThisSession(true);
           setTimeout(() => {
             gameSync.connect();
             startGameWatchdog();
           }, 500);
           break;
-        case "gameended":
-          setGameEnded({ rankings: evt.rankings, winnerId: evt.winnerId });
-          setGameJustEnded(true);
+        case "roundended":
+          setPhase("between_rounds");
+          gameSync.disconnect();
+          gameSync.reset(null as unknown as BombermanState);
+          break;
+        case "matchended":
           setPhase("ended");
+          setMatchRankings(evt.rankings);
+          setGameJustEnded(true);
           gameSync.disconnect();
           // Reset gameSync state to its initial null value. The next startGame()
           // will receive a fresh snapshot — without this reset, the old game's
           // final state (status: Ended, lingering bombs/explosions) and any
           // stale optimistic events would persist in the store.
           gameSync.reset(null as unknown as BombermanState);
-          // Fallback: if game component doesn't dismiss, force clear after 15s
-          cancelGameEndFallback();
-          gameEndFallbackTimer = setTimeout(() => {
-            setGameJustEnded(false);
-            setStartedThisSession(false);
-          }, GAME_END_FALLBACK_MS);
           break;
         case "kicked":
           setError("You have been kicked from the room");
@@ -267,7 +280,8 @@ export function useBombermanRoomSession(params: { id: string; password?: string 
 
   onMount(async () => {
     try {
-      const res = await fetch(`/api/bomberman/room/connect/${params.id}`);
+      const roleQuery = params.role && params.role !== "player" ? `?role=${encodeURIComponent(params.role)}` : "";
+      const res = await fetch(`/api/bomberman/room/connect/${params.id}${roleQuery}`);
       const d: {
         success: boolean;
         message?: string;
@@ -286,16 +300,26 @@ export function useBombermanRoomSession(params: { id: string; password?: string 
       if (dRoom && resolvedRoomDomain() !== dRoom) setResolvedRoomDomain(dRoom);
       if (dGame && resolvedGameDomain() !== dGame) setResolvedGameDomain(dGame);
       const dChat = d.data.domains?.chat ?? null;
-      if (dChat && chatDomain() !== dChat) setChatDomain(dChat);
+      if (dChat) setChatDomain(dChat);
+      // Use server-resolved role for phase transitions
+      const serverRole = d.data.role ?? "player";
+      if (serverRole === "spectator") {
+        setSelfStatus("spectating");
+      }
       if (needsPassword()) {
         // Room has a password and we don't have one yet — show password card
         setPhase("lobby");
       } else if (d.data.phase === "playing") {
         setPhase("playing");
-        setSelfStatus("playing");
+        if (serverRole !== "spectator") setSelfStatus("playing");
         roomSync.connect();
         gameSync.connect();
         startGameWatchdog();
+      } else if (d.data.phase === "between_rounds") {
+        setPhase("between_rounds");
+        if (serverRole !== "spectator") setSelfStatus("playing");
+        // Spectators also get room sync during between-rounds
+        roomSync.connect();
       } else {
         setPhase("lobby");
         roomSync.connect();
@@ -327,10 +351,8 @@ export function useBombermanRoomSession(params: { id: string; password?: string 
   }
 
   function handleDismissGameEnd() {
-    cancelGameEndFallback();
+    setMatchRankings(null);
     setGameJustEnded(false);
-    setStartedThisSession(false);
-    setGameEnded(null);
     setPhase("lobby");
   }
 
@@ -345,7 +367,7 @@ export function useBombermanRoomSession(params: { id: string; password?: string 
     chatDomain,
     roomSync: roomSync as unknown as SyncedState<BombermanRoomState, BombermanPreGameClientDispatch>,
     gameSync: gameSync as unknown as SyncedState<BombermanState, BombermanOperation>,
-    gameEnded,
+    matchRankings,
     selfStatus,
     startGame,
     enterSpectate,

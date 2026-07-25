@@ -1,4 +1,4 @@
-import { createSignal, onCleanup } from "solid-js";
+import { createSignal, createEffect, onCleanup, type Accessor } from "solid-js";
 import type { BombermanOperation, BombermanKeybindings, BombermanDirection } from "@generale/types";
 import { bombermanSettingsSchema } from "@generale/types";
 import { useGameSettings } from "~/hooks/useGameSettings";
@@ -15,7 +15,35 @@ function keyToDirection(key: string, kb: BombermanKeybindings): BombermanDirecti
   return null;
 }
 
-export function useBombermanInput(onAction: (op: BombermanOperation) => void) {
+/** Map a Gamepad axis pair to a direction, respecting deadzone. */
+function axisToDirection(x: number, y: number, deadzone: number): BombermanDirection | null {
+  const absX = Math.abs(x);
+  const absY = Math.abs(y);
+  if (absX < deadzone && absY < deadzone) return null;
+  if (absX > absY) {
+    return x < 0 ? "left" : "right";
+  }
+  return y < 0 ? "up" : "down";
+}
+
+/**
+ * Roadmap phase 9 input hook:
+ * - `onAction` — dispatches BombermanOperation values (direction changes + one-shots)
+ * - `enabled` — optional accessor; when false, blocks all input and releases held directions
+ * - `onMenu` — optional callback invoked when surrender/menu key is pressed; the hook
+ *   **does not** send SURRENDER; instead it calls onMenu and releases all directions.
+ *
+ * Gamepad input is polled via requestAnimationFrame. Disabled, blur, hidden, and
+ * onMenu-release are all handled.
+ */
+export function useBombermanInput(options: {
+  onAction: (op: BombermanOperation) => void;
+  enabled?: Accessor<boolean>;
+  onMenu?: () => void;
+}) {
+  const { onAction, onMenu } = options;
+  const enabled = options.enabled;
+  const isEnabled = () => enabled?.() ?? true;
   const { settings } = useGameSettings(bombermanSettingsSchema);
   const [showVirtualControls, setShowVirtualControls] = createSignal(false);
   setShowVirtualControls(window.matchMedia("(pointer: coarse)").matches);
@@ -24,6 +52,8 @@ export function useBombermanInput(onAction: (op: BombermanOperation) => void) {
   const sources = new Map<string, { direction: BombermanDirection; order: number }>();
   let nextOrder = 0;
   let currentDirection: BombermanDirection | null = null;
+  let gamepadRafId: number | null = null;
+  let menuCallbackPending = false;
 
   function getMostRecentDirection(): BombermanDirection | null {
     let best: { direction: BombermanDirection; order: number } | null = null;
@@ -43,6 +73,7 @@ export function useBombermanInput(onAction: (op: BombermanOperation) => void) {
   }
 
   function pressDirection(sourceId: string, direction: BombermanDirection) {
+    if (!isEnabled()) return;
     sources.set(sourceId, { direction, order: nextOrder++ });
     emitDirection(getMostRecentDirection());
   }
@@ -60,7 +91,17 @@ export function useBombermanInput(onAction: (op: BombermanOperation) => void) {
     }
   }
 
+  // Release any held direction when controls become disabled
+  createEffect(() => {
+    if (!isEnabled()) {
+      releaseAllDirections();
+    }
+  });
+
+  // ── Keyboard handlers ──
   function onKeyDown(e: KeyboardEvent) {
+    if (!isEnabled()) return;
+
     const key = e.key === "Spacebar" ? " " : e.key;
     const kb = settings().keybindings;
 
@@ -83,9 +124,13 @@ export function useBombermanInput(onAction: (op: BombermanOperation) => void) {
       onAction({ type: "DETONATE" });
       return;
     }
+    // Surrender key triggers onMenu (local overlay), not SURRENDER
     if (key === kb.surrender || e.code === kb.surrender) {
       e.preventDefault();
-      onAction({ type: "SURRENDER" });
+      if (onMenu) {
+        releaseAllDirections();
+        onMenu();
+      }
       return;
     }
 
@@ -113,6 +158,92 @@ export function useBombermanInput(onAction: (op: BombermanOperation) => void) {
     }
   }
 
+  // ── Gamepad input ──
+  function pollGamepad() {
+    if (!isEnabled()) {
+      gamepadRafId = null;
+      return;
+    }
+
+    const s = settings();
+    const gp = s.gamepad;
+
+    if (gp.enabled) {
+      const gamepads = navigator.getGamepads?.() ?? [];
+      const pad = gamepads[gp.index];
+      if (pad) {
+        const axes = pad.axes;
+        const buttons = pad.buttons;
+
+        // D-pad from axes (typically axes[0], axes[1])
+        const dirX = axes[0] ?? 0;
+        const dirY = axes[1] ?? 0;
+        const dir = axisToDirection(dirX, dirY, gp.deadzone);
+
+        // D-pad buttons (typically buttons 12-15 on a standard mapping)
+        const dpadUp = buttons[12]?.pressed ?? false;
+        const dpadDown = buttons[13]?.pressed ?? false;
+        const dpadLeft = buttons[14]?.pressed ?? false;
+        const dpadRight = buttons[15]?.pressed ?? false;
+
+        let effectiveDir: BombermanDirection | null = dir;
+        if (dpadUp) effectiveDir = "up";
+        else if (dpadDown) effectiveDir = "down";
+        else if (dpadLeft) effectiveDir = "left";
+        else if (dpadRight) effectiveDir = "right";
+
+        const sourceId = `gamepad:${gp.index}`;
+        if (effectiveDir) {
+          // Only press if direction changed (avoids spamming on held)
+          const existing = sources.get(sourceId);
+          if (!existing || existing.direction !== effectiveDir) {
+            sources.set(sourceId, { direction: effectiveDir, order: nextOrder++ });
+            emitDirection(getMostRecentDirection());
+          }
+        } else if (sources.has(sourceId)) {
+          // No direction — release gamepad source
+          sources.delete(sourceId);
+          emitDirection(getMostRecentDirection());
+        }
+
+        // Action buttons — use bindings
+        const bindings = gp.bindings;
+        if (buttons[bindings.placeBomb]?.pressed) {
+          onAction({ type: "PLACE_BOMB" });
+        }
+        if (buttons[bindings.action]?.pressed) {
+          onAction({ type: "ACTION" });
+        }
+        if (buttons[bindings.detonate]?.pressed) {
+          onAction({ type: "DETONATE" });
+        }
+        if (buttons[bindings.menu]?.pressed && !menuCallbackPending) {
+          menuCallbackPending = true;
+          if (onMenu) {
+            releaseAllDirections();
+            onMenu();
+          }
+        } else if (!buttons[bindings.menu]?.pressed) {
+          menuCallbackPending = false;
+        }
+      }
+    }
+
+    gamepadRafId = requestAnimationFrame(pollGamepad);
+  }
+
+  // Start gamepad polling when enabled and enabled changes
+  createEffect(() => {
+    if (isEnabled()) {
+      if (gamepadRafId === null) {
+        gamepadRafId = requestAnimationFrame(pollGamepad);
+      }
+    } else if (gamepadRafId !== null) {
+      cancelAnimationFrame(gamepadRafId);
+      gamepadRafId = null;
+    }
+  });
+
   window.addEventListener("keydown", onKeyDown);
   window.addEventListener("keyup", onKeyUp);
   window.addEventListener("blur", onBlur);
@@ -123,6 +254,10 @@ export function useBombermanInput(onAction: (op: BombermanOperation) => void) {
     window.removeEventListener("keyup", onKeyUp);
     window.removeEventListener("blur", onBlur);
     window.removeEventListener("visibilitychange", onVisibilityChange);
+    if (gamepadRafId !== null) {
+      cancelAnimationFrame(gamepadRafId);
+      gamepadRafId = null;
+    }
     releaseAllDirections();
   });
 

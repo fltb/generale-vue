@@ -26,7 +26,18 @@ export function applyBombermanRoomEventLocal(
       if (payload.blastRadius !== undefined) next.config.blastRadius = payload.blastRadius;
       if (payload.shrinkEnabled !== undefined) next.config.shrinkEnabled = payload.shrinkEnabled;
       if (payload.itemDropRate !== undefined) next.config.itemDropRate = payload.itemDropRate;
+      if (payload.matchFormat !== undefined) next.config.matchFormat = payload.matchFormat;
       if (payload.items !== undefined) next.config.items = payload.items;
+      if (payload.teamMode !== undefined) next.config.teamMode = payload.teamMode;
+      break;
+    }
+    case "CHANGE_TEAM_MODE": {
+      next.config.teamMode = action.teamMode;
+      break;
+    }
+    case "CHANGE_TEAM": {
+      const p = next.players.find((pl) => pl.id === action.playerId);
+      if (p) p.teamId = action.teamId;
       break;
     }
     case "READY": {

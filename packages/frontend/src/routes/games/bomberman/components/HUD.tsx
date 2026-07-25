@@ -1,5 +1,12 @@
 import { For, Show } from "solid-js";
 import { useT } from "~/i18n/useT";
+import type { BombermanMatchState } from "@generale/types";
+
+interface ScoreRow {
+  label: string;
+  wins: number;
+  isMatchPoint: boolean;
+}
 
 interface HUDProps {
   timeLeft: number;
@@ -12,6 +19,8 @@ interface HUDProps {
     speed: number;
   };
   playerItems?: string[];
+  matchState?: BombermanMatchState | null;
+  scoreRows?: ScoreRow[];
 }
 
 const ITEM_INFO: Record<string, { label: string; desc: string; color: string }> = {
@@ -33,15 +42,60 @@ export function HUD(props: HUDProps) {
   const timeStr = `${minutes}:${seconds.toString().padStart(2, "0")}`;
   const stats = props.playerStats;
 
+  const roundLabel = () => {
+    const m = props.matchState;
+    if (!m || m.format === "single") return "";
+    return t("bomberman.round_", { n: String(m.currentRound) });
+  };
+
   return (
     <div class="fixed top-0 left-0 right-0 z-50 pointer-events-none">
       {/* Top bar */}
       <div class="flex justify-between text-white text-sm font-mono p-3">
+        {/* Left: timer */}
         <div class="bg-black/60 px-3 py-1 rounded">{timeStr}</div>
+
+        {/* Center: score rows + round indicator */}
+        <div class="flex flex-col items-center gap-1">
+          <Show when={props.matchState && props.matchState.targetWins > 1}>
+            <div class="flex gap-3">
+              <For each={props.scoreRows}>
+                {(row) => (
+                  <div
+                    class="px-2 py-0.5 rounded text-xs font-bold"
+                    classList={{
+                      "bg-yellow-500 text-black": row.isMatchPoint,
+                      "bg-black/60 text-white": !row.isMatchPoint,
+                    }}
+                  >
+                    {row.label} {row.wins}
+                  </div>
+                )}
+              </For>
+            </div>
+            <div class="text-[10px] text-white/70">{roundLabel()}</div>
+          </Show>
+          <Show when={props.matchState && props.matchState.targetWins === 1}>
+            <div class="bg-black/60 px-3 py-1 rounded text-xs">
+              {props.matchState?.currentRound ? `${t("bomberman.round")} ${props.matchState.currentRound}` : ""}
+            </div>
+          </Show>
+        </div>
+
+        {/* Right: alive count */}
         <div class="bg-black/60 px-3 py-1 rounded">
           {t("bomberman.alive")}: {props.aliveCount}/{props.totalPlayers}
         </div>
       </div>
+
+      {/* Match point flash banner */}
+      <Show when={props.scoreRows?.some((r) => r.isMatchPoint)}>
+        <div class="text-center">
+          <span class="inline-block bg-red-600 text-white text-xs font-bold px-3 py-0.5 rounded animate-pulse">
+            {t("bomberman.matchPoint")}
+          </span>
+        </div>
+      </Show>
 
       {/* Player inventory — bottom-left */}
       <Show when={stats}>

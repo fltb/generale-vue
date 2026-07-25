@@ -1,23 +1,32 @@
 import { Application } from "solid-pixi";
 import { type Accessor, createSignal, createMemo, createEffect, onMount, onCleanup, Show } from "solid-js";
-import type { BombermanState, BombermanOperation } from "@generale/types";
-import { GameStatus, bombermanSettingsSchema } from "@generale/types";
+import type { BombermanState, BombermanOperation, BombermanMatchState, BombermanEvent } from "@generale/types";
+import { bombermanSettingsSchema } from "@generale/types";
 import { useBombermanInput } from "./hooks/useBombermanInput";
 import { useGameSettings } from "~/hooks/useGameSettings";
 import { MapLayer } from "./components/MapLayer";
 import { EntityLayer } from "./components/EntityLayer";
 import { HUD } from "./components/HUD";
 import { VirtualControls } from "./components/VirtualControls";
-import { Scoreboard } from "./components/Scoreboard";
 import { Countdown } from "~/ui/Countdown";
-import { sfx } from "~/ui/sound";
+import { sfx, isMuted } from "~/ui/sound";
 import { formatKey } from "./utils";
 import { useT } from "~/i18n/useT";
 import { Button } from "~/ui";
 import { TakeoverOverlay } from "~/ui/Overlay";
 import type { SyncedState } from "./hooks/useBombermanRoomSession";
 import { useBombermanGameSession } from "./hooks/useBombermanGameSession";
-import { computeEndgameResult } from "./hooks/selectors";
+import { useBombermanEvents } from "./hooks/useBombermanEvents";
+import { EventFeed } from "./components/EventFeed";
+import { DeathOverlay } from "./components/DeathOverlay";
+import { DangerIndicator } from "./components/DangerIndicator";
+import ChatPanel from "~/components/ChatPanel";
+
+interface ScoreRow {
+  label: string;
+  wins: number;
+  isMatchPoint: boolean;
+}
 
 interface BombermanGameProps {
   gameSync: SyncedState<BombermanState, BombermanOperation>;
@@ -27,21 +36,93 @@ interface BombermanGameProps {
   spectate?: boolean;
   onLeaveSpectate?: () => void;
   freshStart?: boolean;
+  phase?: "playing" | "between_rounds";
+  matchState?: BombermanMatchState | null;
+  scoreRows?: ScoreRow[];
+  chatDomain?: string | null;
+  selfStatus?: "lobby" | "playing" | "spectating";
 }
 
 export function BombermanGame(props: BombermanGameProps) {
   const { t } = useT();
   const session = useBombermanGameSession(props.gameSync, () => props.playerId ?? "", props.spectate);
-  const { showVirtualControls, pressDirection, releaseDirection } = useBombermanInput(
-    props.spectate ? () => {} : session.onAction,
-  );
+  // ── Countdown (skip for spectators and reconnects) ──
+  const [countdownDone, setCountdownDone] = createSignal(!props.freshStart);
+  const { showVirtualControls, pressDirection, releaseDirection } = useBombermanInput({
+    onAction: props.spectate ? () => {} : session.onAction,
+    enabled: countdownDone,
+    onMenu: () => setShowMenuOverlay(true),
+  });
+  // Gate virtual controls behind countdown
+  const gatedOnAction = (op: BombermanOperation) => {
+    if (!countdownDone()) return;
+    session.onAction(op);
+  };
   const { settings: gameSettings } = useGameSettings(bombermanSettingsSchema);
-  const [showScoreboard, setShowScoreboard] = createSignal(false);
-  const [rankings, setRankings] = createSignal<{ name: string; rank: number }[]>([]);
+
+  // ── Spectator controls: follow/overview mode and follow target ──
+  type SpectatorMode = "follow" | "overview";
+  const [spectatorMode, setSpectatorMode] = createSignal<SpectatorMode>("overview");
+  const [followTarget, setFollowTarget] = createSignal<string | null>(null);
+
+  // Cycle follow target through alive players
+  const cycleFollowTarget = () => {
+    const alivePlayers = players().filter((p) => p.alive);
+    if (alivePlayers.length === 0) {
+      setSpectatorMode("overview");
+      setFollowTarget(null);
+      return;
+    }
+    const current = followTarget();
+    const currentIdx = alivePlayers.findIndex((p) => p.playerId === current);
+    const nextIdx = (currentIdx + 1) % alivePlayers.length;
+    const next = alivePlayers[nextIdx];
+    if (!next) return;
+    setFollowTarget(next.playerId);
+    setSpectatorMode("follow");
+  };
+
+  // When followed player dies, switch to next alive or overview
+  createEffect(() => {
+    if (spectatorMode() !== "follow") return;
+    const target = followTarget();
+    if (!target) return;
+    const player = state().players?.[target];
+    if (!player?.alive) {
+      cycleFollowTarget();
+    }
+  });
+  const [controlsAutoHidden, setControlsAutoHidden] = createSignal(false);
+  const [gameChatVisible, setGameChatVisible] = createSignal(false);
   const [showControls, setShowControls] = createSignal(true);
   const [connectionOk, setConnectionOk] = createSignal(true);
+  const [showMenuOverlay, setShowMenuOverlay] = createSignal(false);
   const [showSurrenderConfirm, setShowSurrenderConfirm] = createSignal(false);
-  const [controlsAutoHidden, setControlsAutoHidden] = createSignal(false);
+  // ── Between-rounds countdown ──
+  const [nextRoundCountdown, setNextRoundCountdown] = createSignal<number | null>(null);
+  let countdownTimer: ReturnType<typeof setInterval> | null = null;
+  createEffect(() => {
+    const m = props.matchState;
+    if (props.phase !== "between_rounds" || !m?.nextRoundStartsAt) {
+      if (countdownTimer) {
+        clearInterval(countdownTimer);
+        countdownTimer = null;
+      }
+      setNextRoundCountdown(null);
+      return;
+    }
+    const tick = () => {
+      const deadline = m.nextRoundStartsAt;
+      if (deadline == null) return;
+      const remaining = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
+      setNextRoundCountdown(remaining);
+    };
+    tick();
+    countdownTimer = setInterval(tick, 500);
+  });
+  onCleanup(() => {
+    if (countdownTimer) clearInterval(countdownTimer);
+  });
 
   const state = () => session.state();
 
@@ -55,7 +136,10 @@ export function BombermanGame(props: BombermanGameProps) {
     const rows = s.map.tiles.length;
     const scaleW = (window.innerWidth * 0.85) / (cols * TILE_SIZE);
     const scaleH = (window.innerHeight * 0.8) / (rows * TILE_SIZE);
-    setGameScale(Math.max(1, Math.min(scaleW, scaleH, 3)));
+    // Overview: allow full-map fit (min 0.4); follow: enforce at least 1.5× default
+    const minScale = props.spectate && spectatorMode() === "overview" ? 0.4 : 1;
+    const maxScale = props.spectate && spectatorMode() === "follow" ? 3 : 3;
+    setGameScale(Math.max(minScale, Math.min(scaleW, scaleH, maxScale)));
   }
   onMount(() => {
     calculateScale();
@@ -66,57 +150,38 @@ export function BombermanGame(props: BombermanGameProps) {
     if (state()?.map?.tiles) calculateScale();
   });
 
-  // ── Countdown (skip for spectators and reconnects) ──
-  const [countdownDone, setCountdownDone] = createSignal(!props.freshStart);
+  // ── Event-driven feedback ──
+  const bombermanEvents = useBombermanEvents(state);
+  const [eventsForFeedback, setEventsForFeedback] = createSignal<BombermanEvent[]>([]);
 
-  // ── Sound effects ──
-  let prevBombCount = 0;
-  let prevExplosionCount = 0;
-  let prevAliveCount = 0;
-  let prevItemsCount = 0;
-  let gameEnded = false;
+  // Detect reduced motion preference
+  const [reducedMotion, setReducedMotion] = createSignal(false);
+  onMount(() => {
+    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+    setReducedMotion(mq.matches);
+    const handler = (e: MediaQueryListEvent) => setReducedMotion(e.matches);
+    mq.addEventListener("change", handler);
+    onCleanup(() => mq.removeEventListener("change", handler));
+  });
 
+  // Consume events, play sounds (unless muted), and forward to UI components
   createEffect(() => {
-    const s = state();
-    if (!s) return;
+    if (bombermanEvents.pendingEvents().length === 0) return;
+    const events = bombermanEvents.consume();
+    setEventsForFeedback((prev) => [...prev, ...events].slice(-20));
 
-    // Bomb placed
-    const bombCount = s.bombs?.length ?? 0;
-    if (bombCount > prevBombCount) {
-      sfx.bombPlace();
-    }
-    prevBombCount = bombCount;
-
-    // Explosion
-    const explosionCount = s.explosions?.length ?? 0;
-    if (explosionCount > prevExplosionCount) {
-      sfx.explosion();
-    }
-    prevExplosionCount = explosionCount;
-
-    // Item picked up (items count decreased)
-    const itemsCount = s.items?.length ?? 0;
-    if (itemsCount < prevItemsCount) {
-      sfx.pickup();
-    }
-    prevItemsCount = itemsCount;
-
-    // Player died
-    const aliveCount = Object.values(s.players ?? {}).filter((p) => p.alive).length;
-    if (aliveCount < prevAliveCount && prevAliveCount > 0) {
-      sfx.death();
-    }
-    prevAliveCount = aliveCount;
-
-    // Game ended — skip sounds for spectators
-    if (s.status === GameStatus.Ended && !gameEnded) {
-      gameEnded = true;
-      if (!props.spectate) {
-        const myPlayer = props.playerId ? s.players?.[props.playerId] : null;
-        if (myPlayer?.alive) {
-          sfx.victory();
-        } else {
-          sfx.defeat();
+    if (!isMuted()) {
+      for (const e of events) {
+        switch (e.type) {
+          case "elimination":
+            sfx.death();
+            break;
+          case "item_picked_up":
+            sfx.pickup();
+            break;
+          case "item_spawned":
+            // item_spawned events are kept for visual, no sound by default
+            break;
         }
       }
     }
@@ -153,17 +218,6 @@ export function BombermanGame(props: BombermanGameProps) {
   });
   onCleanup(() => {
     if (monitorTimer) clearInterval(monitorTimer);
-  });
-
-  createMemo(() => {
-    const s = state();
-    if (!s?.players) return;
-    if (s.status === GameStatus.Ended) {
-      const result = computeEndgameResult(s);
-      const list = result.rankings.map((r) => ({ name: r.name, rank: r.rank }));
-      setRankings(list);
-      setShowScoreboard(true);
-    }
   });
 
   const mapCols = createMemo(() => state().map?.tiles[0]?.length ?? 0);
@@ -208,7 +262,70 @@ export function BombermanGame(props: BombermanGameProps) {
         totalPlayers={players().length}
         playerStats={myStats()}
         playerItems={myItems()}
+        matchState={props.matchState}
+        scoreRows={props.scoreRows}
       />
+
+      <EventFeed
+        events={eventsForFeedback()}
+        consume={() => setEventsForFeedback([])}
+        players={state().players}
+        localPlayerId={props.playerId}
+        reducedMotion={reducedMotion()}
+      />
+
+      <DeathOverlay
+        localPlayer={myPlayer()}
+        playerId={props.playerId}
+        events={eventsForFeedback()}
+        players={state().players}
+        reducedMotion={reducedMotion()}
+        isRoomSpectator={props.spectate}
+      />
+
+      <DangerIndicator
+        bombs={state().bombs ?? []}
+        localPlayer={myPlayer()}
+        tickRate={state().config.tickRate ?? 5}
+        reducedMotion={reducedMotion()}
+      />
+
+      {/* Between-rounds overlay */}
+      <Show when={props.phase === "between_rounds" && props.matchState}>
+        <div class="fixed inset-0 z-40 flex items-center justify-center bg-black/60">
+          <div class="text-center">
+            <Show when={props.matchState?.roundResults && props.matchState.roundResults.length > 0}>
+              {(() => {
+                const results = props.matchState?.roundResults ?? [];
+                const last = results[results.length - 1];
+                const winnerLabel = last.winner
+                  ? last.winner.kind === "player"
+                    ? last.winner.id.slice(0, 8)
+                    : last.winner.id.slice(0, 8)
+                  : t("bomberman.draw");
+                return (
+                  <div class="mb-4">
+                    <div class="text-xl text-white font-bold mb-1">
+                      {t("bomberman.roundResult", {
+                        n: String(last.roundNumber),
+                        winner: winnerLabel,
+                      })}
+                    </div>
+                    <Show when={nextRoundCountdown() !== null}>
+                      <div class="text-4xl text-yellow-400 font-bold font-mono animate-pulse">
+                        {nextRoundCountdown()}
+                      </div>
+                      <div class="text-sm text-white/70 mt-1">
+                        {t("bomberman.nextRoundIn", { s: String(nextRoundCountdown() ?? 0) })}
+                      </div>
+                    </Show>
+                  </div>
+                );
+              })()}
+            </Show>
+          </div>
+        </div>
+      </Show>
 
       <Show when={!connectionOk()}>
         <div class="fixed bottom-20 left-1/2 -translate-x-1/2 bg-red-900/90 text-white px-4 py-2 rounded z-40 text-sm font-bold pointer-events-none animate-pulse">
@@ -235,26 +352,41 @@ export function BombermanGame(props: BombermanGameProps) {
         </div>
       </Show>
       <Show when={!props.spectate && showVirtualControls()}>
-        <VirtualControls
-          pressDirection={pressDirection}
-          releaseDirection={releaseDirection}
-          onAction={session.onAction}
-        />
+        <VirtualControls pressDirection={pressDirection} releaseDirection={releaseDirection} onAction={gatedOnAction} />
       </Show>
       {/* Spectate mode badge + leave button */}
-      <Show when={props.spectate}>
-        <div class="fixed top-4 left-4 z-30 flex items-center gap-2 bg-yellow-800/80 text-white px-3 py-1.5 rounded text-sm font-bold">
-          <span>{t("bomberman.spectating") || "Spectating"}</span>
-          <Show when={props.onLeaveSpectate}>
-            <Button
-              size="xs"
-              variant="ghost"
-              class="text-white ml-2 border border-white/30"
-              onClick={props.onLeaveSpectate}
+      {/* Spectator controls — shown for room-spectators AND dead players */}
+      <Show when={props.spectate || (props.playerId != null && !state().players?.[props.playerId]?.alive)}>
+        <div class="fixed top-4 left-4 z-30 flex flex-col gap-1">
+          <div class="flex items-center gap-2 bg-yellow-800/80 text-white px-3 py-1.5 rounded text-sm font-bold">
+            <span>{t("bomberman.spectating")}</span>
+            <button
+              type="button"
+              class={`px-2 py-0.5 text-xs rounded ${
+                spectatorMode() === "follow" ? "bg-yellow-600" : "bg-yellow-900/60"
+              }`}
+              onClick={() => {
+                if (spectatorMode() === "follow") {
+                  setSpectatorMode("overview");
+                  setFollowTarget(null);
+                } else {
+                  cycleFollowTarget();
+                }
+              }}
             >
-              {t("bomberman.leaveSpectate") || "Leave"}
-            </Button>
-          </Show>
+              {spectatorMode() === "follow" ? t("bomberman.spectateFollow") : t("bomberman.spectateOverview")}
+            </button>
+            <Show when={props.onLeaveSpectate}>
+              <Button
+                size="xs"
+                variant="ghost"
+                class="text-white ml-1 border border-white/30"
+                onClick={props.onLeaveSpectate}
+              >
+                {t("bomberman.leaveSpectate")}
+              </Button>
+            </Show>
+          </div>
         </div>
       </Show>
 
@@ -273,18 +405,48 @@ export function BombermanGame(props: BombermanGameProps) {
       >
         ?
       </Button>
-      {/* Hide surrender button for spectators */}
+      {/* Menu/surrender button — opens menu overlay for alive players */}
       <Show when={!props.spectate && props.playerId && state().players[props.playerId]?.alive}>
         <Button
           size="sm"
           variant="error"
           outline
           class="fixed top-4 right-4 z-30"
-          onClick={() => setShowSurrenderConfirm(true)}
+          onClick={() => setShowMenuOverlay(true)}
         >
           {t("bomberman.surrender")}
         </Button>
       </Show>
+      {/* No-pause menu overlay — local only, game continues */}
+      <Show when={showMenuOverlay()}>
+        <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div class="bg-base-200 p-6 rounded-lg text-center max-w-sm mx-4">
+            <h2 class="text-lg font-bold text-white mb-3">{t("bomberman.menu")}</h2>
+            <p class="text-sm text-white/80 mb-5">{t("bomberman.noPauseMessage")}</p>
+            <div class="flex flex-col gap-3">
+              <Button outline onClick={() => setShowMenuOverlay(false)}>
+                {t("bomberman.menuBackToGame")}
+              </Button>
+              <Show when={!props.spectate && props.playerId && state().players[props.playerId]?.alive}>
+                <Button variant="error" outline onClick={() => setShowSurrenderConfirm(true)}>
+                  {t("bomberman.surrender")}
+                </Button>
+              </Show>
+              <Show when={props.spectate && !!props.onLeaveSpectate}>
+                <Button outline onClick={props.onLeaveSpectate}>
+                  {t("bomberman.leaveSpectate")}
+                </Button>
+              </Show>
+              <Show when={!props.spectate}>
+                <Button outline onClick={props.onBackToRoom}>
+                  {t("bomberman.leaveRoom")}
+                </Button>
+              </Show>
+            </div>
+          </div>
+        </div>
+      </Show>
+      {/* Surrender confirm sub-dialog — layered over menu overlay */}
       <Show when={!props.spectate && showSurrenderConfirm()}>
         <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div class="bg-base-200 p-6 rounded-lg text-center">
@@ -298,6 +460,7 @@ export function BombermanGame(props: BombermanGameProps) {
                 onClick={() => {
                   session.onAction({ type: "SURRENDER" });
                   setShowSurrenderConfirm(false);
+                  setShowMenuOverlay(false);
                 }}
               >
                 {t("bomberman.yesSurrender")}
@@ -306,12 +469,37 @@ export function BombermanGame(props: BombermanGameProps) {
           </div>
         </div>
       </Show>
-      <Show when={showScoreboard()}>
-        <Scoreboard players={rankings()} onBackToRoom={props.onBackToRoom} />
-      </Show>
 
       <Show when={props.displaced?.()}>
         <TakeoverOverlay scope="Game" dim={70} />
+      </Show>
+      <Show when={props.chatDomain && props.playerId}>
+        <div class="fixed bottom-4 right-4 z-50">
+          <Show when={!gameChatVisible()}>
+            <Button variant="primary" class="shadow-lg btn-circle" onClick={() => setGameChatVisible(true)}>
+              💬
+            </Button>
+          </Show>
+          <Show when={gameChatVisible()}>
+            <div class="w-96 bg-base-100/80 backdrop-blur-sm shadow-xl pixel-border">
+              <div class="flex justify-between p-2 border-b border-base-300">
+                <span class="text-sm font-medium">{t("Chat")}</span>
+                <Button size="xs" variant="ghost" onClick={() => setGameChatVisible(false)}>
+                  ✕
+                </Button>
+              </div>
+              <div class="p-2">
+                <ChatPanel
+                  domain={props.chatDomain ?? ""}
+                  userId={props.playerId ?? ""}
+                  quickMessageKeys={["help", "danger", "nice", "follow_me"]}
+                  scopes={props.spectate ? ["game", "room"] : ["game", "team"]}
+                  transparent
+                />
+              </div>
+            </div>
+          </Show>
+        </div>
       </Show>
     </div>
   );

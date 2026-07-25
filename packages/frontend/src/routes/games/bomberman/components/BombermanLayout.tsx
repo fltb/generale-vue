@@ -6,6 +6,7 @@ import { useAuth } from "~/hooks/useAuth";
 import { Button, MuteToggle, Modal } from "~/ui";
 import { useT } from "~/i18n/useT";
 import { KeybindingSettings } from "./KeybindingSettings";
+import { BombermanTutorial } from "./BombermanTutorial";
 
 interface Props {
   children?: JSX.Element;
@@ -17,6 +18,7 @@ export default function BombermanLayout(props: Props) {
   const { t, locale, setLocale } = useT();
   const [open, setOpen] = createSignal(false);
   const [showSettings, setShowSettings] = createSignal(false);
+  const [showTutorial, setShowTutorial] = createSignal(false);
 
   createEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -70,6 +72,27 @@ export default function BombermanLayout(props: Props) {
         </div>
         <div class="flex items-center gap-3">
           <MuteToggle />
+          <Button
+            size="sm"
+            variant="ghost"
+            circle
+            onClick={() => setShowTutorial(true)}
+            aria-label={t("bomberman.tutorial")}
+          >
+            <span class="text-sm font-bold">?</span>
+          </Button>
+          <A
+            href="/bomberman/maps"
+            class="text-xs px-2 py-1 rounded border border-base-300 hover:bg-base-300 text-base-content/60 hover:text-base-content"
+          >
+            {t("bomberman.maps") || "Maps"}
+          </A>
+          <A
+            href="/bomberman/replays"
+            class="text-xs px-2 py-1 rounded border border-base-300 hover:bg-base-300 text-base-content/60 hover:text-base-content"
+          >
+            {t("bomberman.replays") || "Replays"}
+          </A>
           <Button
             size="sm"
             variant="ghost"
@@ -156,6 +179,8 @@ export default function BombermanLayout(props: Props) {
       </nav>
 
       <main class="flex-1 min-w-0">{props.children}</main>
+
+      <BombermanTutorial open={showTutorial()} onClose={() => setShowTutorial(false)} />
 
       <Show when={showSettings()}>
         <Modal boxClass="max-w-lg">

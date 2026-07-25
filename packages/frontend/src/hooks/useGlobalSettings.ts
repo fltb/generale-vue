@@ -53,7 +53,7 @@ export function useGlobalSettings(): UseGlobalSettings {
   }));
 
   const mutation = createMutation(() => ({
-    mutationFn: async (partial: Partial<GlobalSettings>) => {
+    mutationFn: (partial: Partial<GlobalSettings>) => {
       const body: Record<string, string> = {};
       for (const [key, value] of Object.entries(partial)) {
         body[key] = serializeGlobalSetting(key as keyof GlobalSettings, value as GlobalSettings[keyof GlobalSettings]);

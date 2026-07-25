@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@solidjs/testing-library";
 import { GamePhase, PreGamePlayerStatus } from "@generale/types";
+import en from "@generale/i18n/locales/en.json";
 
 const mockChat = vi.hoisted(() => ({
   messages: vi.fn().mockReturnValue([]),
@@ -11,6 +12,7 @@ const mockChat = vi.hoisted(() => ({
   connect: vi.fn(),
   disconnect: vi.fn(),
   send: vi.fn().mockReturnValue(true),
+  sendQuickMessage: vi.fn(),
   canTeamChat: vi.fn().mockReturnValue(false),
   messageDisplayName: vi.fn().mockImplementation((m: any) => m.playerId),
   selfMeta: vi.fn(),
@@ -22,6 +24,21 @@ const mockChat = vi.hoisted(() => ({
 vi.mock("~/routes/games/generale/hooks/useChatSession", () => ({
   useChatSession: () => mockChat,
 }));
+vi.mock("~/i18n/useT", () => ({
+  useT: () => ({
+    t: (key: string, params?: Record<string, string | number | boolean>) => {
+      let val = (en as Record<string, string>)[key];
+      if (val == null) return key;
+      if (params) {
+        val = val.replace(/\{(\w+)\}/g, (_, k: string) => String(params[k] ?? `{${k}}`));
+      }
+      return val;
+    },
+    setLocale: () => {},
+    locale: () => "en",
+  }),
+}));
+
 
 import { ChatPanel } from "~/components/ChatPanel";
 
@@ -138,5 +155,33 @@ describe("ChatPanel", () => {
     mockChat.hasMoreHistory.mockReturnValue(true);
     render(() => <ChatPanel domain="test" userId="u1" />);
     expect(screen.getByText("History")).toBeInTheDocument();
+  });
+
+  it("renders quick message buttons when quickMessageKeys provided", () => {
+    render(() => <ChatPanel domain="test" userId="u1" quickMessageKeys={["help", "danger"]} />);
+    expect(screen.getByText("Help!")).toBeInTheDocument();
+    expect(screen.getByText("Danger!")).toBeInTheDocument();
+  });
+
+  it("calls sendQuickMessage on quick message button click", () => {
+    mockChat.connected.mockReturnValue(true);
+    render(() => <ChatPanel domain="test" userId="u1" quickMessageKeys={["help"]} />);
+    const btn = screen.getByText("Help!").closest("button")!;
+    fireEvent.click(btn);
+    expect(mockChat.sendQuickMessage).toHaveBeenCalledWith("help", undefined);
+  });
+
+  it("quick message buttons disabled when not connected", () => {
+    mockChat.connected.mockReturnValue(false);
+    render(() => <ChatPanel domain="test" userId="u1" quickMessageKeys={["help"]} />);
+    const btn = screen.getByText("Help!").closest("button")!;
+    expect(btn).toBeDisabled();
+  });
+
+  it("renders scope filter tabs when scopes provided", () => {
+    render(() => <ChatPanel domain="test" userId="u1" scopes={["room", "game"]} />);
+    expect(screen.getByText("All")).toBeInTheDocument();
+    expect(screen.getByText("Room")).toBeInTheDocument();
+    expect(screen.getByText("Game")).toBeInTheDocument();
   });
 });

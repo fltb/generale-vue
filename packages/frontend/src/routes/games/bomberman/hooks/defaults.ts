@@ -9,6 +9,18 @@ export function makeEmptyBombermanRoom(): BombermanRoomState {
     phase: "lobby",
     maxPlayers: 4,
     hostId: "",
+    match: {
+      format: "single",
+      targetWins: 1,
+      currentRound: 1,
+      currentAttempt: 1,
+      scores: [],
+      roundResults: [],
+      winner: null,
+      nextRoundStartsAt: null,
+    },
+    teams: [],
+    spectators: [],
   };
 }
 

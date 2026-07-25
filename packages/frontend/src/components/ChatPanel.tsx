@@ -1,8 +1,22 @@
-import { type ChatMessage, GamePhase, PreGamePlayerStatus, type PreGameRoomState } from "@generale/types";
+import {
+  type ChatMessage,
+  type ChatMessageScope,
+  GamePhase,
+  PreGamePlayerStatus,
+  type PreGameRoomState,
+} from "@generale/types";
 import { type Component, createEffect, createMemo, createSignal, For, Show } from "solid-js";
 import { useT } from "~/i18n/useT";
 import { useChatSession } from "~/routes/games/generale/hooks/useChatSession";
 import { Badge, Button, Panel, Textarea } from "~/ui";
+import type { TranslationKey } from "@generale/i18n";
+
+const QUICK_MESSAGE_DISPLAY_KEYS: Record<string, string> = {
+  help: "chat.quick.help",
+  danger: "chat.quick.danger",
+  nice: "chat.quick.nice",
+  follow_me: "chat.quick.follow_me",
+};
 
 export interface ChatPanelProps {
   domain: string;
@@ -16,10 +30,22 @@ export interface ChatPanelProps {
   listClass?: string;
   placeholder?: string;
   transparent?: boolean;
+  /** Available scopes to show as filter tabs. null means "all scopes". */
+  scopes?: ChatMessageScope[];
+  /** Active scope filter */
+  activeScope?: ChatMessageScope | null;
+  /** Callback when scope filter changes */
+  onScopeChange?: (scope: ChatMessageScope | null) => void;
+  /** Keys for quick message buttons (empty = no quick message buttons) */
+  quickMessageKeys?: string[];
 }
 
 export const ChatPanel: Component<ChatPanelProps> = (props) => {
   const { t } = useT();
+  function tDynamic(key: string, params?: Record<string, string | number | boolean>): string {
+    return t(key as TranslationKey, params);
+  }
+
   const chat = useChatSession({
     domain: props.domain,
     userId: props.userId,
@@ -37,6 +63,17 @@ export const ChatPanel: Component<ChatPanelProps> = (props) => {
   });
 
   const { messages, connected, loadingHistory, hasMoreHistory, fetchMoreHistory, connect, disconnect } = chat;
+
+  const scopedMessages = createMemo(() => {
+    const scope = props.activeScope ?? null;
+    if (!scope) return messages();
+    return messages().filter((m) => m.scope === scope || m.type === "system");
+  });
+
+  function sendQuickMessage(key: string) {
+    if (!connected()) return;
+    chat.sendQuickMessage(key, props.activeScope ?? undefined);
+  }
 
   const [input, setInput] = createSignal("");
   let listEl: HTMLDivElement | undefined;
@@ -125,7 +162,33 @@ export const ChatPanel: Component<ChatPanelProps> = (props) => {
       }
       titleClass="mb-1"
     >
-      <div class="flex items-center gap-2">
+      <Show when={props.scopes && props.scopes.length > 0}>
+        <div class="flex gap-1">
+          <Button
+            size="xs"
+            variant={props.activeScope == null ? "primary" : "ghost"}
+            onClick={() => props.onScopeChange?.(null)}
+          >
+            {t("bomberman.chatFilterAll")}
+          </Button>
+          <For each={props.scopes}>
+            {(s) => (
+              <Button
+                size="xs"
+                variant={props.activeScope === s ? "primary" : "ghost"}
+                onClick={() => props.onScopeChange?.(s)}
+              >
+                {s === "room"
+                  ? t("bomberman.chatFilterRoom")
+                  : s === "game"
+                    ? t("bomberman.chatFilterGame")
+                    : t("bomberman.chatFilterTeam")}
+              </Button>
+            )}
+          </For>
+        </div>
+      </Show>
+      <div class="flex items-center gap-1">
         <Button size="xs" variant="ghost" disabled={connected()} onClick={connect}>
           {t("Connect")}
         </Button>
@@ -150,13 +213,13 @@ export const ChatPanel: Component<ChatPanelProps> = (props) => {
         style={{ height: "260px" }}
       >
         <Show
-          when={messages().length > 0}
+          when={scopedMessages().length > 0}
           fallback={
             <div class="flex h-full items-center justify-center text-sm opacity-60">{t("No messages yet")}</div>
           }
         >
           <div class="flex flex-col gap-2">
-            <For each={messages()}>
+            <For each={scopedMessages()}>
               {(m: ChatMessage) => (
                 <div class={`text-sm ${m.playerId === props.userId ? "text-primary" : ""}`}>
                   <div class="flex items-center gap-1.5">
@@ -207,10 +270,21 @@ export const ChatPanel: Component<ChatPanelProps> = (props) => {
                     <div class="min-w-0 truncate font-medium">{chat.messageDisplayName(m)}</div>
                   </div>
                   <div class="ml-16 whitespace-pre-wrap wrap-break-word text-base-content">
-                    {/* biome-ignore lint/suspicious/noExplicitAny: i18nKey is dynamic string, not a literal TranslationKey */}
-                    {m.i18nKey ? (t as any)(m.i18nKey, m.i18nParams) : m.content}
+                    {m.i18nKey ? tDynamic(m.i18nKey, m.i18nParams) : m.content}
                   </div>
                 </div>
+              )}
+            </For>
+          </div>
+        </Show>
+
+        <Show when={props.quickMessageKeys && props.quickMessageKeys.length > 0}>
+          <div class="flex flex-wrap gap-1">
+            <For each={props.quickMessageKeys}>
+              {(key) => (
+                <Button size="xs" outline disabled={!connected()} onClick={() => sendQuickMessage(key)}>
+                  {tDynamic(QUICK_MESSAGE_DISPLAY_KEYS[key] ?? `chat.quick.${key}`)}
+                </Button>
               )}
             </For>
           </div>

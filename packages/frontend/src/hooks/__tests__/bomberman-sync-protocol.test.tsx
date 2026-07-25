@@ -107,10 +107,11 @@ describe("Bomberman sync protocol contract", () => {
   // ─── Section A: Enum contract (would have caught the "STATE_UPDATE" vs "state-update" bug) ───
 
   describe("event type enum values", () => {
-    it("all BombermanPreGameServerEventType values match SyncedStateServerEvent wrapper contract", () => {
+    it("uses the round and match lifecycle event wire values", () => {
       expect(BombermanPreGameServerEventType.KICKED).toBe("kicked");
-      expect(BombermanPreGameServerEventType.GAME_STARTED).toBe("gamestarted");
-      expect(BombermanPreGameServerEventType.GAME_ENDED).toBe("gameended");
+      expect(BombermanPreGameServerEventType.ROUND_STARTED).toBe("roundstarted");
+      expect(BombermanPreGameServerEventType.ROUND_ENDED).toBe("roundended");
+      expect(BombermanPreGameServerEventType.MATCH_ENDED).toBe("matchended");
       expect(BombermanPreGameServerEventType.ROOM_DISBANDED).toBe("disbanded");
       expect(SyncedStateServerEventType.CUSTOM).toBe("custom");
       expect(SyncedStateServerEventType.STATE_UPDATE).toBe("state-update");
@@ -129,10 +130,23 @@ describe("Bomberman sync protocol contract", () => {
       expect(msg.payload.type).toBe("patch");
     });
 
-    it("server custom event wraps GAME_STARTED correctly", () => {
-      const msg = serverCustom({ type: BombermanPreGameServerEventType.GAME_STARTED, startedAt: 1000 });
+    it("server custom event wraps ROUND_STARTED correctly", () => {
+      const msg = serverCustom({
+        type: BombermanPreGameServerEventType.ROUND_STARTED,
+        startedAt: 1000,
+        match: {
+          format: "single",
+          targetWins: 1,
+          currentRound: 1,
+          currentAttempt: 1,
+          scores: [],
+          roundResults: [],
+          winner: null,
+          nextRoundStartsAt: null,
+        },
+      });
       expect(msg.type).toBe("custom");
-      expect(msg.payload.type).toBe("gamestarted");
+      expect(msg.payload.type).toBe("roundstarted");
     });
 
     it("server custom event wraps KICKED correctly", () => {
