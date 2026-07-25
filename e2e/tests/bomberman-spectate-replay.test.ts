@@ -81,17 +81,18 @@ test.describe("Bomberman Spectate + Replay", () => {
     // Screenshot: game in progress
     await p1.screenshot("spectate-game-active");
 
-    // ── p3 joins as spectator via URL ──
-    const spectateUrl = `${scenario.frontendUrl()}/bomberman/room/${roomId}?__test__=1`;
-    await p3.page.goto(spectateUrl);
-    await p3.page.waitForURL(/\/bomberman\/room\//, { timeout: 15000 });
+    // ── p3 joins as a server-resolved spectator via URL ──
+    // Spectator connections must opt into role=spectator before the room
+    // sync opens; a default player connection is rejected once the match starts.
+    await p3.joinRoom(roomId, { role: "spectator" });
 
-    // p3 should see the game-in-progress alert
-    // The room shows "Game in Progress" alert with "Watch Game" button
-    await expect(p3.page.locator("text=Game in Progress").first()).toBeVisible({ timeout: 10000 });
-
-    // p3 clicks "Watch Game" to enter spectator mode
-    await p3.enterSpectate();
+    // The current room UI keeps the in-progress alert visible for spectators
+    // and exposes Leave Spectate instead of the lobby-only Watch Game action.
+    await expect(p3.page.getByText("Game in Progress", { exact: true })).toBeVisible({ timeout: 10000 });
+    await expect(p3.page.getByRole("button", { name: "Leave Spectate" }).first()).toBeVisible({ timeout: 10000 });
+    await expect(p3.page.getByText("You are spectating.", { exact: true })).toBeVisible({ timeout: 10000 });
+    await expect(p3.page.getByText("Spectating", { exact: true }).first()).toBeVisible({ timeout: 10000 });
+    await expect(p3.page.getByRole("button", { name: "Surrender" })).toHaveCount(0);
 
     // Screenshot: spectator view
     await p3.screenshot("spectate-active-view");
@@ -108,7 +109,7 @@ test.describe("Bomberman Spectate + Replay", () => {
     // ── Verify replay via backend API ──
     // NOTE: This is a backend assertion since frontend replays route doesn't exist
     const baseUrl = scenario.backendUrl();
-    const loginRes = await fetch(`${baseUrl}/api/auth/login`, {
+    const loginRes = await fetch(`${baseUrl}/api/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -116,7 +117,8 @@ test.describe("Bomberman Spectate + Replay", () => {
         password: users[0].password,
       }),
     });
-    const loginData = await loginRes.json();
+    expect(loginRes.ok).toBe(true);
+    await loginRes.json();
     const cookie = loginRes.headers.get("set-cookie") || "";
 
     // List replays for p1
@@ -127,30 +129,24 @@ test.describe("Bomberman Spectate + Replay", () => {
     expect(replaysData.success).toBe(true);
     expect(Array.isArray(replaysData.data)).toBe(true);
 
-    // The replay for our match should exist (most recent)
-    if (replaysData.data.length > 0) {
-      const replay = replaysData.data[0];
-      expect(replay.format).toBe("single");
-      // Verify winner field matches expectation
-      // p1 should be the winner since p2 surrendered
+    // The completed match must be listed for p1, with a retrievable full replay.
+    expect(replaysData.data.length).toBeGreaterThan(0);
+    const replay = replaysData.data[0];
+    expect(replay.format).toBe("single");
+    // p1 should be the winner since p2 surrendered.
 
-      // Fetch the full replay
-      const replayDetailRes = await fetch(`${baseUrl}/api/bomberman/replays/${replay.id}`, {
-        headers: { cookie },
-      });
-      const replayDetailData = await replayDetailRes.json();
-      expect(replayDetailData.success).toBe(true);
-      expect(replayDetailData.data.schemaVersion).toBe(1);
-      expect(replayDetailData.data.rounds.length).toBe(1);
-      expect(replayDetailData.data.result.winner).toBeTruthy();
+    const replayDetailRes = await fetch(`${baseUrl}/api/bomberman/replays/${replay.id}`, {
+      headers: { cookie },
+    });
+    expect(replayDetailRes.ok).toBe(true);
+    const replayDetailData = await replayDetailRes.json();
+    expect(replayDetailData.success).toBe(true);
+    expect(replayDetailData.data.schemaVersion).toBe(1);
+    expect(replayDetailData.data.rounds.length).toBe(1);
+    expect(replayDetailData.data.result.winner).toBeTruthy();
 
-      // Screenshot placeholder for replay page (not available via frontend)
-      await p1.screenshot("replay-api-verified");
-    } else {
-      // Replay may not be recorded if the backend recording pipe has an issue
-      // This is a known limitation — the backend replay service may not be fully wired
-      console.warn("No replays found — backend recording may not be fully operational");
-    }
+    // Screenshot placeholder for replay page (not available via frontend)
+    await p1.screenshot("replay-api-verified");
 
     // ── p1 clicks "Back to Room" ──
     await p1.leaveRoom();

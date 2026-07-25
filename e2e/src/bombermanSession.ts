@@ -86,8 +86,9 @@ export class BombermanSession {
 
   /** ── Join an existing Bomberman room ── */
 
-  async joinRoom(roomId: string) {
-    const qs = `${this.baseUrl}/bomberman/room/${roomId}?__test__=1`;
+  async joinRoom(roomId: string, opts?: { role?: "player" | "spectator" }) {
+    const roleQuery = opts?.role && opts.role !== "player" ? `&role=${encodeURIComponent(opts.role)}` : "";
+    const qs = `${this.baseUrl}/bomberman/room/${roomId}?__test__=1${roleQuery}`;
     await this.page.goto(qs);
     await this.page.waitForURL(/\/bomberman\/room\//, { timeout: 15000 });
     await expect(this.page.locator("text=test-alice").or(this.page.locator("text=test-bob")).first()).toBeVisible({
@@ -108,50 +109,40 @@ export class BombermanSession {
       // No "Ready" button visible — likely the host, which is correct.
     }
   }
+  /** ── Team-mode lobby controls (host only) ── */
+
+  async enableTeamMode() {
+    // The navigation also has a Settings button; scope to the room main content
+    // so this opens the host's room settings rather than global keybindings.
+    const settings = this.page.getByRole("main").getByRole("button", { name: /Settings/ }).first();
+    await expect(settings).toBeVisible({ timeout: 5000 });
+    await settings.click();
+
+    // The option value is the stable contract; avoid depending on the settings-grid order.
+    const teamMode = this.page
+      .getByRole("combobox")
+      .filter({ has: this.page.locator('option[value="team"]') });
+    await expect(teamMode).toHaveCount(1, { timeout: 5000 });
+    await teamMode.selectOption({ value: "team" });
+    await expect(teamMode).toHaveValue("team");
+  }
+
+
 
   /** ── Start game (host only) — bounded wait with diagnostics ── */
 
   async startGame() {
-    const btn = this.page.getByRole("button", { name: "Start Game" });
+    const button = this.page.getByRole("button", { name: "Start Game", exact: true });
     try {
-      await btn.waitFor({ state: "visible", timeout: 15000 });
-    } catch {
+      await expect(button).toBeVisible({ timeout: 10000 });
+      await expect(button).toBeEnabled({ timeout: 10000 });
+      await button.click();
+    } catch (error) {
+      const bodyText = await this.page.evaluate(() => document.body?.innerText ?? "").catch(() => "");
       throw new Error(
-        "Start Game button not visible after 15s. " +
-        "Frontend allReady() requires host to be ready too (players.every(p => p.ready)), " +
-        "but host has no Ready button and backend rejects host READY. " +
-        "Fix: allReady() in room.tsx should check only non-host players.",
-      );
-    }
-    try {
-      await btn.click({ timeout: 20000 });
-    } catch {
-      // Button visible but stayed disabled — gather player state for diagnostics
-      const diag = await this.page.evaluate(() => {
-        const players: { name: string; ready: boolean; isHost: boolean }[] = [];
-        const testBridge = (window as unknown as Record<string, unknown>).__test__ as
-          Record<string, unknown> | undefined;
-        const rs = testBridge?.roomSync as { state?: () => { players?: unknown[] } } | undefined;
-        const raw = rs?.state?.()?.players ?? [];
-        for (const p of raw) {
-          const pp = p as Record<string, unknown>;
-          players.push({
-            name: String(pp.name ?? ""),
-            ready: Boolean(pp.ready),
-            isHost: Boolean(pp.isHost),
-          });
-        }
-        return players;
-      }).catch(() => []);
-      const readySummary = diag.map((p) =>
-        `${p.name}(host=${p.isHost}, ready=${p.ready})`,
-      ).join(", ");
-      throw new Error(
-        "Start Game button never became enabled after 20s. " +
-        `Players: [${readySummary}]. ` +
-        "Frontend allReady() requires every player including host to be ready, " +
-        "but host cannot ready (no Ready button, backend rejects host READY). " +
-        "Fix: allReady() in room.tsx should check only non-host players.",
+        `startGame: Start Game was not available on ${this.page.url()}. ` +
+          `Body text: ${bodyText.slice(0, 500)}. ` +
+          `${error instanceof Error ? error.message : String(error)}`,
       );
     }
   }
@@ -159,16 +150,20 @@ export class BombermanSession {
   /** ── Surrender during game ── */
 
   async surrender() {
-    // Use short, bounded waits so a missing game HUD fails with a useful error.
-    const hudSurrender = this.page.getByRole("button", { name: "Surrender" });
     try {
-      await expect(hudSurrender.first()).toBeVisible({ timeout: 5000 });
-      await hudSurrender.first().click({ force: true, timeout: 5000 });
-      await expect(hudSurrender.nth(1)).toBeVisible({ timeout: 5000 });
-      await hudSurrender.nth(1).click({ timeout: 5000 });
-      await expect(this.page.getByRole("button", { name: "Yes, Surrender" })).toBeVisible({ timeout: 5000 });
-      await this.page.getByRole("button", { name: "Yes, Surrender" }).click({ timeout: 5000 });
-      await this.page.waitForTimeout(500);
+      const hudSurrender = this.page.getByRole("button", { name: "Surrender", exact: true }).first();
+      await expect(hudSurrender).toBeVisible({ timeout: 5000 });
+      await hudSurrender.click();
+
+      // The menu has a second Surrender action; use the last visible one instead of
+      // relying on a fixed index as the overlay implementation evolves.
+      const menuSurrender = this.page.getByRole("button", { name: "Surrender", exact: true }).last();
+      await expect(menuSurrender).toBeVisible({ timeout: 5000 });
+      await menuSurrender.click();
+
+      const confirm = this.page.getByRole("button", { name: "Yes, Surrender", exact: true });
+      await expect(confirm).toBeVisible({ timeout: 5000 });
+      await confirm.click();
     } catch (error) {
       await this.page.screenshot({ path: "e2e/screenshots/surrender-failed.png" }).catch(() => {});
       throw new Error(
@@ -202,28 +197,20 @@ export class BombermanSession {
   /** ── Wait helpers ── */
 
   async waitForPlaying(timeout = 20000) {
-    // Try to find the Surrender button — indicates game UI has rendered
-    const deadline = Date.now() + timeout;
-    let lastErr: Error | undefined;
-    while (Date.now() < deadline) {
-      try {
-        await expect(this.page.getByRole("button", { name: "Surrender" }).first()).toBeVisible({ timeout: 3000 });
-        return;
-      } catch (e) {
-        lastErr = e instanceof Error ? e : new Error(String(e));
-      }
+    const surrender = this.page.getByRole("button", { name: "Surrender", exact: true }).first();
+    try {
+      await expect(surrender).toBeVisible({ timeout });
+    } catch (error) {
+      const bodyText = await this.page.evaluate(() => document.body?.innerText ?? "").catch(() => "");
+      await this.page.screenshot({ path: "e2e/screenshots/waitForPlaying-timeout.png", fullPage: false }).catch(() => {});
+      throw new Error(
+        `waitForPlaying timed out after ${timeout}ms at ${this.page.url()}. ` +
+          `Body text: ${bodyText.slice(0, 300)}. ` +
+          `${error instanceof Error ? error.message : String(error)}`,
+      );
     }
-    // Timeout — capture diagnostics before failing
-    const bodyText = await this.page.evaluate(() => document.body?.innerText ?? "").catch(() => "");
-    const url = this.page.url();
-    await this.page.screenshot({ path: `e2e/screenshots/waitForPlaying-timeout.png`, fullPage: false }).catch(() => {});
-    throw new Error(
-      `waitForPlaying timed out after ${timeout}ms. ` +
-      `URL: ${url}. ` +
-      `Body text: ${bodyText.slice(0, 300)}. ` +
-      `Original error: ${lastErr?.message ?? "unknown"}`,
-    );
   }
+
 
   async waitForBetweenRounds(timeout = 15000) {
     // The service gives the next round a five-second deadline; keep this bounded.
@@ -247,24 +234,17 @@ export class BombermanSession {
   }
 
   async waitForMatchEnded(timeout = 15000) {
-    // Match ended: the Scoreboard component with "Back to Room" button.
-    const deadline = Date.now() + timeout;
-    let lastErr: Error | undefined;
-    while (Date.now() < deadline) {
-      try {
-        await expect(this.page.getByRole("button", { name: "Back to Room" })).toBeVisible({ timeout: 2000 });
-        return;
-      } catch (error) {
-        lastErr = error instanceof Error ? error : new Error(String(error));
-      }
+    try {
+      await expect(this.page.getByRole("button", { name: "Back to Room", exact: true })).toBeVisible({ timeout });
+    } catch (error) {
+      const bodyText = await this.page.evaluate(() => document.body?.innerText ?? "").catch(() => "");
+      await this.page.screenshot({ path: "e2e/screenshots/waitForMatchEnded-timeout.png" }).catch(() => {});
+      throw new Error(
+        `waitForMatchEnded timed out after ${timeout}ms at ${this.page.url()}. ` +
+          `Body text: ${bodyText.slice(0, 500)}. ` +
+          `${error instanceof Error ? error.message : String(error)}`,
+      );
     }
-    const bodyText = await this.page.evaluate(() => document.body?.innerText ?? "").catch(() => "");
-    await this.page.screenshot({ path: "e2e/screenshots/waitForMatchEnded-timeout.png" }).catch(() => {});
-    throw new Error(
-      `waitForMatchEnded timed out after ${timeout}ms at ${this.page.url()}. ` +
-        `Body text: ${bodyText.slice(0, 500)}. ` +
-        `Last assertion: ${lastErr?.message ?? "unknown"}`,
-    );
   }
 
 

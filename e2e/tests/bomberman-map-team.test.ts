@@ -67,34 +67,20 @@ test.describe("Bomberman Team Mode", () => {
     await p2.joinRoom(roomId);
 
     // ── p1 opens settings and switches to Team mode ──
-    // The settings toggle button (gear icon)
-    await p1.page.click("text=Settings");
+    await p1.enableTeamMode();
 
-    // The team mode select should be visible in settings panel
-    // It's the 6th select (last one) in the settings grid
-    // With hardcoded options "Free-for-All" and "Teams"
-    const teamModeSelect = p1.page.locator("text=Teams").first();
-    await expect(teamModeSelect).toBeVisible({ timeout: 5000 });
-
-    // Select "Teams" in the team mode select
-    // The Team Mode select is the last visible select in settings
-    const allSelects = p1.page.locator(".grid.grid-cols-2 select");
-    const selectCount = await allSelects.count();
-    const teamSelect = allSelects.nth(selectCount - 1);
-    await teamSelect.selectOption("team");
-
-    // Screenshot: team mode settings
+    // Team assignment controls are exposed for both lobby players once team mode is active.
+    await expect(p1.page.getByRole("button", { name: "A", exact: true })).toHaveCount(2);
+    await expect(p1.page.getByRole("button", { name: "B", exact: true })).toHaveCount(2);
+    await p1.page.getByRole("button", { name: "B", exact: true }).nth(1).click();
+    await expect(p1.page.getByText("triangle", { exact: true })).toHaveCount(1);
     await p1.screenshot("team-settings");
 
-    // ── Verify team switch buttons appear in player list ──
-    // Team switch shows A (Team Alpha) and B (Team Beta) buttons per player
-    // Note: In team mode, the switch buttons are visible when host clicks a player's A/B
+
 
     // p2 readies up
     await p2.readyUp();
 
-    // ── p1 starts game ──
-    await p1.readyUp();
     await p1.startGame();
 
     // Wait for game to start
@@ -127,8 +113,8 @@ test.describe("Bomberman Team Mode", () => {
   test("map validation API returns appropriate results for Bomberman maps", async () => {
     const baseUrl = scenario.backendUrl();
 
-    // Login to get session cookie
-    const loginRes = await fetch(`${baseUrl}/api/auth/login`, {
+    // Login to get session cookie.
+    const loginRes = await fetch(`${baseUrl}/api/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -136,20 +122,13 @@ test.describe("Bomberman Team Mode", () => {
         password: scenario.testUsers[0].password,
       }),
     });
+    expect(loginRes.ok).toBe(true);
     const loginData = await loginRes.json();
+    expect(loginData.user).toBeTruthy();
     const cookie = loginRes.headers.get("set-cookie") || "";
+    expect(cookie).toContain("sid=");
 
-    // Try to list maps (Generale maps, filtered later)
-    const mapsRes = await fetch(`${baseUrl}/api/maps?gameType=bomberman&limit=10`, {
-      headers: { cookie },
-    });
-    const mapsData = await mapsRes.json();
-    // The map service may or may not support gameType filter at this point
-    // This is a soft assertion — verifies no crash
-    expect(mapsRes.status).toBeLessThan(500);
 
-    // Create a simple Bomberman map definition via inline test
-    // The backend should accept or reject with proper validation
     const validMap = {
       schemaVersion: 1,
       width: 15,
@@ -163,7 +142,7 @@ test.describe("Bomberman Team Mode", () => {
       fixedItems: [],
     };
 
-    // Post to map creation API (uses shared map service)
+    // Create and retrieve through the current shared map API.
     const createRes = await fetch(`${baseUrl}/api/maps/create`, {
       method: "POST",
       headers: {
@@ -173,24 +152,24 @@ test.describe("Bomberman Team Mode", () => {
       body: JSON.stringify({
         name: "e2e-bomberman-map",
         gameType: "bomberman",
-        data: validMap,
+        width: validMap.width,
+        height: validMap.height,
+        data: validMap.tiles,
       }),
     });
-    const createData = await createRes.json();
+    const createBody = await createRes.text();
+    expect(createRes.status, createBody).toBe(200);
+    const createData = JSON.parse(createBody);
+    expect(createData.success).toBe(true);
+    const mapId = createData.data?.id;
+    expect(mapId).toBeTruthy();
 
-    if (createRes.status === 200 || createRes.status === 201) {
-      // Map created successfully — verify it can be retrieved
-      const mapId = createData.data?.id;
-      if (mapId) {
-        const getRes = await fetch(`${baseUrl}/api/maps/${mapId}`, { headers: { cookie } });
-        const getData = await getRes.json();
-        expect(getData.data).toBeTruthy();
-      }
-    } else {
-      // Map creation may not be fully wired for Bomberman type yet
-      // This is expected — the map service migration is in progress
-      console.warn("Bomberman map creation returned:", createRes.status, JSON.stringify(createData).slice(0, 200));
-    }
+    const detailRes = await fetch(`${baseUrl}/api/maps/detail/${mapId}`, { headers: { cookie } });
+    expect(detailRes.status).toBe(200);
+    const detailData = await detailRes.json();
+    expect(detailData.success).toBe(true);
+    expect(detailData.data?.gameType).toBe("bomberman");
+    expect(detailData.data?.data).toEqual(validMap.tiles);
   });
 });
 
