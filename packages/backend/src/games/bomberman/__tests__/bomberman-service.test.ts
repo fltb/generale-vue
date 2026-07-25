@@ -7,7 +7,9 @@ import { domainHandlers } from "../../../plugins/websocket";
 import { GameStatus } from "@generale/types";
 
 function makeConfig() {
-  return defaultBombermanConfig();
+  const cfg = defaultBombermanConfig();
+  cfg.mapSource = { type: "preset", id: "classic" };
+  return cfg;
 }
 
 function mockConnector(userid?: string, username?: string) {
@@ -43,38 +45,34 @@ describe("BombermanService — startGame", () => {
     }
   });
 
-  it("creates a BombermanGame when startGame is called", () => {
+  it("creates a BombermanGame when startGame is called", async () => {
     const room = (service as any).room as BombermanRoom;
     room.addPlayer({ id: "host-1", name: "Host" }, mockConnector("host-1", "Host"));
     room.addPlayer({ id: "p2", name: "P2" }, mockConnector("p2", "P2"));
 
-    service.startGame();
+    await service.startGame();
 
     const game = (service as any).game as BombermanGame;
     expect(game).not.toBeNull();
     expect(game.getState().status).toBe(GameStatus.Playing);
   });
 
-  it("adds a bot when only 1 human player", () => {
+  it("does not inject an implicit bot for a solo room", async () => {
     const room = (service as any).room as BombermanRoom;
     room.addPlayer({ id: "host-1", name: "Host" }, mockConnector("host-1", "Host"));
 
-    service.startGame();
+    await service.startGame();
 
     const game = (service as any).game as BombermanGame;
-    const state = game.getState();
-    const playerIds = Object.keys(state.players);
-    expect(playerIds.length).toBe(2);
-    expect(playerIds).toContain("host-1");
-    expect(playerIds.some((id) => id.startsWith("bot-"))).toBe(true);
+    expect(Object.keys(game.getState().players)).toEqual(["host-1"]);
   });
 
-  it("does not add bot when 2+ human players", () => {
+  it("does not add bot when 2+ human players", async () => {
     const room = (service as any).room as BombermanRoom;
     room.addPlayer({ id: "host-1", name: "Host" }, mockConnector("host-1", "Host"));
     room.addPlayer({ id: "p2", name: "P2" }, mockConnector("p2", "P2"));
 
-    service.startGame();
+    await service.startGame();
 
     const game = (service as any).game as BombermanGame;
     const state = game.getState();
@@ -83,13 +81,14 @@ describe("BombermanService — startGame", () => {
     expect(playerIds.every((id) => !id.startsWith("bot-"))).toBe(true);
   });
 
-  it("delays startTicking by 3 seconds", () => {
+
+  it("delays startTicking by 3 seconds", async () => {
     vi.useFakeTimers();
     try {
       const room = (service as any).room as BombermanRoom;
       room.addPlayer({ id: "host-1", name: "Host" }, mockConnector("host-1", "Host"));
 
-      service.startGame();
+      await service.startGame();
 
       const game = (service as any).game as BombermanGame;
       expect(game).not.toBeNull();
@@ -102,15 +101,16 @@ describe("BombermanService — startGame", () => {
     } finally {
       vi.useRealTimers();
     }
-  });
+  })
 
-  it("fires onEnd callback and cleans up game when all players die", () => {
+  it("fires onEnd callback and cleans up game when all players die", async () => {
     vi.useFakeTimers();
     try {
       const room = (service as any).room as BombermanRoom;
       room.addPlayer({ id: "host-1", name: "Host" }, mockConnector("host-1", "Host"));
+      room.addPlayer({ id: "p2", name: "P2" }, mockConnector("p2", "P2"));
 
-      service.startGame();
+      await service.startGame();
 
       // Advance 3s to trigger startTicking
       vi.advanceTimersByTime(3000);
@@ -118,7 +118,7 @@ describe("BombermanService — startGame", () => {
       const game = (service as any).game as BombermanGame;
       expect(game).not.toBeNull();
 
-      // Queue SURRENDER for all players (host + bot)
+      // Queue SURRENDER for every participant.
       const state = game.getState();
       for (const pid of Object.keys(state.players)) {
         game.handleAction(pid, { type: "SURRENDER" });
@@ -132,15 +132,16 @@ describe("BombermanService — startGame", () => {
     } finally {
       vi.useRealTimers();
     }
-  });
+  })
 
-  it("sends state snapshot to game connectors on tick", () => {
+  it("sends state snapshot to game connectors on tick", async () => {
     vi.useFakeTimers();
     try {
       const room = (service as any).room as BombermanRoom;
       room.addPlayer({ id: "host-1", name: "Host" }, mockConnector("host-1", "Host"));
+      room.addPlayer({ id: "p2", name: "P2" }, mockConnector("p2", "P2"));
 
-      service.startGame();
+      await service.startGame();
 
       // Manually add a game connector (simulating a player connecting to game domain)
       // Must be AFTER startGame() since startGame recreates the sync manager
@@ -165,14 +166,15 @@ describe("BombermanService — startGame", () => {
     }
   });
 
-  it("recreates sync on second startGame so new connectors get fresh state (not stale from previous game)", () => {
+  it("recreates sync on second startGame so new connectors get fresh state (not stale from previous game)", async () => {
     vi.useFakeTimers();
     try {
       const room = (service as any).room as BombermanRoom;
       room.addPlayer({ id: "host-1", name: "Host" }, mockConnector("host-1", "Host"));
+      room.addPlayer({ id: "p2", name: "P2" }, mockConnector("p2", "P2"));
 
       // --- Game 1: play and end ---
-      service.startGame();
+      await service.startGame();
       const sync1 = (service as any).sync;
       vi.advanceTimersByTime(3000);
       const game1 = (service as any).game as BombermanGame;
@@ -186,7 +188,7 @@ describe("BombermanService — startGame", () => {
       expect((service as any).game).toBeNull(); // game cleaned up
 
       // --- Game 2: new game ---
-      service.startGame();
+      await service.startGame();
       const sync2 = (service as any).sync;
       vi.advanceTimersByTime(3000);
       const game2 = (service as any).game as BombermanGame;
@@ -209,7 +211,8 @@ describe("BombermanService — startGame", () => {
     } finally {
       vi.useRealTimers();
     }
-  });
+  })
+
 });
 
 describe("BombermanService — prepConnectionForPlayer", () => {
@@ -272,13 +275,13 @@ describe("BombermanService — destroy", () => {
     }
   });
 
-  it("cleans up game and room", () => {
+  it("cleans up game and room", async () => {
     service = new BombermanService("test-5", "Room", makeConfig(), "host-1", "Host");
     const room = (service as any).room as BombermanRoom;
     room.addPlayer({ id: "host-1", name: "Host" }, mockConnector("host-1", "Host"));
     room.addPlayer({ id: "p2", name: "P2" }, mockConnector("p2", "P2"));
 
-    service.startGame();
+    await service.startGame();
     expect((service as any).game).not.toBeNull();
 
     service.destroy();
@@ -396,13 +399,13 @@ describe("game-domain handler — action forwarding", () => {
     }
   });
 
-  it("SET_DIRECTION null reaches BombermanGame.handleAction with direction null and ID 2", () => {
+  it("SET_DIRECTION null reaches BombermanGame.handleAction with direction null and ID 2", async () => {
     service = new BombermanService("test-handler-1", "Room", makeConfig(), "host-1", "Host");
     service.registerHandlers();
     const room = (service as any).room as BombermanRoom;
     room.addPlayer({ id: "host-1", name: "Host" }, mockConnector("host-1", "Host"));
     room.addPlayer({ id: "p2", name: "P2" }, mockConnector("p2", "P2"));
-    service.startGame();
+    await service.startGame();
 
     const gameHandler = domainHandlers.get(`game-${service.gameId}`);
     expect(gameHandler).toBeDefined();
@@ -421,13 +424,13 @@ describe("game-domain handler — action forwarding", () => {
     expect(spy).toHaveBeenCalledWith("host-1", { type: "SET_DIRECTION", direction: null, optimisticId: 2 });
   });
 
-  it("malformed event does not call handleAction", () => {
+  it("malformed event does not call handleAction", async () => {
     service = new BombermanService("test-handler-2", "Room", makeConfig(), "host-1", "Host");
     service.registerHandlers();
     const room = (service as any).room as BombermanRoom;
     room.addPlayer({ id: "host-1", name: "Host" }, mockConnector("host-1", "Host"));
     room.addPlayer({ id: "p2", name: "P2" }, mockConnector("p2", "P2"));
-    service.startGame();
+    await service.startGame();
 
     const gameHandler = domainHandlers.get(`game-${service.gameId}`);
     const game = (service as any).game as BombermanGame;
@@ -447,6 +450,7 @@ describe("game-domain handler — action forwarding", () => {
     onMsg({ type: "SET_DIRECTION", direction: "diagonal" });
     expect(spy).not.toHaveBeenCalled();
   });
+
 });
 
 describe("game-domain handler — connector close", () => {
@@ -461,7 +465,7 @@ describe("game-domain handler — connector close", () => {
     }
   });
 
-  it("game connector close invokes stopMovement before surrender timeout", () => {
+  it("game connector close invokes stopMovement before surrender timeout", async () => {
     vi.useFakeTimers();
     try {
       service = new BombermanService("test-stop-1", "Room", makeConfig(), "host-1", "Host");
@@ -469,7 +473,7 @@ describe("game-domain handler — connector close", () => {
       const room = (service as any).room as BombermanRoom;
       room.addPlayer({ id: "host-1", name: "Host" }, mockConnector("host-1", "Host"));
       room.addPlayer({ id: "p2", name: "P2" }, mockConnector("p2", "P2"));
-      service.startGame();
+      await service.startGame();
 
       const gameHandler = domainHandlers.get(`game-${service.gameId}`);
       expect(gameHandler).toBeDefined();

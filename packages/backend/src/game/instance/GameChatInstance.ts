@@ -1,8 +1,10 @@
 import type {
   ChatClientToServer,
   ChatMessage,
+  ChatMessageScope,
   ChatSenderMeta,
   ChatSendMessageReq,
+  ChatSendQuickMessageReq,
   ChatServerToClient,
   PlayerId,
 } from "@generale/types";
@@ -20,6 +22,7 @@ export class GameChatInstance implements IBaseInstance<ChatClientToServer, ChatS
   private connectors = new Map<PlayerId, GameChatConnector>();
   private playerNames = new Map<PlayerId, string>();
   private maxMessages = 100;
+  private allowedQuickMessageKeys: readonly string[] = [];
   private messageIdCounter = 0;
 
   private _activeStageInstance: IRoomRoster | null = null;
@@ -29,10 +32,16 @@ export class GameChatInstance implements IBaseInstance<ChatClientToServer, ChatS
   }
 
   private destroyed = false;
-
-  constructor(maxMessages = 100) {
-    this.maxMessages = maxMessages;
-    this.addSystemMessage("游戏聊天已启动，欢迎大家！");
+  constructor(options?: { maxMessages?: number; allowedQuickMessageKeys?: readonly string[] } | number) {
+    if (typeof options === "number") {
+      this.maxMessages = options;
+    } else if (options) {
+      this.maxMessages = options.maxMessages ?? 100;
+      this.allowedQuickMessageKeys = options.allowedQuickMessageKeys ?? [];
+    }
+    this.addSystemMessage("chat.system.welcome", undefined, {
+      fallbackContent: "欢迎来到聊天室",
+    });
   }
 
   public destroy(): void {
@@ -83,7 +92,7 @@ export class GameChatInstance implements IBaseInstance<ChatClientToServer, ChatS
     connector.onClientMessage((msg) => this.handleMessage(pid, msg));
     // 发送最近消息
     this.sendRecentMessages(pid, 30);
-    this.addSystemMessage("{name} joined the game", { name }, `${name} 加入了游戏`);
+    this.addSystemMessage("chat.playerJoined", { name }, { fallbackContent: `${name} joined` });
     return { success: true };
   }
 
@@ -92,7 +101,7 @@ export class GameChatInstance implements IBaseInstance<ChatClientToServer, ChatS
     this.connectors.get(pid)?.close();
     this.connectors.delete(pid);
     const name = this.playerNames.get(pid);
-    if (name) this.addSystemMessage("{name} left the game", { name }, `${name} 离开了游戏`);
+    if (name) this.addSystemMessage("chat.playerLeft", { name }, { fallbackContent: `${name} left` });
     this.playerNames.delete(pid);
   }
 
@@ -101,6 +110,9 @@ export class GameChatInstance implements IBaseInstance<ChatClientToServer, ChatS
     switch (msg.type) {
       case "send_message":
         this.handleSendMessage(pid, msg);
+        break;
+      case "send_quick_message":
+        this.handleSendQuickMessage(pid, msg);
         break;
       case "fetch_recent":
         this.sendRecentMessages(pid, msg.limit);
@@ -148,19 +160,59 @@ export class GameChatInstance implements IBaseInstance<ChatClientToServer, ChatS
     this.sendResult(pid, "success", chatMsg.id);
   }
 
-  /** 添加系统消息 */
-  private addSystemMessage(i18nKey: string, params?: Record<string, string>, fallbackContent?: string) {
-    const content = fallbackContent ?? i18nKey;
+  /** Handle quick message (only keys in allowedQuickMessageKeys are accepted) */
+  private handleSendQuickMessage(pid: PlayerId, msg: ChatSendQuickMessageReq) {
+    if (this.allowedQuickMessageKeys.length === 0 || !this.allowedQuickMessageKeys.includes(msg.key)) {
+      this.sendResult(pid, "failed", undefined, "Quick message not allowed");
+      return;
+    }
+    const name = this.playerNames.get(pid) || `Player${pid}`;
+    const meta = this.getSenderMeta(pid);
+    const scope = msg.scope === "team" ? "team" : meta?.presence === "game" ? "game" : "room";
+    if (scope === "team" && !this.canSendTeamMessage(pid, meta)) {
+      this.sendResult(pid, "failed", undefined, "Cannot send team message now");
+      return;
+    }
+    const i18nKey = `chat.quick.${msg.key}`;
+    const chatMsg: ChatMessage = {
+      id: this.generateMessageId(),
+      playerId: pid,
+      playerName: name,
+      content: i18nKey,
+      timestamp: Date.now(),
+      type: "user",
+      scope,
+      i18nKey,
+      ...(meta ? { meta } : {}),
+      ...(scope === "team" && meta?.teamId ? { recipientIds: this.getTeamRecipientIds(meta.teamId) } : {}),
+    };
+    this.addMessage(chatMsg);
+    this.broadcastNewMessage(chatMsg);
+    this.sendResult(pid, "success", chatMsg.id);
+  }
+
+  /** 添加系统消息（公开方法） */
+  public addSystemMessage(
+    i18nKey: string,
+    params?: Record<string, string>,
+    options?: {
+      scope?: ChatMessageScope;
+      recipientIds?: PlayerId[];
+      fallbackContent?: string;
+    },
+  ) {
+    const content = options?.fallbackContent ?? i18nKey;
     const msg: ChatMessage = {
       id: this.generateMessageId(),
       playerId: "system" as PlayerId,
-      playerName: "系统",
+      playerName: "System",
       content,
       timestamp: Date.now(),
       type: "system",
-      scope: "room",
+      scope: options?.scope ?? "room",
       i18nKey,
       ...(params ? { i18nParams: params } : {}),
+      ...(options?.recipientIds ? { recipientIds: options.recipientIds } : {}),
     };
     this.addMessage(msg);
     this.broadcastNewMessage(msg);

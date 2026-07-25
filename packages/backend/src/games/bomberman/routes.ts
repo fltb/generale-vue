@@ -4,6 +4,7 @@ import { authPlugin } from "../../middleware/authPlugin";
 import { userService } from "../../services/userService";
 import { sessionService } from "../../services/sessionService";
 import { cookieScheme } from "../../routes/user";
+import { bombermanReplayService } from "../../services/bombermanReplayService";
 
 export const bombermanManager = new BombermanManager();
 
@@ -47,7 +48,7 @@ export function bombermanRoutes(app: Elysia) {
       }
       return { success: true, data: bombermanManager.getRoomListSummary() };
     })
-    .get("/room/connect/:gameId", ({ params, cookie, set }) => {
+    .get("/room/connect/:gameId", ({ params, query, cookie, set }) => {
       const userId = getUserIdFromCookie(cookie);
       if (!userId) {
         set.status = 401;
@@ -55,6 +56,41 @@ export function bombermanRoutes(app: Elysia) {
       }
       const service = bombermanManager.getGame(params.gameId);
       if (!service) return { success: false, message: "Game not found" };
-      return service.prepConnectionForPlayer(userId);
+      const role = query["role"] === "spectator" ? "spectator" : "player";
+      return service.prepConnectionForPlayer(userId, role);
+    })
+    .get("/replays", ({ query, cookie, set }) => {
+      const userId = getUserIdFromCookie(cookie);
+      if (!userId) {
+        set.status = 401;
+        return { success: false, error: "Please log in first" };
+      }
+      const limit = Math.max(1, Math.min(50, Number(query["limit"]) || 20));
+      const offset = Math.max(0, Number(query["offset"]) || 0);
+      const data = bombermanReplayService.listForUser(userId, limit, offset);
+      return { success: true, data };
+    })
+    .get("/replays/:id", ({ params, cookie, set }) => {
+      const userId = getUserIdFromCookie(cookie);
+      if (!userId) {
+        set.status = 401;
+        return { success: false, error: "Please log in first" };
+      }
+      try {
+        const data = bombermanReplayService.getForUser(userId, params.id);
+        if (!data) {
+          set.status = 404;
+          return { success: false, error: "REPLAY_NOT_FOUND" };
+        }
+        return { success: true, data };
+      } catch (e) {
+        const message = e instanceof Error ? e.message : "Unknown error";
+        if (message === "REPLAY_CORRUPT") {
+          set.status = 500;
+          return { success: false, error: "REPLAY_CORRUPT" };
+        }
+        set.status = 500;
+        return { success: false, error: "INTERNAL_ERROR" };
+      }
     });
 }

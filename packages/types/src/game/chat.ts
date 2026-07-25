@@ -39,6 +39,12 @@ export interface ChatSendMessageReq {
   scope?: ChatMessageScope;
 }
 
+export interface ChatSendQuickMessageReq {
+  type: "send_quick_message";
+  key: string;
+  scope?: ChatMessageScope;
+}
+
 export interface ChatFetchRecentReq {
   type: "fetch_recent";
   limit: number;
@@ -70,6 +76,10 @@ export interface ChatSendResultEvt {
 }
 
 // 联合类型
-export type ChatClientToServer = ChatSendMessageReq | ChatFetchRecentReq | ChatFetchHistoryReq;
+export type ChatClientToServer =
+  | ChatSendMessageReq
+  | ChatSendQuickMessageReq
+  | ChatFetchRecentReq
+  | ChatFetchHistoryReq;
 
 export type ChatServerToClient = ChatNewMessageEvt | ChatMessagesBatchEvt | ChatSendResultEvt;

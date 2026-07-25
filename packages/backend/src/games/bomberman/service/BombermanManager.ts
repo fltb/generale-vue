@@ -1,6 +1,7 @@
 import { BombermanService } from "./BombermanService";
 import { registerDomainHandler } from "../../../plugins/websocket";
-import { defaultBombermanConfig } from "../settings";
+import { defaultBombermanConfig, validateBombermanConfig } from "../settings";
+import type { BombermanConfig } from "@generale/types";
 import type { SubConnector, WSContextBase } from "../../../plugins/websocket";
 import { LobbyServerMessageType } from "@generale/types";
 
@@ -106,7 +107,15 @@ export class BombermanManager {
     const id = `bomb_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
     const defaultConfig = defaultBombermanConfig();
     const config = { ...defaultConfig, ...configOverride };
-    const service = new BombermanService(id, roomName, config, creatorId, creatorName, password);
+    if (configOverride && validateBombermanConfig(config) !== null) {
+      throw new Error("Invalid Bomberman room config");
+    }
+    const matchFormat = config.matchFormat;
+    if (matchFormat !== "single" && matchFormat !== "bo3" && matchFormat !== "bo5") {
+      throw new Error("Invalid Bomberman match format");
+    }
+    const typedConfig: BombermanConfig = config;
+    const service = new BombermanService(id, roomName, typedConfig, creatorId, creatorName, password);
     service.onDisband = () => {
       this.removeGame(id);
     };

@@ -105,4 +105,49 @@ describe("GameChatInstance", () => {
     chat.removePlayer(player1);
     expect((chat as unknown as { connectors: Map<string, GameChatConnector> }).connectors.get(player1)).toBeUndefined();
   });
+
+  describe("handleSendQuickMessage", () => {
+    let handler: (msg: any) => void;
+    beforeEach(() => {
+      // Create a chat instance with allowed quick messages
+      chat = new GameChatInstance({ allowedQuickMessageKeys: ["help", "danger", "nice", "follow_me"] });
+      connector1 = createMockConnector();
+      chat.addPlayer({ id: player1, name: "Alice" }, connector1);
+      // Capture the registered handler from the mock
+      handler = (connector1.onClientMessage as any).mock.calls[0][0];
+      // Reset send mock to clear initial batch/system messages
+      (connector1.send as any).mockClear();
+    });
+
+    it("rejects quick message with key not in allowed list", () => {
+      handler({ type: "send_quick_message", key: "unknown" });
+      expect(connector1.send).toHaveBeenCalledWith(
+        expect.objectContaining({ type: "send_result", status: "failed" }),
+      );
+    });
+
+    it("accepts quick message with allowed key", () => {
+      handler({ type: "send_quick_message", key: "help" });
+      expect(connector1.send).toHaveBeenCalledWith(
+        expect.objectContaining({ type: "new_message", message: expect.objectContaining({ i18nKey: "chat.quick.help" }) }),
+      );
+    });
+
+    it("broadcasts quick message with game scope when presence is game", () => {
+      // Set activeStageInstance with game presence
+      const roster = {
+        canJoin: () => ({ success: true }),
+        getPlayerChatMeta: () => ({ presence: "game", teamId: "team1" }),
+        getPlayersForTeamChat: () => [],
+      };
+      chat.activeStageInstance = roster as any;
+      handler({ type: "send_quick_message", key: "nice" });
+      expect(connector1.send).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: "new_message",
+          message: expect.objectContaining({ i18nKey: "chat.quick.nice", scope: "game" }),
+        }),
+      );
+    });
+  });
 });
