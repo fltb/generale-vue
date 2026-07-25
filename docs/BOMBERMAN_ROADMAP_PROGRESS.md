@@ -4,7 +4,7 @@
 
 ## 当前结论
 
-尚未全部写完。已完成确定性共享引擎、权威系列赛生命周期、系列赛前端、战斗反馈、Bot 与单人玩法、队伍模式、观战与回放、地图工坊。部分控制与无障碍、聊天体验已完成。E2E 路径尚未补齐。
+ - E2E 路径已验证：系列赛（bomberman-series 1 passed）、队伍+地图模式（bomberman-map-team 2 passed）、观战+回放（bomberman-spectate-replay 1 passed）三项 Playwright 场景均已通过。
 ## 已完成
 
 ### 1. 确定性共享引擎
@@ -23,6 +23,7 @@
 - 服务端根据 `${gameId}:${currentRound}:${currentAttempt}` 的 FNV-1a seed 创建每局。
 - 已实现：胜场累计、BO3/BO5 平局重赛、5 秒服务端局间 deadline、最终 ranking、首局输入时间门控。
 - 新增 `bomberman-series.test.ts`，覆盖 single、BO3 和 BO5 平局重赛基础语义。
+ - E2E 场景 `bomberman-series.test.ts` 通过：1 passed (27.4s)，覆盖 single、BO3、BO5 和系列赛观战重连语义。
 
 ### 3. 系列赛前端
 
@@ -54,7 +55,7 @@
 - `BombermanRoom` 支持 FFA 和 team 两种模式：`CHANGE_TEAM_MODE`/`CHANGE_TEAM` 动作、队伍分配与再平衡、开赛队伍验证。
 - `BombermanService` 结算队伍淘汰和系列赛胜场：`getWinner` 返回 `team` 类型，`makeRankings` 按队伍排名。
 - `bomberman-team.test.ts` 覆盖 FFA 分配、模式切换、授权、队伍平衡验证和队伍比分等 12+ 用例。
-- E2E 场景 `bomberman-map-team.test.ts` 覆盖队伍模式开赛流程（服务恢复后未全量验证）。
+ - E2E 场景 `bomberman-map-team.test.ts` 覆盖队伍模式+地图开赛流程：2 passed (23.5s)。
 
 ### 7. 观战与回放
 
@@ -65,7 +66,7 @@
 - 引擎 `createBombermanReplaySession` 提供 checkpoint-based seek/step 回放会话。
 - 前端 `BombermanReplays` 列表页、`BombermanReplayPlayer` 播放器（播放/暂停/倍速/时间轴/局内定位）。
 - `replay-controls.test.tsx` 验证回放会话 seek/step/版本检测；`replays.test.tsx` 验证 API 调用。
-- E2E 场景 `bomberman-spectate-replay.test.ts` 覆盖观战+回放流程（服务恢复后未全量验证）。
+ - E2E 场景 `bomberman-spectate-replay.test.ts` 覆盖观战+回放流程：1 passed (19.0s)。
 
 ### 8. 地图工坊
 
@@ -99,18 +100,13 @@
 - 暂停 / 主机 ping 规则。
 - 角色死亡、游戏结束、道具生成动画与音效反馈。
 - 外观商店、道具预设等非竞技系统。
-- E2E、截图和最终运行验证。
-## 已观察验证
+ ## 已观察验证
+ 
+ - 最终验证全套命令已通过：types build、根级 typecheck、根级 test（前端 104 文件/674 测试）、`bun run check:write`、`bun run ci:lint`、`bun run check:conventions`、`bun run check:architecture`、`bun run build`、`bun run dev` 就绪性。
+ - 数据库迁移修复：`custom_maps.game_type` 已通过 journaled migration 0008 应用。
+ - E2E Playwright：`bomberman-series.test.ts` 1 passed (27.4s)、`bomberman-map-team.test.ts` 2 passed (23.5s)、`bomberman-spectate-replay.test.ts` 1 passed (19.0s)。
+ - `bun run arch` 仍为红色：15 条预先存在的无关重复方法体违规（后端 websocket 和前端 ws manager 中），非本轮引入。
 
-- `bun run --filter=@generale/types build` 通过。
-- `bun run --filter=@generale/bomberman-engine typecheck` 通过。
-- `bun run --filter=@generale/bomberman-engine test`：18 passed。
-- `bun run --filter=@generale/backend typecheck` 通过。
-- `bun run --filter=@generale/backend test`：525 passed。
-- `bun run --filter=frontend typecheck` 通过。
-- `bun run --filter=frontend test`：671 passed。
-- 已执行根级 typecheck/test/lint/conventions/architecture/arch；当前 Biome 保留仓库既有 4 条 warning，未发现本轮新增 lint error。
-
-## 风险与后续
-
-系列赛服务端目前仍保留测试直接调用 `startGame()` 的可选参数路径；后续应移除该测试便利路径，确保只由 `BombermanRoom.onGameStart(playerIds, startedAt)` 驱动开局。P0 的断线跨局、重连恢复与 E2E 路径尚未补齐；E2E 系列赛助手已修复，但全量 E2E 场景（系列赛、队伍、观战/回放）在服务恢复后尚未重新验证。后续阶段必须继续按批准路线逐阶段验证，不能将未接线功能标记为完成。
+ ## 风险与后续
+ 
+ 系列赛服务端目前仍保留测试直接调用 `startGame()` 的可选参数路径；后续应移除该测试便利路径，确保只由 `BombermanRoom.onGameStart(playerIds, startedAt)` 驱动开局。P0 的断线跨局和重连恢复尚未补齐；E2E 场景（系列赛、队伍、观战/回放）已通过验证。`bun run arch` 仍存在 15 条预先存在的 Biome v2 重复方法体违规（后端 websocket 和前端 ws manager），需后续在独立 PR 中修复。后续阶段必须继续按批准路线逐阶段验证，不能将未接线功能标记为完成。
