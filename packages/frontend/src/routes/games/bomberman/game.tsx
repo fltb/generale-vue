@@ -125,6 +125,10 @@ export function BombermanGame(props: BombermanGameProps) {
   });
 
   const state = () => session.state();
+  const lastRoundResult = () => {
+    const results = props.matchState?.roundResults;
+    return results ? results[results.length - 1] : undefined;
+  };
 
   // ── Scale to fit viewport ──
   const TILE_SIZE = 36;
@@ -294,34 +298,23 @@ export function BombermanGame(props: BombermanGameProps) {
       <Show when={props.phase === "between_rounds" && props.matchState}>
         <div class="fixed inset-0 z-40 flex items-center justify-center bg-black/60">
           <div class="text-center">
-            <Show when={props.matchState?.roundResults && props.matchState.roundResults.length > 0}>
-              {(() => {
-                const results = props.matchState?.roundResults ?? [];
-                const last = results[results.length - 1];
-                const winnerLabel = last.winner
-                  ? last.winner.kind === "player"
-                    ? last.winner.id.slice(0, 8)
-                    : last.winner.id.slice(0, 8)
-                  : t("bomberman.draw");
-                return (
-                  <div class="mb-4">
-                    <div class="text-xl text-white font-bold mb-1">
-                      {t("bomberman.roundResult", {
-                        n: String(last.roundNumber),
-                        winner: winnerLabel,
-                      })}
-                    </div>
-                    <Show when={nextRoundCountdown() !== null}>
-                      <div class="text-4xl text-yellow-400 font-bold font-mono animate-pulse">
-                        {nextRoundCountdown()}
-                      </div>
-                      <div class="text-sm text-white/70 mt-1">
-                        {t("bomberman.nextRoundIn", { s: String(nextRoundCountdown() ?? 0) })}
-                      </div>
-                    </Show>
+            <Show when={lastRoundResult()}>
+              <div class="mb-4">
+                <div class="text-xl text-white font-bold mb-1">
+                  {t("bomberman.roundResult", {
+                    n: String(lastRoundResult()?.roundNumber ?? 0),
+                    winner: lastRoundResult()?.winner?.id.slice(0, 8) ?? t("bomberman.draw"),
+                  })}
+                </div>
+                <Show when={nextRoundCountdown() !== null}>
+                  <div class="text-4xl text-yellow-400 font-bold font-mono animate-pulse">
+                    {nextRoundCountdown()}
                   </div>
-                );
-              })()}
+                  <div class="text-sm text-white/70 mt-1">
+                    {t("bomberman.nextRoundIn", { s: String(nextRoundCountdown() ?? 0) })}
+                  </div>
+                </Show>
+              </div>
             </Show>
           </div>
         </div>

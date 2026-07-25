@@ -60,10 +60,7 @@ function BetweenRoundsState(props: BetweenRoundsStateProps) {
   });
 
   return (
-    <div
-      data-testid="bomberman-between-rounds"
-      class="fixed inset-0 z-40 flex items-center justify-center bg-black/70"
-    >
+    <div data-testid="bomberman-between-rounds" class="fixed inset-0 z-40 flex items-center justify-center bg-black/70">
       <div class="w-full max-w-md rounded border-2 border-gray-600 bg-gray-900 p-8 text-center pixel-border">
         <Show when={lastRound()}>
           {(round) => (
@@ -99,9 +96,7 @@ function BetweenRoundsState(props: BetweenRoundsStateProps) {
         <Show when={countdown() !== null}>
           <div data-testid="bomberman-between-rounds-countdown">
             <div class="font-mono text-4xl font-bold text-yellow-400">{countdown()}</div>
-            <div class="mt-1 text-sm text-white/70">
-              {t("bomberman.nextRoundIn", { s: String(countdown() ?? 0) })}
-            </div>
+            <div class="mt-1 text-sm text-white/70">{t("bomberman.nextRoundIn", { s: String(countdown() ?? 0) })}</div>
           </div>
         </Show>
       </div>
@@ -522,9 +517,7 @@ export function BombermanRoom() {
         </div>
       </Show>
       <Show when={session.showingGameUI() && session.phase() === "between_rounds" && matchState()}>
-        {(match) => (
-          <BetweenRoundsState match={match()} scoreRows={scoreRows()} players={playerListMemo()} />
-        )}
+        {(match) => <BetweenRoundsState match={match()} scoreRows={scoreRows()} players={playerListMemo()} />}
       </Show>
 
       <Show when={session.showingGameUI() && session.gameSync.state()}>

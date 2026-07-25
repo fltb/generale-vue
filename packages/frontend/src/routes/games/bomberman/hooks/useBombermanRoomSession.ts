@@ -215,7 +215,7 @@ export function useBombermanRoomSession(params: {
         case "roundstarted":
           applyLifecycleMatch("ROUND_STARTED", evt.match);
           setPhase("playing");
-          setSelfStatus("playing");
+          if (params.role !== "spectator") setSelfStatus("playing");
           setTimeout(() => {
             gameSync.connect();
             startGameWatchdog();
@@ -279,6 +279,7 @@ export function useBombermanRoomSession(params: {
       }
     },
     autoOpen: false,
+    openPayload: { role: params.role ?? "player" },
   });
 
   function applyLifecycleMatch(
