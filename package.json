@@ -16,6 +16,7 @@
     "build": "bun run --filter=./packages/* build",
     "dev": "bun run --filter=./packages/* dev",
     "test": "bun run --filter=./packages/* test",
+    "test:e2e": "bun run --cwd e2e test",
     "typecheck": "bun run --filter=./packages/* typecheck",
     "lint": "bunx biome lint",
     "format": "bunx biome format --write",
@@ -29,6 +30,7 @@
   },
   "type": "module",
   "workspaces": [
-    "packages/*"
+    "packages/*",
+    "e2e"
   ]
 }

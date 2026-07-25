@@ -46,6 +46,10 @@ export class TestScenario {
     return this.frontendCtrl!.url;
   }
 
+  backendUrl(): string {
+    return `http://127.0.0.1:${this.backendCtrl!.port}`;
+  }
+
   async stop() {
     for (const ctx of this.contexts) {
       await ctx.close().catch(() => {});
