@@ -2,14 +2,12 @@ import type {
   BombermanState,
   BombermanOperation,
   BombermanDirection,
-  BombermanPlayer,
   PlayerId,
-  BombermanConfig,
   BombermanGameEndResult,
 } from "@generale/types";
 import { GameStatus } from "@generale/types";
-import { tick } from "../core/game";
-import { generateBombermanMap, getSpawnPositions } from "../core/map-gen";
+import type { BombermanGameOptions } from "@generale/bomberman-engine";
+import { createInitialBombermanState, tick } from "@generale/bomberman-engine";
 
 export class BombermanGame {
   private state: BombermanState;
@@ -17,88 +15,26 @@ export class BombermanGame {
   private tickTimerId: ReturnType<typeof setInterval> | null = null;
   private onEndCallbacks: Array<(result: BombermanGameEndResult) => void> = [];
   private onTickCallbacks: Array<(state: BombermanState) => void> = [];
+  private onBeforeTickCallbacks: Array<() => void> = [];
+  private onFrameSnapshotCallbacks: Array<(snapshot: Record<PlayerId, BombermanOperation[]>) => void> = [];
+
   private queues: Record<PlayerId, BombermanOperation[]> = {};
-  private bots: Array<{ playerId: PlayerId; getAction: (state: BombermanState) => BombermanOperation }> = [];
   private syncData: Record<PlayerId, { lastConfirmedOp: number }> = {};
 
   private intents: Record<
     PlayerId,
     { activeDirection: BombermanDirection | null; pendingDirection: BombermanDirection | null }
   > = {};
-  constructor(config: BombermanConfig, players: { id: string; name: string }[]) {
-    const width = config.mapWidth;
-    const height = config.mapHeight;
-    const map = generateBombermanMap(width, height);
-    const spawns = getSpawnPositions(players.length, width, height);
-
-    const playerMap: Record<string, BombermanPlayer> = {};
-    for (let i = 0; i < players.length; i++) {
-      const spawn = spawns[i];
-      const p = players[i];
-      if (!(spawn && p)) continue;
-      playerMap[p.id] = {
-        playerId: p.id,
-        name: p.name,
-        alive: true,
-        x: spawn.x,
-        y: spawn.y,
-        bombMax: config.bombLimit,
-        bombActive: 0,
-        blastRadius: config.blastRadius,
-        speed: 1,
-        items: [],
-        facing: "down",
-      };
+  constructor(options: BombermanGameOptions) {
+    this.state = createInitialBombermanState(options);
+    for (const p of options.players) {
+      this.queues[p.id] = [];
+      this.intents[p.id] = { activeDirection: null, pendingDirection: null };
     }
-
-    this.state = {
-      status: GameStatus.Playing,
-      tick: 0,
-      map,
-      players: playerMap,
-      bombs: [],
-      explosions: [],
-      items: [],
-      config,
-      bombIdCounter: 0,
-    };
-
-    for (const p of players) this.queues[p.id] = [];
-    for (const p of players) this.intents[p.id] = { activeDirection: null, pendingDirection: null };
   }
 
   getSyncData(): Record<PlayerId, { lastConfirmedOp: number }> {
     return this.syncData;
-  }
-
-  addBot(playerId: PlayerId, getAction: (state: BombermanState) => BombermanOperation): void {
-    const w = this.state.config.mapWidth;
-    const h = this.state.config.mapHeight;
-    const allCorners = [
-      { x: 1, y: 1 },
-      { x: w - 2, y: 1 },
-      { x: 1, y: h - 2 },
-      { x: w - 2, y: h - 2 },
-    ];
-    const occupied = new Set(Object.values(this.state.players).map((p) => `${p.x},${p.y}`));
-    const spawn = allCorners.find((c) => !occupied.has(`${c.x},${c.y}`));
-    if (!spawn) return;
-    this.state.players[playerId] = {
-      playerId,
-      name: `Bot-${playerId.slice(0, 8)}`,
-      alive: true,
-      x: spawn.x,
-      y: spawn.y,
-      bombMax: 1,
-      bombActive: 0,
-      blastRadius: 1,
-      speed: 1,
-      items: [],
-      facing: "down",
-    };
-    this.bots.push({ playerId, getAction });
-    this.intents[playerId] = { activeDirection: null, pendingDirection: null };
-    this.queues[playerId] = [];
   }
 
   handleAction(pid: PlayerId, op: BombermanOperation): void {
@@ -137,33 +73,41 @@ export class BombermanGame {
     if (this.tickTimerId) return;
     const intervalMs = 1000 / this.state.config.tickRate;
     this.tickTimerId = setInterval(() => {
-      for (const bot of this.bots) {
-        const action = bot.getAction(this.state);
-        if (!this.queues[bot.playerId]) this.queues[bot.playerId] = [];
-        this.queues[bot.playerId]?.push(action);
-      }
-
       // Materialize movement intent into queues before snapshot
       for (const pid of Object.keys(this.queues)) {
         const intent = this.intents[pid];
-        if (!intent) continue;
+        const queue = this.queues[pid];
+        if (!(intent && queue)) continue;
         if (intent.pendingDirection) {
-          this.queues[pid]!.push({ type: "MOVE", direction: intent.pendingDirection });
+          queue.push({ type: "MOVE", direction: intent.pendingDirection });
           intent.pendingDirection = null;
         } else if (intent.activeDirection) {
           const player = this.state.players[pid];
           const speed = player?.speed ?? 1;
           const steps = Math.max(1, speed);
           for (let i = 0; i < steps; i++) {
-            this.queues[pid]!.push({ type: "MOVE", direction: intent.activeDirection });
+            queue.push({ type: "MOVE", direction: intent.activeDirection });
           }
         }
+      }
+
+      // Fire pre-tick hook (bot injection) before queue snapshot
+      for (const cb of this.onBeforeTickCallbacks) {
+        try {
+          cb();
+        } catch {}
       }
 
       // Snapshot queues before tick — tick() is pure, does not mutate this.queues
       const snapshot: Record<PlayerId, BombermanOperation[]> = {};
       for (const [pid, ops] of Object.entries(this.queues)) {
         snapshot[pid] = [...ops];
+      }
+      // Notify frame snapshot for replay recording
+      for (const cb of this.onFrameSnapshotCallbacks) {
+        try {
+          cb(snapshot);
+        } catch {}
       }
 
       // Call pure tick — returns new state + which ops remain unconsumed
@@ -216,6 +160,13 @@ export class BombermanGame {
     return this.state;
   }
 
+  onBeforeTick(cb: () => void): void {
+    this.onBeforeTickCallbacks.push(cb);
+  }
+  onFrameSnapshot(cb: (snapshot: Record<PlayerId, BombermanOperation[]>) => void): void {
+    this.onFrameSnapshotCallbacks.push(cb);
+  }
+
   onTick(cb: (state: BombermanState) => void): void {
     this.onTickCallbacks.push(cb);
   }
@@ -240,5 +191,6 @@ export class BombermanGame {
     this.stopTicking();
     this.onEndCallbacks = [];
     this.onTickCallbacks = [];
+    this.onBeforeTickCallbacks = [];
   }
 }

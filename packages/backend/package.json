@@ -15,6 +15,7 @@
     "@elysiajs/static": "^1.4.10",
     "@elysiajs/swagger": "latest",
     "@generale/types": "workspace:*",
+    "@generale/bomberman-engine": "workspace:*",
     "@libsql/client": "^0.15.15",
     "dotenv": "^17.2.3",
     "drizzle-orm": "^0.44.7",

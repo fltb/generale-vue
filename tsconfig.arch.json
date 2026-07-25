@@ -20,6 +20,8 @@
     "noPropertyAccessFromIndexSignature": false,
     "paths": {
       "@generale/types": ["./packages/types/src/index.ts"],
+      "@generale/bomberman-engine": ["./packages/bomberman-engine/src/index.ts"],
+      "@generale/bomberman-engine/dist/*": ["./packages/bomberman-engine/src/*"],
       "@generale/types/dist/*": ["./packages/types/src/*"],
       "~/*": ["./packages/frontend/src/*"]
     }
@@ -28,7 +30,8 @@
     "packages/backend/src/**/*.ts",
     "packages/frontend/src/**/*.ts",
     "packages/frontend/src/**/*.tsx",
-    "packages/types/src/**/*.ts"
+    "packages/types/src/**/*.ts",
+    "packages/bomberman-engine/src/**/*.ts"
   ],
   "exclude": [
     "**/__tests__/**",

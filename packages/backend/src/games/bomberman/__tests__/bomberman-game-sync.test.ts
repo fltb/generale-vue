@@ -1,6 +1,8 @@
 import { describe, it, expect, vi } from "vitest";
 import { BombermanGame } from "../instance/BombermanGame";
-import type { BombermanConfig } from "@generale/types";
+import { type BombermanConfig, type TeamId } from "@generale/types";
+import { Mulberry32, generateBombermanMap } from "@generale/bomberman-engine";
+import type { BombermanGameOptions } from "@generale/bomberman-engine";
 
 /**
  * Minimal config for fast test games — small map, fast ticks, no items.
@@ -33,6 +35,29 @@ const FOUR_WITH_P1_BOTTOM = [
   { id: "p2", name: "P2" },
 ];
 
+function makeOptions(players: { id: string; name: string }[]): BombermanGameOptions {
+  const rng = new Mulberry32(42);
+  const map = generateBombermanMap({
+    width: MINIMAL_CONFIG.mapWidth,
+    height: MINIMAL_CONFIG.mapHeight,
+    themeId: "classic",
+    softWallDensity: 0,
+    random: rng,
+  });
+  return {
+    config: MINIMAL_CONFIG,
+    seed: 42,
+    map,
+    players: players.map((p) => ({
+      id: p.id,
+      name: p.name,
+      teamId: "team1" as TeamId,
+      isBot: false,
+      skinId: "classic-blue",
+    })),
+  };
+}
+
 /** Helper to cast game for private member access */
 function pvt(game: BombermanGame) {
   return game as unknown as {
@@ -45,7 +70,7 @@ function pvt(game: BombermanGame) {
 
 describe("handleAction — confirmedOp tracking", () => {
   it("drops stale event when optimisticId <= lastConfirmedOp", () => {
-    const game = new BombermanGame(MINIMAL_CONFIG, TWO_PLAYERS);
+    const game = new BombermanGame(makeOptions(TWO_PLAYERS));
     // First event with optimisticId=5 → stored, lastConfirmedOp=5
     game.handleAction("p1", { type: "PLACE_BOMB", optimisticId: 5 });
     expect(pvt(game).syncData["p1"].lastConfirmedOp).toBe(5);
@@ -60,7 +85,7 @@ describe("handleAction — confirmedOp tracking", () => {
   });
 
   it("drops stale SET_DIRECTION when optimisticId <= lastConfirmedOp", () => {
-    const game = new BombermanGame(MINIMAL_CONFIG, TWO_PLAYERS);
+    const game = new BombermanGame(makeOptions(TWO_PLAYERS));
     // Last confirmedOp = 3 from a prior event
     game.handleAction("p1", { type: "PLACE_BOMB", optimisticId: 3 });
     expect(pvt(game).syncData["p1"].lastConfirmedOp).toBe(3);
@@ -76,7 +101,7 @@ describe("handleAction — confirmedOp tracking", () => {
   });
 
   it("accepts fresh event when optimisticId > lastConfirmedOp", () => {
-    const game = new BombermanGame(MINIMAL_CONFIG, TWO_PLAYERS);
+    const game = new BombermanGame(makeOptions(TWO_PLAYERS));
     game.handleAction("p1", { type: "PLACE_BOMB", optimisticId: 1 });
     expect(pvt(game).syncData["p1"].lastConfirmedOp).toBe(1);
 
@@ -89,7 +114,7 @@ describe("handleAction — confirmedOp tracking", () => {
   });
 
   it("accepts fresh SET_DIRECTION and updates confirmedOp", () => {
-    const game = new BombermanGame(MINIMAL_CONFIG, TWO_PLAYERS);
+    const game = new BombermanGame(makeOptions(TWO_PLAYERS));
     game.handleAction("p1", { type: "SET_DIRECTION", direction: "down", optimisticId: 7 });
     // SET_DIRECTION sets intents, does NOT enter queue
     expect(pvt(game).queues["p1"]).toHaveLength(0);
@@ -101,7 +126,7 @@ describe("handleAction — confirmedOp tracking", () => {
   });
 
   it("accepts event without optimisticId (backward compat)", () => {
-    const game = new BombermanGame(MINIMAL_CONFIG, TWO_PLAYERS);
+    const game = new BombermanGame(makeOptions(TWO_PLAYERS));
     // No optimisticId — should always be accepted
     game.handleAction("p1", { type: "PLACE_BOMB" });
     expect(pvt(game).queues["p1"]).toHaveLength(1);
@@ -112,7 +137,7 @@ describe("handleAction — confirmedOp tracking", () => {
   });
 
   it("accepts stale event if no optimisticId even after confirmed events", () => {
-    const game = new BombermanGame(MINIMAL_CONFIG, TWO_PLAYERS);
+    const game = new BombermanGame(makeOptions(TWO_PLAYERS));
     game.handleAction("p1", { type: "PLACE_BOMB", optimisticId: 10 });
     expect(pvt(game).syncData["p1"].lastConfirmedOp).toBe(10);
 
@@ -126,7 +151,7 @@ describe("handleAction — confirmedOp tracking", () => {
   });
 
   it("maintains per-player isolation for confirmedOp", () => {
-    const game = new BombermanGame(MINIMAL_CONFIG, TWO_PLAYERS);
+    const game = new BombermanGame(makeOptions(TWO_PLAYERS));
 
     game.handleAction("p1", { type: "PLACE_BOMB", optimisticId: 5 });
     game.handleAction("p2", { type: "PLACE_BOMB", optimisticId: 1 });
@@ -142,7 +167,7 @@ describe("handleAction — confirmedOp tracking", () => {
   });
 
   it("drops out-of-order event arriving after a higher confirmedOp", () => {
-    const game = new BombermanGame(MINIMAL_CONFIG, TWO_PLAYERS);
+    const game = new BombermanGame(makeOptions(TWO_PLAYERS));
 
     // Events arrive in order 1, 2, 3, 5 → lastConfirmedOp climbs to 5
     game.handleAction("p1", { type: "PLACE_BOMB", optimisticId: 1 });
@@ -164,8 +189,8 @@ describe("handleAction — confirmedOp tracking", () => {
 });
 
 describe("handleAction — SET_DIRECTION sets movement intents", () => {
-  it('sets activeDirection and pendingDirection, does not add to queue', () => {
-    const game = new BombermanGame(MINIMAL_CONFIG, TWO_PLAYERS);
+  it("sets activeDirection and pendingDirection, does not add to queue", () => {
+    const game = new BombermanGame(makeOptions(TWO_PLAYERS));
     game.handleAction("p1", { type: "SET_DIRECTION", direction: "right", optimisticId: 1 });
     expect(pvt(game).intents["p1"].activeDirection).toBe("right");
     expect(pvt(game).intents["p1"].pendingDirection).toBe("right");
@@ -174,7 +199,7 @@ describe("handleAction — SET_DIRECTION sets movement intents", () => {
   });
 
   it("second non-null direction replaces pending (latest press wins)", () => {
-    const game = new BombermanGame(MINIMAL_CONFIG, TWO_PLAYERS);
+    const game = new BombermanGame(makeOptions(TWO_PLAYERS));
     game.handleAction("p1", { type: "SET_DIRECTION", direction: "right", optimisticId: 1 });
     game.handleAction("p1", { type: "SET_DIRECTION", direction: "up", optimisticId: 2 });
     expect(pvt(game).intents["p1"].activeDirection).toBe("up");
@@ -184,7 +209,7 @@ describe("handleAction — SET_DIRECTION sets movement intents", () => {
   });
 
   it("null only clears active, preserves pending", () => {
-    const game = new BombermanGame(MINIMAL_CONFIG, TWO_PLAYERS);
+    const game = new BombermanGame(makeOptions(TWO_PLAYERS));
     game.handleAction("p1", { type: "SET_DIRECTION", direction: "up", optimisticId: 1 });
     game.handleAction("p1", { type: "SET_DIRECTION", direction: null, optimisticId: 2 });
     expect(pvt(game).intents["p1"].activeDirection).toBeNull();
@@ -193,14 +218,14 @@ describe("handleAction — SET_DIRECTION sets movement intents", () => {
   });
 
   it("updates confirmedOp when optimisticId provided", () => {
-    const game = new BombermanGame(MINIMAL_CONFIG, TWO_PLAYERS);
+    const game = new BombermanGame(makeOptions(TWO_PLAYERS));
     game.handleAction("p1", { type: "SET_DIRECTION", direction: "down", optimisticId: 42 });
     expect(pvt(game).syncData["p1"].lastConfirmedOp).toBe(42);
     game.destroy();
   });
 
   it("per-player isolation for intents", () => {
-    const game = new BombermanGame(MINIMAL_CONFIG, TWO_PLAYERS);
+    const game = new BombermanGame(makeOptions(TWO_PLAYERS));
     game.handleAction("p1", { type: "SET_DIRECTION", direction: "left", optimisticId: 1 });
     game.handleAction("p2", { type: "SET_DIRECTION", direction: "right", optimisticId: 1 });
     expect(pvt(game).intents["p1"].activeDirection).toBe("left");
@@ -213,7 +238,7 @@ describe("handleAction — SET_DIRECTION sets movement intents", () => {
 
 describe("handleAction — action types push to queue", () => {
   it("PLACE_BOMB pushes to queue and updates confirmedOp", () => {
-    const game = new BombermanGame(MINIMAL_CONFIG, TWO_PLAYERS);
+    const game = new BombermanGame(makeOptions(TWO_PLAYERS));
     game.handleAction("p1", { type: "PLACE_BOMB", optimisticId: 10 });
     expect(pvt(game).queues["p1"]).toHaveLength(1);
     expect(pvt(game).queues["p1"]![0]).toEqual({ type: "PLACE_BOMB", optimisticId: 10 });
@@ -222,7 +247,7 @@ describe("handleAction — action types push to queue", () => {
   });
 
   it("DETONATE pushes to queue", () => {
-    const game = new BombermanGame(MINIMAL_CONFIG, TWO_PLAYERS);
+    const game = new BombermanGame(makeOptions(TWO_PLAYERS));
     game.handleAction("p1", { type: "DETONATE", optimisticId: 2 });
     expect(pvt(game).queues["p1"]).toHaveLength(1);
     expect(pvt(game).queues["p1"]![0]).toEqual({ type: "DETONATE", optimisticId: 2 });
@@ -231,7 +256,7 @@ describe("handleAction — action types push to queue", () => {
   });
 
   it("SURRENDER pushes to queue", () => {
-    const game = new BombermanGame(MINIMAL_CONFIG, TWO_PLAYERS);
+    const game = new BombermanGame(makeOptions(TWO_PLAYERS));
     game.handleAction("p1", { type: "SURRENDER", optimisticId: 3 });
     expect(pvt(game).queues["p1"]).toHaveLength(1);
     expect(pvt(game).queues["p1"]![0]).toEqual({ type: "SURRENDER", optimisticId: 3 });
@@ -239,7 +264,7 @@ describe("handleAction — action types push to queue", () => {
   });
 
   it("ACTION pushes to queue", () => {
-    const game = new BombermanGame(MINIMAL_CONFIG, TWO_PLAYERS);
+    const game = new BombermanGame(makeOptions(TWO_PLAYERS));
     game.handleAction("p1", { type: "ACTION", optimisticId: 4 });
     expect(pvt(game).queues["p1"]).toHaveLength(1);
     expect(pvt(game).queues["p1"]![0]).toEqual({ type: "ACTION", optimisticId: 4 });
@@ -247,7 +272,7 @@ describe("handleAction — action types push to queue", () => {
   });
 
   it("MOVE pushes to queue (non-directional action)", () => {
-    const game = new BombermanGame(MINIMAL_CONFIG, TWO_PLAYERS);
+    const game = new BombermanGame(makeOptions(TWO_PLAYERS));
     game.handleAction("p1", { type: "MOVE", direction: "right", optimisticId: 5 });
     expect(pvt(game).queues["p1"]).toHaveLength(1);
     expect(pvt(game).queues["p1"]![0]).toEqual({ type: "MOVE", direction: "right", optimisticId: 5 });
@@ -256,7 +281,7 @@ describe("handleAction — action types push to queue", () => {
   });
 
   it("multiple action types accumulate in queue in order", () => {
-    const game = new BombermanGame(MINIMAL_CONFIG, TWO_PLAYERS);
+    const game = new BombermanGame(makeOptions(TWO_PLAYERS));
     game.handleAction("p1", { type: "PLACE_BOMB", optimisticId: 1 });
     game.handleAction("p1", { type: "DETONATE", optimisticId: 2 });
     game.handleAction("p1", { type: "SURRENDER", optimisticId: 3 });
@@ -272,7 +297,7 @@ describe("handleAction — action types push to queue", () => {
 
 describe("tick — per-player confirmedOp broadcast", () => {
   it("syncData tracks per-player confirmedOp after handleAction calls", () => {
-    const game = new BombermanGame(MINIMAL_CONFIG, TWO_PLAYERS);
+    const game = new BombermanGame(makeOptions(TWO_PLAYERS));
 
     // p1 sends 3 events with increasing optimisticIds
     game.handleAction("p1", { type: "PLACE_BOMB", optimisticId: 1 });
@@ -296,7 +321,7 @@ describe("tick — per-player confirmedOp broadcast", () => {
   });
 
   it("tick processes queue and preserves per-player syncData", () => {
-    const game = new BombermanGame(MINIMAL_CONFIG, TWO_PLAYERS);
+    const game = new BombermanGame(makeOptions(TWO_PLAYERS));
 
     // Place actions in queue for both players
     game.handleAction("p1", { type: "SET_DIRECTION", direction: "right", optimisticId: 1 });
@@ -327,7 +352,7 @@ describe("tick — per-player confirmedOp broadcast", () => {
   });
 
   it("stale events are dropped before tick processes actions", () => {
-    const game = new BombermanGame(MINIMAL_CONFIG, TWO_PLAYERS);
+    const game = new BombermanGame(makeOptions(TWO_PLAYERS));
 
     // Valid events
     game.handleAction("p1", { type: "PLACE_BOMB", optimisticId: 1 });
@@ -344,7 +369,7 @@ describe("tick — per-player confirmedOp broadcast", () => {
   });
 
   it("handles per-player isolation with stale checks across tick boundary", () => {
-    const game = new BombermanGame(MINIMAL_CONFIG, TWO_PLAYERS);
+    const game = new BombermanGame(makeOptions(TWO_PLAYERS));
 
     // p1 and p2 advance their confirmedOps independently
     game.handleAction("p1", { type: "PLACE_BOMB", optimisticId: 10 });
@@ -368,7 +393,7 @@ describe("movement intent materialization", () => {
     vi.useFakeTimers();
     let game: BombermanGame | undefined;
     try {
-      game = new BombermanGame(MINIMAL_CONFIG, FOUR_WITH_P1_BOTTOM);
+      game = new BombermanGame(makeOptions(FOUR_WITH_P1_BOTTOM));
       const startX = game.getState().players["p1"].x;
       const startY = game.getState().players["p1"].y;
 
@@ -398,7 +423,7 @@ describe("movement intent materialization", () => {
     vi.useFakeTimers();
     let game: BombermanGame | undefined;
     try {
-      game = new BombermanGame(MINIMAL_CONFIG, FOUR_WITH_P1_BOTTOM);
+      game = new BombermanGame(makeOptions(FOUR_WITH_P1_BOTTOM));
       const startX = game.getState().players["p1"].x;
       const startY = game.getState().players["p1"].y;
 
@@ -434,7 +459,7 @@ describe("movement intent materialization", () => {
     vi.useFakeTimers();
     let game: BombermanGame | undefined;
     try {
-      game = new BombermanGame(MINIMAL_CONFIG, FOUR_WITH_P1_BOTTOM);
+      game = new BombermanGame(makeOptions(FOUR_WITH_P1_BOTTOM));
       // Clear pillar at (2,8) — right move targets (2,9), then up targets (2,8);
       // without this the up move would collide with the hard-wall pillar at (even, even).
       game.getState().map.tiles[8][2] = { type: "empty" };
@@ -474,7 +499,7 @@ describe("movement intent materialization", () => {
     vi.useFakeTimers();
     let game: BombermanGame | undefined;
     try {
-      game = new BombermanGame(MINIMAL_CONFIG, FOUR_WITH_P1_BOTTOM);
+      game = new BombermanGame(makeOptions(FOUR_WITH_P1_BOTTOM));
       const startX = game.getState().players["p1"].x;
       const startY = game.getState().players["p1"].y;
 
@@ -506,7 +531,7 @@ describe("movement intent materialization", () => {
 
 describe("syncData lifecycle — initialization and cleanup", () => {
   it("initializes syncData entry on first handleAction for a player", () => {
-    const game = new BombermanGame(MINIMAL_CONFIG, TWO_PLAYERS);
+    const game = new BombermanGame(makeOptions(TWO_PLAYERS));
     // No syncData before any action
     expect(pvt(game).syncData["p1"]).toBeUndefined();
 
@@ -518,7 +543,7 @@ describe("syncData lifecycle — initialization and cleanup", () => {
   });
 
   it("initializes syncData even without optimisticId", () => {
-    const game = new BombermanGame(MINIMAL_CONFIG, TWO_PLAYERS);
+    const game = new BombermanGame(makeOptions(TWO_PLAYERS));
     game.handleAction("p1", { type: "PLACE_BOMB" });
     expect(pvt(game).syncData["p1"]).toBeDefined();
     expect(pvt(game).syncData["p1"].lastConfirmedOp).toBe(0);
@@ -527,13 +552,13 @@ describe("syncData lifecycle — initialization and cleanup", () => {
   });
 
   it("syncData survives destroy and re-create (separate instances)", () => {
-    const game1 = new BombermanGame(MINIMAL_CONFIG, TWO_PLAYERS);
+    const game1 = new BombermanGame(makeOptions(TWO_PLAYERS));
     game1.handleAction("p1", { type: "PLACE_BOMB", optimisticId: 99 });
     expect(pvt(game1).syncData["p1"].lastConfirmedOp).toBe(99);
     game1.destroy();
 
     // Fresh instance has no syncData
-    const game2 = new BombermanGame(MINIMAL_CONFIG, TWO_PLAYERS);
+    const game2 = new BombermanGame(makeOptions(TWO_PLAYERS));
     expect(pvt(game2).syncData["p1"]).toBeUndefined();
     game2.handleAction("p1", { type: "PLACE_BOMB", optimisticId: 1 });
     expect(pvt(game2).syncData["p1"].lastConfirmedOp).toBe(1);

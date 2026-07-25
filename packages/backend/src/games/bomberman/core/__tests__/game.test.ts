@@ -1,9 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { tick } from "../game";
-import type { TickResult } from "../game";
+import { tick, generateBombermanMap, Mulberry32 } from "@generale/bomberman-engine";
 import type { BombermanState, BombermanOperation, ItemType } from "@generale/types";
 import { GameStatus } from "@generale/types";
-import { generateBombermanMap } from "../map-gen";
 
 function makeBaseState(): BombermanState {
   return {
@@ -17,8 +15,8 @@ function makeBaseState(): BombermanState {
       ),
     },
     players: {
-      p1: { playerId: "p1", name: "Alice", alive: true, x: 1, y: 1, bombMax: 1, bombActive: 0, blastRadius: 2, speed: 1, items: [], facing: "down" },
-      p2: { playerId: "p2", name: "Bob", alive: true, x: 3, y: 3, bombMax: 1, bombActive: 0, blastRadius: 2, speed: 1, items: [], facing: "down" },
+      p1: { playerId: "p1", name: "Alice", alive: true, x: 1, y: 1, bombMax: 1, bombActive: 0, blastRadius: 2, speed: 1, items: [], facing: "down", teamId: "team1" as const, isBot: false, skinId: "classic-blue" },
+      p2: { playerId: "p2", name: "Bob", alive: true, x: 3, y: 3, bombMax: 1, bombActive: 0, blastRadius: 2, speed: 1, items: [], facing: "down", teamId: "team2" as const, isBot: false, skinId: "classic-green" },
     },
     bombs: [],
     explosions: [],
@@ -27,6 +25,15 @@ function makeBaseState(): BombermanState {
       mapWidth: 5, mapHeight: 5, playerLimit: 2, tickRate: 4,
       bombFuse: 3, bombLimit: 1, blastRadius: 2, roundTimeSec: 0,
       shrinkEnabled: false, itemDropRate: 0.6, items: ["BOMB_UP", "FIRE_UP"],
+      matchFormat: "single", teamMode: "ffa", botCount: 0, botDifficulty: "easy",
+      mapSource: { type: "procedural", themeId: "classic" },
+    },
+    rngState: 0,
+    eventCounter: 0,
+    events: [],
+    inputIndicators: {
+      p1: { direction: null, action: null, actionTick: null },
+      p2: { direction: null, action: null, actionTick: null },
     },
   };
 }
@@ -558,16 +565,24 @@ describe("tick - multi-chain explosion", () => {
     expect(result.explosions.length).toBeGreaterThan(0);
   });
 });
-
 describe("map-gen — variety", () => {
-  it("two maps with same dimensions differ", () => {
-    const map1 = generateBombermanMap(15, 13);
-    const map2 = generateBombermanMap(15, 13);
-    // Serialize and compare
+  it("same seed produces identical maps; different seed produces different maps", () => {
+    const seedA = 42;
+    const seedB = 99;
+    const opts = (seed: number) => ({
+      width: 15,
+      height: 13,
+      themeId: "classic",
+      softWallDensity: 0.55,
+      random: new Mulberry32(seed),
+    });
+    const map1 = generateBombermanMap(opts(seedA));
+    const map2 = generateBombermanMap(opts(seedA));
+    const map3 = generateBombermanMap(opts(seedB));
     const s1 = JSON.stringify(map1.tiles);
     const s2 = JSON.stringify(map2.tiles);
-    // With random soft wall removal, maps should almost always differ
-    // (hard walls are fixed, only soft walls vary)
-    expect(s1).not.toBe(s2);
+    const s3 = JSON.stringify(map3.tiles);
+    expect(s1).toBe(s2);
+    expect(s1).not.toBe(s3);
   });
 });

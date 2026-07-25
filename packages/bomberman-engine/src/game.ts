@@ -1,5 +1,41 @@
-import type { BombermanPlayer, BombermanState, BombermanOperation, Bomb, ItemType, PlayerId } from "@generale/types";
+import type {
+  BombermanState,
+  BombermanPlayer,
+  BombermanOperation,
+  BombermanConfig,
+  BombermanMapDefinition,
+  BombermanInputIndicator,
+  BombermanEvent,
+  ItemType,
+  PlayerId,
+  TeamId,
+} from "@generale/types";
 import { GameStatus } from "@generale/types";
+
+import type { BombermanRandom } from "./random.js";
+import { pushEvent } from "./events.js";
+
+// ─── Public types ───
+
+export interface BombermanGameOptions {
+  config: BombermanConfig;
+  seed: number;
+  map: BombermanMapDefinition;
+  players: Array<{
+    id: PlayerId;
+    name: string;
+    teamId: TeamId;
+    isBot: boolean;
+    skinId: string;
+  }>;
+}
+
+export interface TickResult {
+  state: BombermanState;
+  remainingOps: Record<PlayerId, BombermanOperation[]>;
+}
+
+// ─── Internal constant tables ───
 
 const ITEM_DROP_TABLE: { type: ItemType; weight: number }[] = [
   { type: "BOMB_UP", weight: 10 },
@@ -13,6 +49,7 @@ const ITEM_DROP_TABLE: { type: ItemType; weight: number }[] = [
   { type: "SPIRIT", weight: 1 },
 ];
 
+
 const DIRS: Record<string, { dx: number; dy: number }> = {
   up: { dx: 0, dy: -1 },
   down: { dx: 0, dy: 1 },
@@ -20,19 +57,21 @@ const DIRS: Record<string, { dx: number; dy: number }> = {
   right: { dx: 1, dy: 0 },
 };
 
-function genBombId(s: BombermanState): string {
-  const id = s.bombIdCounter ?? 0;
-  s.bombIdCounter = id + 1;
-  return `bomb_${id}`;
+// ─── PRNG helpers ───
+
+/** Pull a random float from the state's embedded PRNG, mutating rngState. */
+function randomFromState(state: BombermanState): number {
+  let s = state.rngState;
+  s = (s + 0x6d2b79f5) | 0;
+  let t = Math.imul(s ^ (s >>> 15), 1 | s);
+  t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+  state.rngState = s;
+  return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
 }
 
-function cloneState(state: BombermanState): BombermanState {
-  return structuredClone(state);
-}
-
-function weightedRandom(table: { type: ItemType; weight: number }[]): ItemType {
+function weightedRandom(table: { type: ItemType; weight: number }[], state: BombermanState): ItemType {
   const total = table.reduce((s, i) => s + i.weight, 0);
-  let r = Math.random() * total;
+  let r = randomFromState(state) * total;
   for (const item of table) {
     r -= item.weight;
     if (r <= 0) return item.type;
@@ -40,11 +79,83 @@ function weightedRandom(table: { type: ItemType; weight: number }[]): ItemType {
   return table[0]?.type ?? "BOMB_UP";
 }
 
+// ─── State construction ───
+
+/** Initialize the PRNG state from a seed (one Mulberry32 round). */
+function initRngState(seed: number): number {
+  let s = seed | 0;
+  s = (s + 0x6d2b79f5) | 0;
+  let t = Math.imul(s ^ (s >>> 15), 1 | s);
+  t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+  return s;
+}
+
+export function createInitialBombermanState(options: BombermanGameOptions): BombermanState {
+  const rngState = initRngState(options.seed);
+
+  const players: Record<string, BombermanPlayer> = {};
+  const inputIndicators: Record<string, BombermanInputIndicator> = {};
+
+  for (let i = 0; i < options.players.length; i++) {
+    const p = options.players[i]!;
+    const spawn = options.map.spawns[i] ?? { x: 1, y: 1 };
+
+    players[p.id] = {
+      playerId: p.id,
+      name: p.name,
+      alive: true,
+      x: spawn.x,
+      y: spawn.y,
+      bombMax: options.config.bombLimit,
+      bombActive: 0,
+      blastRadius: options.config.blastRadius,
+      speed: 1,
+      items: [],
+      facing: "down",
+      teamId: p.teamId,
+      isBot: p.isBot,
+      skinId: p.skinId,
+    };
+
+    inputIndicators[p.id] = {
+      direction: null,
+      action: null,
+      actionTick: null,
+    };
+  }
+
+  const state: BombermanState = {
+    status: GameStatus.Playing,
+    tick: 0,
+    map: options.map,
+    players: players as Record<PlayerId, BombermanPlayer>,
+    bombs: [],
+    explosions: [],
+    items: [...options.map.fixedItems],
+    config: options.config,
+    bombIdCounter: 0,
+    rngState,
+    eventCounter: 0,
+    events: [],
+    inputIndicators: inputIndicators as Record<PlayerId, BombermanInputIndicator>,
+    roundTimer: options.config.roundTimeSec > 0 ? options.config.roundTimeSec * options.config.tickRate : undefined,
+    shrinkBoundary: 0,
+  };
+
+  return state;
+}
+
+// ─── Internal game helpers ───
+
+function genBombId(s: BombermanState): string {
+  const id = s.bombIdCounter ?? 0;
+  s.bombIdCounter = id + 1;
+  return `bomb_${id}`;
+}
+
 function hasBombAt(state: BombermanState, x: number, y: number): boolean {
   return state.bombs.some((b) => b.x === x && b.y === y);
 }
-
-// ─── Per single-tile step: walk/kick/block ───
 
 function moveOneTile(
   player: BombermanPlayer,
@@ -56,34 +167,28 @@ function moveOneTile(
   const nx = player.x + d.dx;
   const ny = player.y + d.dy;
 
-  // 1. Map boundary / wall check
   const tile = state.map.tiles[ny]?.[nx];
   if (!tile || tile.type === "hard_wall" || tile.type === "soft_wall") {
     return { moved: false, kicked: false };
   }
 
-  // 2. Other players: blocked
   for (const [, p] of Object.entries(state.players)) {
     if (p.alive && p.playerId !== player.playerId && p.x === nx && p.y === ny) {
       return { moved: false, kicked: false };
     }
   }
 
-  // 3. Bomb blocking (unless SPIRIT or KICK)
   if (hasBombAt(state, nx, ny)) {
     const hasSpirit = player.items.includes("SPIRIT");
     if (hasSpirit) {
       // walk through bombs ghost-style
     } else if (player.items.includes("KICK")) {
-      // kick the bomb forward, then step onto the tile
       kickBomb(state, nx, ny, d.dx, d.dy);
-      // fall through to move
     } else {
       return { moved: false, kicked: false };
     }
   }
 
-  // 4. Move + item pickup
   player.x = nx;
   player.y = ny;
   pickupItem(player, state, nx, ny);
@@ -98,12 +203,10 @@ function kickBomb(state: BombermanState, bx: number, by: number, dx: number, dy:
   let tx = bx + dx;
   let ty = by + dy;
 
-  // Slide until wall or another bomb or map edge
   while (true) {
     const tile = state.map.tiles[ty]?.[tx];
     if (!tile || tile.type === "hard_wall" || tile.type === "soft_wall") break;
     if (hasBombAt(state, tx, ty)) break;
-    // Kill players in path
     for (const [, p] of Object.entries(state.players)) {
       if (p.alive && p.playerId !== bomb.playerId && p.x === tx && p.y === ty) {
         p.alive = false;
@@ -119,7 +222,6 @@ function kickBomb(state: BombermanState, bx: number, by: number, dx: number, dy:
     ty += dy;
   }
 
-  // Place bomb at final position (one step back from the wall)
   const finalX = tx - dx;
   const finalY = ty - dy;
   if (finalX !== bx || finalY !== by) {
@@ -131,23 +233,29 @@ function kickBomb(state: BombermanState, bx: number, by: number, dx: number, dy:
 function pickupItem(player: BombermanPlayer, state: BombermanState, x: number, y: number): void {
   const itemIdx = state.items.findIndex((i) => i.x === x && i.y === y);
   if (itemIdx < 0) return;
-  const item = state.items[itemIdx];
-  if (!item) return;
+  const item = state.items[itemIdx]!;
   state.items.splice(itemIdx, 1);
 
   if (item.type === "BOMB_UP") player.bombMax++;
   else if (item.type === "FIRE_UP") player.blastRadius++;
   else if (item.type === "SPEED_UP") player.speed++;
   else player.items.push(item.type);
-}
 
-// ─── Place bomb ───
+  const rec = pushEvent(state.events, state.eventCounter, state.tick, {
+    type: "item_picked_up",
+    playerId: player.playerId,
+    item: item.type,
+  });
+  state.events = rec.events;
+  state.eventCounter = rec.eventCounter;
+}
 
 function placeBomb(player: BombermanPlayer, state: BombermanState): void {
   if (player.bombActive >= player.bombMax) return;
   if (hasBombAt(state, player.x, player.y)) return;
+  const bombId = genBombId(state);
   state.bombs.push({
-    id: genBombId(state),
+    id: bombId,
     playerId: player.playerId,
     x: player.x,
     y: player.y,
@@ -157,9 +265,7 @@ function placeBomb(player: BombermanPlayer, state: BombermanState): void {
   player.bombActive++;
 }
 
-// ─── Explosion ───
-
-function explode(bomb: Bomb, state: BombermanState, pierce: boolean): void {
+function explode(bomb: BombermanState["bombs"][number], state: BombermanState, pierce: boolean): void {
   const dirs = [
     { dx: 0, dy: 0 },
     { dx: 1, dy: 0 },
@@ -175,19 +281,26 @@ function explode(bomb: Bomb, state: BombermanState, pierce: boolean): void {
       const tile = state.map.tiles[y]?.[x];
       if (!tile) break;
 
-      state.explosions.push({ x, y, ttl: 8 });
+      state.explosions.push({ x, y, ttl: 8, bombId: bomb.id, ownerId: bomb.playerId });
 
-      // Chain-detonate bombs caught in the blast
       for (const other of state.bombs) {
         if (other.id !== bomb.id && other.x === x && other.y === y && other.fuse > 0) {
           other.fuse = 0;
+          const rec = pushEvent(state.events, state.eventCounter, state.tick, {
+            type: "chain_triggered",
+            sourceBombId: bomb.id,
+            triggeredBombId: other.id,
+            ownerId: bomb.playerId,
+          });
+          state.events = rec.events;
+          state.eventCounter = rec.eventCounter;
         }
       }
 
       for (const [, player] of Object.entries(state.players)) {
         if (player.alive && player.x === x && player.y === y) {
           player.alive = false;
-          // Drop carried bomb
+
           if (player.carriedBomb && state.carriedBombs) {
             const carried = state.carriedBombs[player.playerId];
             if (carried) {
@@ -205,21 +318,37 @@ function explode(bomb: Bomb, state: BombermanState, pierce: boolean): void {
             }
           }
           player.items = [];
+
+          const rec = pushEvent(state.events, state.eventCounter, state.tick, {
+            type: "elimination",
+            victimId: player.playerId,
+            killerId: bomb.playerId,
+            bombId: bomb.id,
+            cause: "bomb",
+          });
+          state.events = rec.events;
+          state.eventCounter = rec.eventCounter;
         }
       }
 
       if (tile.type === "hard_wall") break;
       if (tile.type === "soft_wall") {
         tile.type = "empty";
-        if (Math.random() < state.config.itemDropRate) {
+        if (randomFromState(state) < state.config.itemDropRate) {
           let dropTable = ITEM_DROP_TABLE;
           if (state.config.items !== undefined) {
             const allowed = ITEM_DROP_TABLE.filter((i) => state.config.items.includes(i.type));
-            dropTable = allowed; // could be empty — means no items drop
+            dropTable = allowed;
           }
           if (dropTable.length > 0) {
-            const dropType = weightedRandom(dropTable);
-            state.items.push({ x, y, type: dropType });
+            const dropType = weightedRandom(dropTable, state);
+            state.items.push({ x, y, type: dropType as any });
+            const rec2 = pushEvent(state.events, state.eventCounter, state.tick, {
+              type: "item_spawned",
+              item: { x, y, type: dropType as any },
+            });
+            state.events = rec2.events;
+            state.eventCounter = rec2.eventCounter;
           }
         }
         if (!pierce) break;
@@ -232,7 +361,7 @@ function explode(bomb: Bomb, state: BombermanState, pierce: boolean): void {
 
 function processExplosions(state: BombermanState): void {
   const exploded = new Set<string>();
-  let toProcess: Bomb[] = state.bombs.filter((b) => b.fuse <= 0);
+  let toProcess = state.bombs.filter((b) => b.fuse <= 0);
 
   while (toProcess.length > 0) {
     const batch = toProcess;
@@ -245,14 +374,11 @@ function processExplosions(state: BombermanState): void {
       );
       explode(bomb, state, hasPierce);
     }
-    // Re-check for chain-detonated bombs triggered during explosion
     toProcess = state.bombs.filter((b) => b.fuse <= 0 && !exploded.has(b.id));
   }
 
   state.bombs = state.bombs.filter((b) => !exploded.has(b.id));
 }
-
-// ─── Shrink / kill out of bounds ───
 
 function killOutOfBounds(state: BombermanState): void {
   const b = state.shrinkBoundary ?? 0;
@@ -273,33 +399,36 @@ function killOutOfBounds(state: BombermanState): void {
         }
         delete player.carriedBomb;
       }
+
+      const rec = pushEvent(state.events, state.eventCounter, state.tick, {
+        type: "elimination",
+        victimId: player.playerId,
+        killerId: null,
+        bombId: null,
+        cause: "shrink",
+      });
+      state.events = rec.events;
+      state.eventCounter = rec.eventCounter;
     }
   }
 }
 
-// ─── Unified ACTION: context-sensitive pickup/throw/punch ───
-
 function handleAction(player: BombermanPlayer, state: BombermanState): void {
-  // 1. If carrying a bomb → throw it
   if (player.carriedBomb) {
     throwCarriedBomb(player, state);
     return;
   }
-  // 2. If has GLOVE and standing on a bomb → pick it up
   if (player.items.includes("GLOVE")) {
     const bombIdx = state.bombs.findIndex((b) => b.x === player.x && b.y === player.y);
     if (bombIdx >= 0) {
-      const bomb = state.bombs[bombIdx];
-      if (bomb) {
-        if (!state.carriedBombs) state.carriedBombs = {};
-        state.carriedBombs[player.playerId] = bomb;
-        player.carriedBomb = bomb.id;
-        state.bombs.splice(bombIdx, 1);
-      }
+      const bomb = state.bombs[bombIdx]!;
+      if (!state.carriedBombs) state.carriedBombs = {};
+      state.carriedBombs[player.playerId] = bomb;
+      player.carriedBomb = bomb.id;
+      state.bombs.splice(bombIdx, 1);
       return;
     }
   }
-  // 3. If has PUNCH and adjacent bomb in facing direction → punch it
   if (player.items.includes("PUNCH")) {
     const d = DIRS[player.facing];
     if (d) {
@@ -315,16 +444,19 @@ function handleAction(player: BombermanPlayer, state: BombermanState): void {
 
 function throwCarriedBomb(player: BombermanPlayer, state: BombermanState): void {
   if (!player.carriedBomb) return;
-  const carriedBombs = state.carriedBombs;
-  if (!carriedBombs) return;
-  const bomb = carriedBombs[player.playerId];
+  const cbs = state.carriedBombs;
+  if (!cbs) return;
+  const bomb = cbs[player.playerId];
   if (!bomb) return;
 
   const d = DIRS[player.facing];
   if (!d) return;
 
+  const fromX = player.x;
+  const fromY = player.y;
   const THROW_DISTANCE = 3;
   let landed = false;
+
   for (let dist = THROW_DISTANCE; dist >= 1; dist--) {
     const lx = player.x + d.dx * dist;
     const ly = player.y + d.dy * dist;
@@ -336,11 +468,20 @@ function throwCarriedBomb(player: BombermanPlayer, state: BombermanState): void 
     bomb.y = ly;
     bomb.airborne = false;
     state.bombs.push(bomb);
-    delete carriedBombs[player.playerId];
+    delete cbs[player.playerId];
     delete player.carriedBomb;
     landed = true;
 
-    // Kill player at landing tile
+    const rec = pushEvent(state.events, state.eventCounter, state.tick, {
+      type: "bomb_thrown",
+      playerId: player.playerId,
+      bombId: bomb.id,
+      from: { x: fromX, y: fromY },
+      to: { x: lx, y: ly },
+    });
+    state.events = rec.events;
+    state.eventCounter = rec.eventCounter;
+
     for (const [, p] of Object.entries(state.players)) {
       if (p.alive && p.playerId !== player.playerId && p.x === lx && p.y === ly) {
         p.alive = false;
@@ -350,31 +491,47 @@ function throwCarriedBomb(player: BombermanPlayer, state: BombermanState): void 
           }
         }
         p.items = [];
+
+        const rec2 = pushEvent(state.events, state.eventCounter, state.tick, {
+          type: "elimination",
+          victimId: p.playerId,
+          killerId: player.playerId,
+          bombId: bomb.id,
+          cause: "bomb",
+        });
+        state.events = rec2.events;
+        state.eventCounter = rec2.eventCounter;
       }
     }
     break;
   }
 
   if (!landed) {
-    // Drop at thrower's feet
     bomb.x = player.x;
     bomb.y = player.y;
     bomb.airborne = false;
     if (!hasBombAt(state, player.x, player.y)) {
       state.bombs.push(bomb);
     }
-    delete carriedBombs[player.playerId];
+    delete cbs[player.playerId];
     delete player.carriedBomb;
   }
 }
 
-function punchBomb(state: BombermanState, bombIdx: number, dx: number, dy: number, bombX: number, bombY: number): void {
-  const bomb = state.bombs[bombIdx];
-  if (!bomb) return;
+function punchBomb(
+  state: BombermanState,
+  bombIdx: number,
+  dx: number,
+  dy: number,
+  bombX: number,
+  bombY: number,
+): void {
+  const bomb = state.bombs[bombIdx]!;
   state.bombs.splice(bombIdx, 1);
 
   const PUNCH_DISTANCE = 3;
   let landed = false;
+
   for (let dist = PUNCH_DISTANCE; dist >= 1; dist--) {
     const lx = bombX + dx * dist;
     const ly = bombY + dy * dist;
@@ -388,7 +545,6 @@ function punchBomb(state: BombermanState, bombIdx: number, dx: number, dy: numbe
     state.bombs.push(bomb);
     landed = true;
 
-    // Kill player at landing
     for (const [, p] of Object.entries(state.players)) {
       if (p.alive && p.x === lx && p.y === ly) {
         p.alive = false;
@@ -398,50 +554,85 @@ function punchBomb(state: BombermanState, bombIdx: number, dx: number, dy: numbe
           }
         }
         p.items = [];
+
+        const rec = pushEvent(state.events, state.eventCounter, state.tick, {
+          type: "elimination",
+          victimId: p.playerId,
+          killerId: bomb.playerId,
+          bombId: bomb.id,
+          cause: "bomb",
+        });
+        state.events = rec.events;
+        state.eventCounter = rec.eventCounter;
       }
     }
     break;
   }
 
   if (!landed) {
-    // Bomb stays at original position
     bomb.x = bombX;
     bomb.y = bombY;
     state.bombs.push(bomb);
   }
 }
 
-// ─── Pure tick: transforms state + ops → new state + unconsumed ops ───
+// ─── Update input indicators from the canonical queue ───
 
-export type PlayerOps = BombermanOperation[];
+function updateInputIndicators(state: BombermanState, queues: Record<string, BombermanOperation[]>): void {
+  for (const [pid, ops] of Object.entries(queues)) {
+    const indicator = state.inputIndicators[pid as PlayerId];
+    if (!indicator) continue;
 
-export interface TickResult {
-  state: BombermanState;
-  remainingOps: Record<PlayerId, PlayerOps>;
+    indicator.direction = null;
+
+    for (const op of ops) {
+      if (op.type === "MOVE" || op.type === "SET_DIRECTION") {
+        indicator.direction = op.direction ?? null;
+      }
+    }
+
+    for (let i = ops.length - 1; i >= 0; i--) {
+      const op = ops[i]!;
+      if (op.type === "PLACE_BOMB" || op.type === "ACTION" || op.type === "DETONATE" || op.type === "SURRENDER") {
+        indicator.action = op.type;
+        indicator.actionTick = state.tick;
+        break;
+      }
+    }
+  }
+
+  for (const indicator of Object.values(state.inputIndicators)) {
+    if (indicator.actionTick !== null && state.tick - indicator.actionTick > 10) {
+      indicator.action = null;
+      indicator.actionTick = null;
+    }
+  }
 }
 
-export function tick(state: BombermanState, queues: Record<PlayerId, BombermanOperation[]>): TickResult {
-  const next = cloneState(state);
+// ─── Main tick ───
+
+export function tick(
+  state: BombermanState,
+  queues: Record<PlayerId, BombermanOperation[]>,
+): TickResult {
+  const next = structuredClone(state) as BombermanState;
   next.tick++;
 
   if (next.bombIdCounter === undefined) next.bombIdCounter = state.bombIdCounter ?? 0;
 
-  const remainingOps: Record<string, PlayerOps> = {};
+  const remainingOps: Record<PlayerId, BombermanOperation[]> = {};
 
   for (const [pid, ops] of Object.entries(queues)) {
-    const player = next.players[pid];
+    const player = next.players[pid as PlayerId];
     if (!player?.alive) {
-      remainingOps[pid] = [];
+      remainingOps[pid as PlayerId] = [];
       continue;
     }
     if (ops.length === 0) {
-      remainingOps[pid] = [];
+      remainingOps[pid as PlayerId] = [];
       continue;
     }
 
-    // Process ALL ops from the queue uniformly:
-    //   SET_DIRECTION/MOVE → update direction, apply movement inline (makes one-shot actions at new pos)
-    //   PLACE_BOMB/DETONATE/ACTION/SURRENDER → one-shot at current position
     for (const op of ops) {
       switch (op.type) {
         case "SET_DIRECTION":
@@ -464,38 +655,45 @@ export function tick(state: BombermanState, queues: Record<PlayerId, BombermanOp
           if (!hasRemote) break;
           const remoteBombs = next.bombs.filter((b) => b.playerId === pid);
           if (remoteBombs.length > 0) {
-            const first = remoteBombs[0];
-            if (first) first.fuse = 0;
+            const first = remoteBombs[0]!;
+            first.fuse = 0;
           }
           break;
         }
-        case "SURRENDER":
+        case "SURRENDER": {
           player.alive = false;
+          const rec = pushEvent(next.events, next.eventCounter, next.tick, {
+            type: "elimination",
+            victimId: pid as PlayerId,
+            killerId: null,
+            bombId: null,
+            cause: "surrender",
+          });
+          next.events = rec.events;
+          next.eventCounter = rec.eventCounter;
           break;
-        // NOOP and unknown types: consume without effect
+        }
       }
     }
 
-    // All ops consumed — one-shot model (nothing remains unconsumed)
-    remainingOps[pid] = [];
+    remainingOps[pid as PlayerId] = [];
   }
 
-  // Phase order: bombs → explosions → cleanup
+  updateInputIndicators(next, queues);
+
   for (const bomb of next.bombs) bomb.fuse--;
 
-  // Decrement carried bombs' fuse
   if (next.carriedBombs) {
     for (const [pid, bomb] of Object.entries(next.carriedBombs)) {
       bomb.fuse--;
       if (bomb.fuse <= 0) {
-        // Bomb explodes at carrier's position
-        const carrier = next.players[pid];
+        const carrier = next.players[pid as PlayerId];
         if (carrier?.alive) {
           bomb.x = carrier.x;
           bomb.y = carrier.y;
           next.bombs.push(bomb);
-          delete next.carriedBombs[pid];
-          if (next.players[pid]) delete next.players[pid].carriedBomb;
+          delete next.carriedBombs[pid as PlayerId];
+          if (next.players[pid as PlayerId]) delete next.players[pid as PlayerId].carriedBomb;
         }
       }
     }
@@ -506,28 +704,24 @@ export function tick(state: BombermanState, queues: Record<PlayerId, BombermanOp
   for (const e of next.explosions) e.ttl--;
   next.explosions = next.explosions.filter((e) => e.ttl > 0);
 
-  // After explosions, count alive bombs for each player (bomb capacity tracking)
-  const bombCounts = new Map<string, number>();
+  const bombCounts = new Map<PlayerId, number>();
   for (const bomb of next.bombs) {
     bombCounts.set(bomb.playerId, (bombCounts.get(bomb.playerId) ?? 0) + 1);
   }
-  // Also count carried bombs
   if (next.carriedBombs) {
-    for (const [pid, _bomb] of Object.entries(next.carriedBombs)) {
-      bombCounts.set(pid, (bombCounts.get(pid) ?? 0) + 1);
+    for (const [pid] of Object.entries(next.carriedBombs)) {
+      bombCounts.set(pid as PlayerId, (bombCounts.get(pid as PlayerId) ?? 0) + 1);
     }
   }
   for (const [, p] of Object.entries(next.players)) {
     p.bombActive = bombCounts.get(p.playerId) ?? 0;
   }
 
-  // Check game end
   const aliveCount = Object.values(next.players).filter((p) => p.alive).length;
   if (aliveCount <= 1) {
     next.status = GameStatus.Ended;
   }
 
-  // Round timer
   if (next.config.roundTimeSec > 0) {
     if (next.roundTimer === undefined) next.roundTimer = next.config.roundTimeSec * next.config.tickRate;
     next.roundTimer = Math.max(0, next.roundTimer - 1);
@@ -536,9 +730,8 @@ export function tick(state: BombermanState, queues: Record<PlayerId, BombermanOp
     }
   }
 
-  // Sudden death: shrink boundary near end of round
   if (next.config.shrinkEnabled && next.roundTimer !== undefined) {
-    const hurryThreshold = 30 * next.config.tickRate; // 30 seconds
+    const hurryThreshold = 30 * next.config.tickRate;
     if (next.roundTimer < hurryThreshold) {
       if (next.tick % next.config.tickRate === 0) {
         next.shrinkBoundary = (next.shrinkBoundary ?? 0) + 1;
