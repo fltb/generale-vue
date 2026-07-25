@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { sql } from "drizzle-orm";
-import { integer, primaryKey, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { index, integer, primaryKey, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
 export const users = sqliteTable("users", {
   // Store UUIDs as TEXT; generate by default in JS
@@ -73,6 +73,9 @@ export const customMaps = sqliteTable("custom_maps", {
     .notNull()
     .references(() => users.id),
   authorName: text("author_name").notNull(),
+  gameType: text("game_type", { enum: ["generale", "bomberman"] })
+    .notNull()
+    .default("generale"),
   width: integer("width").notNull(),
   height: integer("height").notNull(),
   tileCount: integer("tile_count").notNull(),
@@ -137,5 +140,69 @@ export const gameUserSettings = sqliteTable(
   },
   (table) => ({
     pk: primaryKey({ columns: [table.userId, table.gameType, table.key] }),
+  }),
+);
+
+// ── Bomberman Replays ──
+
+export const bombermanReplays = sqliteTable("bomberman_replays", {
+  id: text("id").primaryKey(),
+
+  // Unique match ID from the game that produced this replay
+  matchId: text("match_id").notNull().unique(),
+
+  status: text("status", { enum: ["recording", "complete"] })
+    .notNull()
+    .default("recording"),
+
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull().default(sql`(CURRENT_TIMESTAMP)`),
+
+  expiresAt: integer("expires_at", { mode: "timestamp" }).notNull(),
+
+  engineVersion: integer("engine_version").notNull(),
+
+  // JSON blob for structured metadata
+  format: text("format").notNull(),
+
+  // JSON blobs — large, loaded only on detail access
+  configJson: text("config_json"),
+  winnerJson: text("winner_json"),
+  resultJson: text("result_json"),
+
+  // Human-readable error if recording failed mid-match
+  errorMessage: text("error_message"),
+});
+
+export const bombermanReplayParticipants = sqliteTable(
+  "bomberman_replay_participants",
+  {
+    replayId: text("replay_id")
+      .notNull()
+      .references(() => bombermanReplays.id, { onDelete: "cascade" }),
+    userId: text("user_id").notNull(),
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.replayId, table.userId] }),
+  }),
+);
+export const bombermanReplayParticipantsUserIdIdx = index("bomberman_replay_participants_user_id_idx").on(
+  bombermanReplayParticipants.userId,
+);
+
+export const bombermanReplayRounds = sqliteTable(
+  "bomberman_replay_rounds",
+  {
+    replayId: text("replay_id")
+      .notNull()
+      .references(() => bombermanReplays.id, { onDelete: "cascade" }),
+    sequence: integer("sequence").notNull(),
+    roundNumber: integer("round_number").notNull(),
+    attempt: integer("attempt").notNull(),
+    ticks: integer("ticks").notNull(),
+    // Gzipped JSON of BombermanReplayRound payload (includes initialState + frames)
+    payloadBlob: text("payload_blob").notNull(),
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.replayId, table.sequence] }),
   }),
 );

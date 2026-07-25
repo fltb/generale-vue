@@ -217,7 +217,7 @@ export default function MapEditor(props: MapEditorProps) {
     try {
       const tilesData = tiles();
       const tileGrid = tilesData.map((row) => row.map((cell) => ({ type: cell.type, army: cell.army })));
-      const base = { name: name(), description: description(), width: width(), height: height(), tiles: tileGrid };
+      const base = { name: name(), description: description(), width: width(), height: height(), data: tileGrid };
       const editId = editingMapId();
       if (editId) {
         const body = shouldPublish ? { ...base, isPublic: true, isDraft: false } : base;
@@ -377,7 +377,7 @@ export default function MapEditor(props: MapEditorProps) {
       setWidth(d.width);
       setHeight(d.height);
       setTiles(
-        (d.tiles || []).map((row) =>
+        ((d.data ?? []) as CustomMapTile[][]).map((row) =>
           row.map((cell) => ({
             type: (cell.type as TileType) ?? TileType.Plain,
             army: typeof cell.army === "number" ? cell.army : 0,

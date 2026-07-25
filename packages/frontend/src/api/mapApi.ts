@@ -26,8 +26,11 @@ export async function mapDetailApi(id: string, draft = true) {
   return res;
 }
 
-export async function createMapApi(body: CreateMapReqBody) {
-  const res = await api<MapCreateSuccessRespBody>("/api/maps/create", { method: "POST", body: JSON.stringify(body) });
+export async function createMapApi(body: Omit<CreateMapReqBody, "gameType"> & { gameType?: "generale" | "bomberman" }) {
+  const res = await api<MapCreateSuccessRespBody>("/api/maps/create", {
+    method: "POST",
+    body: JSON.stringify({ gameType: "generale" as const, ...body }),
+  });
   return res;
 }
 

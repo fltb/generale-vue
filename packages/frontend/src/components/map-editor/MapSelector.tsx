@@ -1,5 +1,5 @@
 import type { Component } from "solid-js";
-import { createResource, createSignal, For, Show } from "solid-js";
+import { createMemo, createResource, createSignal, For, Show } from "solid-js";
 import { listMapsApi, mapThumbnailUrl } from "~/api/mapApi";
 import { Button, Checkbox, Collapse, CollapseContent, CollapseTitle, Input, Spinner } from "~/ui";
 import { useT } from "~/i18n/useT";
@@ -23,6 +23,7 @@ export const MapSelector: Component<MapSelectorProps> = (props) => {
       return res.data;
     },
   );
+  const mapList = createMemo(() => maps() ?? []);
 
   const selectedMap = () => (props.value ? maps()?.find((m) => m.id === props.value) : undefined);
 
@@ -67,11 +68,11 @@ export const MapSelector: Component<MapSelectorProps> = (props) => {
           }
         >
           <Show
-            when={maps() != null && maps()!.length > 0}
+            when={mapList().length > 0}
             fallback={<div class="text-center py-4 opacity-50 text-sm">{t("No published maps yet")}</div>}
           >
             <div class="space-y-1 max-h-[180px] overflow-y-auto">
-              <For each={maps()}>
+              <For each={mapList()}>
                 {(m) => (
                   <button
                     type="button"

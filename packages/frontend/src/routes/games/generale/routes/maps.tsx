@@ -1,7 +1,7 @@
 import type { MapSumaryRespBody } from "@generale/types";
 import { Title, Meta } from "@solidjs/meta";
 import { A, useSearchParams } from "@solidjs/router";
-import { createResource, createSignal, For, Show } from "solid-js";
+import { createMemo, createResource, createSignal, For, Show } from "solid-js";
 import { useT } from "~/i18n/useT";
 import { deleteMapApi, forkMapApi, listMapsApi, mapThumbnailUrl, myMapsApi } from "~/api/mapApi";
 import CreateRoomModal from "~/routes/games/generale/components/roomlist/CreateRoomModal";
@@ -45,6 +45,7 @@ export default function MapsPage() {
       return res.data;
     },
   );
+  const mapList = createMemo(() => maps() ?? []);
 
   function doSearch() {
     setSearchParams({ search: searchInput().trim() || undefined, sort: sortBy() !== "updated" ? sortBy() : undefined });
@@ -150,7 +151,7 @@ export default function MapsPage() {
             }
           >
             <Show
-              when={maps() != null && maps()!.length > 0}
+              when={mapList().length > 0}
               fallback={
                 <div class="text-center py-12 text-base-content/50">
                   {searchText() ? t("No matching maps found.") : t("No maps yet.")}
@@ -162,7 +163,7 @@ export default function MapsPage() {
               }
             >
               <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                <For each={maps()}>
+                <For each={mapList()}>
                   {(m) => (
                     <MapCard
                       map={m}

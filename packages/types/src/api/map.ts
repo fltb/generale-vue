@@ -1,22 +1,20 @@
 import { type Static, t } from "elysia";
 
-// ---- reusable ----
+// ---- game type ----
 
-const mapTileSchema = t.Object({
-  type: t.String(),
-  army: t.Number(),
-});
-const mapTileRowSchema = t.Array(mapTileSchema, { minItems: 1 });
-const mapTilesSchema = t.Array(mapTileRowSchema, { minItems: 1 });
+export const mapGameTypeSchema = t.Union([t.Literal("generale"), t.Literal("bomberman")]);
+
+// ---- reusable ----
 
 // ---- request schemas ----
 
 export const createMapReqSchema = t.Object({
+  gameType: mapGameTypeSchema,
   name: t.String({ minLength: 1, maxLength: 50 }),
   description: t.Optional(t.String({ maxLength: 500 })),
-  width: t.Number({ minimum: 10, maximum: 200 }),
-  height: t.Number({ minimum: 10, maximum: 200 }),
-  tiles: mapTilesSchema,
+  width: t.Optional(t.Number({ minimum: 10, maximum: 200 })),
+  height: t.Optional(t.Number({ minimum: 10, maximum: 200 })),
+  data: t.Any(),
   minPlayers: t.Optional(t.Number({ minimum: 0, maximum: 16 })),
   maxPlayers: t.Optional(t.Number({ minimum: 2, maximum: 16 })),
   isPublic: t.Optional(t.Boolean()),
@@ -26,9 +24,10 @@ export const createMapReqSchema = t.Object({
 export type CreateMapReqBody = Static<typeof createMapReqSchema>;
 
 export const updateMapReqSchema = t.Object({
+  gameType: t.Optional(mapGameTypeSchema),
   name: t.Optional(t.String({ minLength: 1, maxLength: 50 })),
   description: t.Optional(t.String({ maxLength: 500 })),
-  tiles: t.Optional(mapTilesSchema),
+  data: t.Optional(t.Any()),
   minPlayers: t.Optional(t.Number({ minimum: 0, maximum: 16 })),
   maxPlayers: t.Optional(t.Number({ minimum: 2, maximum: 16 })),
   isPublic: t.Optional(t.Boolean()),
@@ -41,6 +40,7 @@ export type UpdateMapReqBody = Static<typeof updateMapReqSchema>;
 
 export const mapSumaryRespSchema = t.Object({
   id: t.String(),
+  gameType: mapGameTypeSchema,
   name: t.String(),
   description: t.Optional(t.String()),
   authorId: t.String(),
@@ -62,7 +62,7 @@ export type MapSumaryRespBody = Static<typeof mapSumaryRespSchema>;
 export const mapDetailRespSchema = t.Composite([
   mapSumaryRespSchema,
   t.Object({
-    tiles: mapTilesSchema,
+    data: t.Any(),
     hasDraft: t.Optional(t.Boolean()),
   }),
 ]);

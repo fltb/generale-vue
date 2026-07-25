@@ -1,4 +1,12 @@
 import type { TileType } from "../core-type";
+import type { BombermanMapDefinition } from "../bomberman";
+
+export type MapGameType = "generale" | "bomberman";
+
+export type MapDataByGameType = {
+  generale: CustomMapTile[][];
+  bomberman: BombermanMapDefinition;
+};
 
 export interface CustomMapTile {
   /** terrain type */

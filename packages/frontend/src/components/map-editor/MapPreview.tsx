@@ -75,7 +75,7 @@ export default function MapPreview(props: { mapId: string }) {
       setWidth(data.width);
       setHeight(data.height);
       setTiles(
-        (data.tiles || []).map((row: { type: string; army: number; ownerId?: string }[]) =>
+        (data.data || []).map((row: { type: string; army: number; ownerId?: string }[]) =>
           row.map((cell) => ({
             type: (cell.type as TileType) ?? TileType.Plain,
             army: typeof cell.army === "number" ? cell.army : 0,

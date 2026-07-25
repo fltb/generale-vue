@@ -30,7 +30,7 @@ describe("Map Routes", () => {
   });
 
   it("POST /maps/create — creates a map", async () => {
-    const body = { name: "Test Map", width: 10, height: 10, tiles: makeTiles(10, 10) };
+    const body = { name: "Test Map", width: 10, height: 10, gameType: "generale", data: makeTiles(10, 10) };
     const r = await app.handle(new Request("http://localhost/api/maps/create", {
       method: "POST",
       headers: { "Content-Type": "application/json", Cookie: `sid=${sid}` },
@@ -46,13 +46,13 @@ describe("Map Routes", () => {
     const r = await app.handle(new Request("http://localhost/api/maps/create", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: "X", width: 10, height: 10, tiles: makeTiles(10, 10) }),
+      body: JSON.stringify({ name: "X", width: 10, height: 10, gameType: "generale", data: makeTiles(10, 10) }),
     }));
     expect(r.status).toBe(401);
   });
 
   it("GET /maps/detail/:id — returns map detail", async () => {
-    const body = { name: "Detail Map", width: 10, height: 10, tiles: makeTiles(10, 10) };
+    const body = { name: "Detail Map", width: 10, height: 10, gameType: "generale", data: makeTiles(10, 10) };
     const createRes = await app.handle(new Request("http://localhost/api/maps/create", {
       method: "POST",
       headers: { "Content-Type": "application/json", Cookie: `sid=${sid}` },
@@ -64,11 +64,12 @@ describe("Map Routes", () => {
     const r = await app.handle(new Request(`http://localhost/api/maps/detail/${mapId}`));
     expect(r.status).toBe(200);
     const json = await r.json();
-    expect(json.data.name).toBe("Detail Map");
+    expect(json.data.gameType).toBe("generale");
+    expect(Array.isArray(json.data.data)).toBe(true);
   });
 
   it("PATCH /maps/update/:id — updates map name", async () => {
-    const body = { name: "Update Test", width: 10, height: 10, tiles: makeTiles(10, 10) };
+    const body = { name: "Update Test", width: 10, height: 10, gameType: "generale", data: makeTiles(10, 10) };
     const createRes = await app.handle(new Request("http://localhost/api/maps/create", {
       method: "POST",
       headers: { "Content-Type": "application/json", Cookie: `sid=${sid}` },
@@ -102,7 +103,7 @@ describe("Map Routes", () => {
   });
 
   it("DELETE /maps/delete/:id — deletes own map", async () => {
-    const body = { name: "Delete Me", width: 10, height: 10, tiles: makeTiles(10, 10) };
+    const body = { name: "Delete Me", width: 10, height: 10, gameType: "generale", data: makeTiles(10, 10) };
     const createRes = await app.handle(new Request("http://localhost/api/maps/create", {
       method: "POST",
       headers: { "Content-Type": "application/json", Cookie: `sid=${sid}` },

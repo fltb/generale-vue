@@ -3,6 +3,7 @@ import type {
   MapCreateSuccessRespBody,
   MapDeleteSuccessRespBody,
   MapDetailSuccessRespBody,
+  MapGameType,
   MapListRespBody,
   MapSumaryRespBody,
 } from "@generale/types";
@@ -31,7 +32,7 @@ export const mapRoutes = new Elysia({ prefix: "/maps" })
   .get("/list", ({ query: q }): MapListRespBody | Response => {
     const limit = Math.min(parseInt(q["limit"] ?? "20", 10), 50);
     const offset = parseInt(q["offset"] ?? "0", 10) || 0;
-    const data = mapService.listPublic(limit, offset, q["search"]) as MapSumaryRespBody[];
+    const data = mapService.listPublic("generale", limit, offset, q["search"]) as MapSumaryRespBody[];
     return { success: true, data };
   })
 
@@ -43,7 +44,7 @@ export const mapRoutes = new Elysia({ prefix: "/maps" })
       if (!session) return new Response(t("Unauthorized"), { status: 401 });
       const limit = Math.min(parseInt(q["limit"] ?? "50", 10), 100);
       const offset = parseInt(q["offset"] ?? "0", 10) || 0;
-      const data = mapService.listByAuthor(session.userId as string, limit, offset) as MapSumaryRespBody[];
+      const data = mapService.listByAuthor(session.userId as string, "generale", limit, offset) as MapSumaryRespBody[];
       return { success: true, data };
     },
     { cookie: cookieScheme },
@@ -55,12 +56,12 @@ export const mapRoutes = new Elysia({ prefix: "/maps" })
     if (!(meta && (meta.isPublic || meta.isDraft))) return new Response(t("Not Found"), { status: 404 });
     const hasDraft = mapService.hasDraft(params.id);
     const allowDraft = (query as Record<string, unknown>)["draft"] !== "0";
-    const tiles = await mapService.loadTiles(params.id, allowDraft);
+    const data = await mapService.loadMapData(params.id, "generale", allowDraft);
     const detailData = {
       ...meta,
       description: meta.description || undefined,
       hasDraft,
-      tiles: tiles ?? [],
+      data: data ?? [],
     } as unknown as MapDetailSuccessRespBody["data"];
     return {
       success: true,
@@ -75,30 +76,33 @@ export const mapRoutes = new Elysia({ prefix: "/maps" })
       const session = getSession(cookie);
       if (!session) return new Response(t("Unauthorized"), { status: 401 });
 
-      const tiles = body.tiles;
-      if (tiles.length !== body.height) return new Response(t("Server error"), { status: 400 });
+      const tiles = body.data as unknown as CustomMapTile[][];
+      const height = body.height ?? tiles.length;
+      const width = body.width ?? tiles[0]?.length ?? 0;
+      if (tiles.length !== height) return new Response(t("Server error"), { status: 400 });
       for (const row of tiles) {
-        if (!Array.isArray(row) || row.length !== body.width) return new Response(t("Server error"), { status: 400 });
+        if (!Array.isArray(row) || row.length !== width) return new Response(t("Server error"), { status: 400 });
       }
       if ((body.minPlayers ?? 0) > (body.maxPlayers ?? Infinity))
         return new Response(t("minPlayers > maxPlayers"), { status: 400 });
 
+      const gameType = body.gameType as MapGameType;
       const id = `map_${Date.now()}`;
       mapService.create(session.userId as string, {
         id,
         name: body.name,
         description: body.description || "",
-        width: body.width,
-        height: body.height,
+        gameType,
+        width,
+        height,
         tileCount: tiles.reduce((s, r) => s + r.length, 0),
         minPlayers: body.minPlayers ?? 2,
         maxPlayers: body.maxPlayers ?? 8,
         isPublic: body.isPublic ?? false,
         isDraft: body.isDraft ?? true,
         tags: body.tags ?? [],
-        tiles: tiles as unknown as CustomMapTile[][],
       });
-      await mapService.saveTiles(id, tiles as unknown as CustomMapTile[][]);
+      await mapService.saveMapData(id, gameType, tiles);
       return { success: true, data: { id, message: t("Map created") } };
     },
     { body: createMapReqSchema, cookie: cookieScheme },
@@ -114,23 +118,26 @@ export const mapRoutes = new Elysia({ prefix: "/maps" })
       const meta = mapService.getMeta(params.id);
       if (!meta) return new Response(t("Not Found"), { status: 404 });
       if (meta.authorId !== session.userId) return new Response(t("Forbidden"), { status: 403 });
+      if (body.gameType !== undefined && body.gameType !== meta.gameType)
+        return new Response(t("Server error"), { status: 409 });
 
+      const gameType = (body.gameType ?? meta.gameType) as MapGameType;
       const isPublishing = body.isPublic === true && body.isDraft === false;
 
-      if (body.tiles !== undefined) {
-        const tiles = body.tiles;
+      if (body.data !== undefined) {
+        const tiles = body.data as unknown as CustomMapTile[][];
         if (tiles.length !== meta.height) return new Response(t("Server error"), { status: 400 });
         for (const row of tiles) {
           if (!Array.isArray(row) || row.length !== meta.width) return new Response(t("Server error"), { status: 400 });
         }
         if (isPublishing) {
-          await mapService.saveTiles(params.id, tiles as unknown as CustomMapTile[][]);
+          await mapService.saveMapData(params.id, gameType, tiles);
           await mapService.discardDraft(params.id);
         } else if (!meta.isDraft) {
-          await mapService.saveDraftTiles(params.id, tiles as unknown as CustomMapTile[][]);
+          await mapService.saveDraftMapData(params.id, gameType, tiles);
           return { success: true, data: { id: params.id, message: t("Draft saved") } };
         } else {
-          await mapService.saveTiles(params.id, tiles as unknown as CustomMapTile[][]);
+          await mapService.saveMapData(params.id, gameType, tiles);
         }
       }
 
@@ -140,14 +147,14 @@ export const mapRoutes = new Elysia({ prefix: "/maps" })
           Object.entries({
             name: body.name,
             description: body.description,
+            gameType: body.gameType,
             isPublic: body.isPublic,
             isDraft: body.isDraft,
             minPlayers: body.minPlayers,
             maxPlayers: body.maxPlayers,
             tags: body.tags,
-            tiles: body.tiles,
           }).filter(([, v]) => v !== undefined),
-        ) as Partial<Parameters<typeof mapService.update>[1]>,
+        ) as Record<string, unknown>,
       );
 
       return { success: true, data: { id: params.id, message: t(isPublishing ? "Published" : "Updated") } };
@@ -204,11 +211,12 @@ export const mapRoutes = new Elysia({ prefix: "/maps" })
       if (!meta || (!meta.isPublic && meta.authorId !== session.userId))
         return new Response(t("Not Found"), { status: 404 });
 
+      const gameType = meta.gameType as MapGameType;
       const newId = mapService.fork(params.id, session.userId as string);
       if (!newId) return new Response(t("Fork failed"), { status: 500 });
 
-      const tiles = await mapService.loadTiles(params.id);
-      if (tiles) await mapService.saveTiles(newId, tiles);
+      const data = await mapService.loadMapData(params.id, gameType);
+      if (data) await mapService.saveMapData(newId, gameType, data);
 
       const thumbFile = Bun.file(`./public/maps/${params.id}.png`);
       if (await thumbFile.exists()) {

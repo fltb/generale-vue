@@ -1,6 +1,6 @@
 import { existsSync } from "node:fs";
 import { mkdir, rm } from "node:fs/promises";
-import type { CustomMapTile } from "@generale/types";
+import type { MapDataByGameType, MapGameType } from "@generale/types";
 import { and, desc, eq, like, type InferSelectModel } from "drizzle-orm";
 import path from "path";
 import { db } from "../db/client";
@@ -40,6 +40,7 @@ function resolveDisplayName(authorId: string): string {
 function mapRowToSummary(r: InferSelectModel<typeof customMaps>) {
   return {
     id: r.id,
+    gameType: r.gameType,
     name: r.name,
     ...(r.description ? { description: r.description } : {}),
     authorId: r.authorId,
@@ -69,35 +70,39 @@ export class MapService {
     return path.join(MAPS_DIR, `${id}.json`);
   }
 
-  async saveTiles(id: string, tiles: CustomMapTile[][]): Promise<void> {
+  async saveMapData<T extends MapGameType>(id: string, _gameType: T, data: MapDataByGameType[T]): Promise<void> {
     await ensureDir();
-    await Bun.write(this.mainPath(id), JSON.stringify(tiles));
+    await Bun.write(this.mainPath(id), JSON.stringify(data));
   }
 
-  async loadTiles(id: string, allowDraft = false): Promise<CustomMapTile[][] | null> {
+  async loadMapData<T extends MapGameType>(
+    id: string,
+    _gameType: T,
+    allowDraft = false,
+  ): Promise<MapDataByGameType[T] | null> {
     if (allowDraft) {
       const draft = this.draftPath(id);
-      if (existsSync(draft)) return await Bun.file(draft).json();
+      if (existsSync(draft)) return (await Bun.file(draft).json()) as MapDataByGameType[T];
     }
     const filepath = this.mainPath(id);
     if (!existsSync(filepath)) return null;
-    return await Bun.file(filepath).json();
+    return (await Bun.file(filepath).json()) as MapDataByGameType[T];
   }
 
   hasDraft(id: string): boolean {
     return existsSync(this.draftPath(id));
   }
 
-  async saveDraftTiles(id: string, tiles: CustomMapTile[][]): Promise<void> {
+  async saveDraftMapData<T extends MapGameType>(id: string, _gameType: T, data: MapDataByGameType[T]): Promise<void> {
     await ensureDir();
-    await Bun.write(this.draftPath(id), JSON.stringify(tiles));
+    await Bun.write(this.draftPath(id), JSON.stringify(data));
   }
 
-  async publishDraft(id: string): Promise<void> {
+  async publishDraftData(id: string): Promise<void> {
     const draft = this.draftPath(id);
     if (!existsSync(draft)) return;
-    const tiles = await Bun.file(draft).json();
-    await Bun.write(this.mainPath(id), JSON.stringify(tiles));
+    const data = await Bun.file(draft).json();
+    await Bun.write(this.mainPath(id), JSON.stringify(data));
     await rm(draft, { force: true });
   }
 
@@ -135,8 +140,12 @@ export class MapService {
 
   // ---- DB CRUD ----
 
-  listPublic(limit: number, offset: number, search?: string) {
-    const conditions = [eq(customMaps.isPublic, true), eq(customMaps.isDraft, false)];
+  listPublic(gameType: MapGameType, limit: number, offset: number, search?: string) {
+    const conditions = [
+      eq(customMaps.isPublic, true),
+      eq(customMaps.isDraft, false),
+      eq(customMaps.gameType, gameType),
+    ];
     if (search) {
       conditions.push(like(customMaps.name, `%${search}%`));
     }
@@ -151,11 +160,11 @@ export class MapService {
     return rows.map(mapRowToSummary);
   }
 
-  listByAuthor(authorId: string, limit: number, offset: number) {
+  listByAuthor(authorId: string, gameType: MapGameType, limit: number, offset: number) {
     const rows = db
       .select()
       .from(customMaps)
-      .where(eq(customMaps.authorId, authorId))
+      .where(and(eq(customMaps.authorId, authorId), eq(customMaps.gameType, gameType)))
       .orderBy(desc(customMaps.updatedAt))
       .limit(limit)
       .offset(offset)
@@ -172,13 +181,13 @@ export class MapService {
     if (!meta) throw new Response("Not Found", { status: 404 });
     return meta;
   }
-
   create(
     authorId: string,
     data: {
       id: string;
       name: string;
       description: string;
+      gameType: MapGameType;
       width: number;
       height: number;
       tileCount: number;
@@ -187,7 +196,6 @@ export class MapService {
       isPublic: boolean;
       isDraft: boolean;
       tags?: string[];
-      tiles: CustomMapTile[][];
     },
   ) {
     const now = new Date();
@@ -198,6 +206,7 @@ export class MapService {
         description: data.description,
         authorId,
         authorName: "",
+        gameType: data.gameType,
         width: data.width,
         height: data.height,
         tileCount: data.tileCount,
@@ -211,31 +220,30 @@ export class MapService {
         updatedAt: now,
       })
       .run();
-    return { id: data.id, tiles: data.tiles };
+    return { id: data.id };
   }
-
   update(
-    meta: NonNullable<ReturnType<typeof this.getMeta>>,
+    meta: InferSelectModel<typeof customMaps>,
     updates: {
       name?: string;
       description?: string;
+      gameType?: MapGameType;
       isPublic?: boolean;
       isDraft?: boolean;
       minPlayers?: number;
       maxPlayers?: number;
       tags?: string[];
-      tiles?: CustomMapTile[][];
     },
   ) {
     const dbUpdates: Record<string, unknown> = {};
     if (updates.name !== undefined) dbUpdates["name"] = updates.name;
     if (updates.description !== undefined) dbUpdates["description"] = updates.description;
+    if (updates.gameType !== undefined) dbUpdates["gameType"] = updates.gameType;
     if (updates.isPublic !== undefined) dbUpdates["isPublic"] = updates.isPublic;
     if (updates.isDraft !== undefined) dbUpdates["isDraft"] = updates.isDraft;
     if (updates.minPlayers !== undefined) dbUpdates["minPlayers"] = updates.minPlayers;
     if (updates.maxPlayers !== undefined) dbUpdates["maxPlayers"] = updates.maxPlayers;
     if (updates.tags !== undefined) dbUpdates["tags"] = JSON.stringify(updates.tags);
-    if (updates.tiles !== undefined) dbUpdates["tileCount"] = updates.tiles.reduce((s, r) => s + r.length, 0);
     dbUpdates["updatedAt"] = new Date();
     db.update(customMaps).set(dbUpdates).where(eq(customMaps.id, meta.id)).run();
   }

@@ -35,7 +35,7 @@ export async function generateMap(
   let actualHeight = height;
 
   if (customMapId) {
-    const customData = await mapService.loadTiles(customMapId);
+    const customData = await mapService.loadMapData(customMapId, "generale");
     if (customData) {
       actualWidth = Math.max(1, customData[0]?.length ?? width);
       actualHeight = Math.max(1, customData.length);
