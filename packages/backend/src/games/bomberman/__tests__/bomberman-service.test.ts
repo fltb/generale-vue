@@ -29,6 +29,16 @@ function mockConnector(userid?: string, username?: string) {
   } as any;
 }
 
+function getRoom(service: BombermanService): BombermanRoom {
+  const candidate: unknown = service;
+  if (typeof candidate !== "object" || candidate === null || !("room" in candidate)) {
+    throw new Error("BombermanService room is unavailable");
+  }
+  const room = candidate.room;
+  if (!(room instanceof BombermanRoom)) throw new Error("BombermanService room has an invalid type");
+  return room;
+}
+
 describe("BombermanService — startGame", () => {
   let service: BombermanService;
 
@@ -261,6 +271,47 @@ describe("BombermanService — prepConnectionForPlayer", () => {
     // Non-existent player gets room domain even if phase is playing
     const result = service.prepConnectionForPlayer("stranger");
     expect(result.data.domains.primary).toBe("room-test-4");
+  });
+  it("reconnects a participant during between-rounds through the room snapshot", () => {
+    service = new BombermanService("test-between-rounds-reconnect", "Room", makeConfig(), "host-1", "Host");
+    service.registerHandlers();
+    const room = getRoom(service);
+    const host = mockConnector("host-1", "Host");
+    const participant = mockConnector("p2", "P2");
+    room.addPlayer({ id: "host-1", name: "Host" }, host);
+    room.addPlayer({ id: "p2", name: "P2" }, participant);
+    room.getState().phase = "between_rounds";
+
+    const roomInternals = room as unknown as {
+      handleClose: (id: string, connector: unknown) => void;
+    };
+    roomInternals.handleClose("p2", participant);
+
+    const prep = service.prepConnectionForPlayer("p2");
+    expect(prep.data).toMatchObject({
+      phase: "between_rounds",
+      role: "player",
+      domains: {
+        primary: "room-test-between-rounds-reconnect",
+      },
+    });
+
+    const roomHandler = domainHandlers.get(`room-${service.gameId}`);
+    expect(roomHandler).toBeDefined();
+    const reconnect = mockConnector("p2", "P2");
+    roomHandler?.(reconnect);
+    const onOpen = reconnect.onOpen.mock.calls[0]?.[0] as (() => void) | undefined;
+    onOpen?.();
+
+    expect(reconnect.send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "state-update",
+        payload: expect.objectContaining({
+          type: "snapshot",
+          payload: expect.objectContaining({ phase: "between_rounds" }),
+        }),
+      }),
+    );
   });
 });
 

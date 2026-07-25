@@ -194,6 +194,25 @@ describe("BombermanRoom — handleClose", () => {
     expect(state.players.find((p) => p.id === "p2")).toBeUndefined();
     expect(state.players.length).toBe(1);
   });
+  it("keeps participants reconnectable during between-rounds but rejects new players", () => {
+    const room = new BombermanRoom("Test", defaultBombermanConfig(), "host-1", "Host");
+    const hostConn = mockConnector();
+    const p2Conn = mockConnector();
+    room.addPlayer({ id: "host-1", name: "Host" }, hostConn);
+    room.addPlayer({ id: "p2", name: "P2" }, p2Conn);
+    room.getState().phase = "between_rounds";
+
+    const internals = room as unknown as {
+      handleDisconnect: (id: string, connector: unknown) => void;
+      handleClose: (id: string, connector: unknown) => void;
+    };
+    internals.handleDisconnect("p2", p2Conn);
+    internals.handleClose("p2", p2Conn);
+
+    expect(room.getPlayers().some((player) => player.id === "p2")).toBe(true);
+    expect(room.canJoin("new-player").success).toBe(false);
+    expect(room.addPlayer({ id: "p2", name: "P2" }, mockConnector()).success).toBe(true);
+  });
 
   it("last player close disbands the room", () => {
     const room = new BombermanRoom("Test", defaultBombermanConfig(), "host-1", "Host");

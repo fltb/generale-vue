@@ -301,7 +301,7 @@ export class BombermanRoom {
     if (!player) return;
     if (this.connectors.get(pid) !== connector) return;
 
-    if (this.state.phase === "playing") {
+    if (this.state.phase === "playing" || this.state.phase === "between_rounds") {
       player.ready = false;
       this.version++;
       this.broadcastState();
@@ -327,11 +327,10 @@ export class BombermanRoom {
       this.hostReclaimTimer = undefined;
     }
 
-    // During game, keep the player in the roster — only clear the connector.
-    // The player can reconnect later or be cleaned up by resumeGame().
-    // Removing them during playing would break GAME_ENDED delivery and make
-    // the room appear disbanded before the game even finishes.
-    if (this.state.phase === "playing") {
+    // During a round or the between-rounds countdown, keep the player in the
+    // roster so an authenticated participant can reconnect to the room domain.
+    // New players remain blocked by canJoin while the phase is not lobby.
+    if (this.state.phase === "playing" || this.state.phase === "between_rounds") {
       this.connectors.delete(pid);
       return;
     }
