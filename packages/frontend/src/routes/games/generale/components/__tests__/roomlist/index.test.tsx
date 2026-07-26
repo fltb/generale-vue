@@ -140,7 +140,7 @@ describe("RoomList", () => {
     mockQueryData = [makeGame()];
     render(() => <RoomList />);
     fireEvent.click(screen.getByText("Join"));
-    expect(mockNavigate).toHaveBeenCalledWith("/game/g1");
+    expect(mockNavigate).toHaveBeenCalledWith("/generale/room/g1");
   });
 
   it("shows Locked badge for password-protected rooms", () => {

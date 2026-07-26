@@ -72,7 +72,7 @@ export function RoomList() {
     setConnectResult(null);
     setConnectError(null);
     try {
-      navigate(`/game/${gameId}`);
+      navigate(`/generale/room/${gameId}`);
     } catch (err: unknown) {
       console.error("prepareConnect failed", err);
       setConnectError((err as Error)?.message ?? t("Failed to prepare connection"));

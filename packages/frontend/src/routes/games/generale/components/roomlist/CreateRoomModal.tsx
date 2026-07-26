@@ -45,7 +45,7 @@ export default function CreateRoomModal(props: {
       props.onCreated?.(gameId);
       if (gameId) {
         if (pw) sessionStorage.setItem("room-invite-pw", pw);
-        navigate(`/game/${encodeURIComponent(gameId)}${pw ? `?join=${encodeURIComponent(pw)}` : ""}`);
+        navigate(`/generale/room/${encodeURIComponent(gameId)}${pw ? `?join=${encodeURIComponent(pw)}` : ""}`);
       }
     },
     onError: (err: unknown) => {
