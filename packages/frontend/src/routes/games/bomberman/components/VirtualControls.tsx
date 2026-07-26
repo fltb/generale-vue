@@ -46,6 +46,7 @@ function DirectionButton(props: {
   return (
     <button
       type="button"
+      aria-label={props.direction}
       class="w-14 h-14 bg-gray-700/80 rounded text-white text-2xl active:bg-gray-500 select-none touch-none"
       onPointerDown={(e) => {
         e.preventDefault();
@@ -88,6 +89,7 @@ function ActionButton(props: {
   return (
     <button
       type="button"
+      aria-label={typeof props.label === "string" ? props.label : undefined}
       class={`select-none touch-none ${props.className ?? ""}`}
       onPointerDown={handlePointerDown}
       onPointerUp={handlePointerUp}

@@ -6,6 +6,8 @@ import type { GameSettingsSchema } from "@generale/types";
 interface UseGameSettings<T extends object> {
   settings: () => T;
   isLoading: () => boolean;
+  /** True once the server-persisted settings have actually been fetched; before that `settings()` serves schema defaults. */
+  isHydrated: () => boolean;
   update: (partial: Partial<T>) => void;
 }
 
@@ -22,7 +24,10 @@ export function useGameSettings<T extends object>(schema: GameSettingsSchema<T>)
       return { ...schema.defaults, ...resp.data };
     },
     enabled: () => !!auth.user,
-    initialData: (): T => schema.defaults,
+    // No initialData: seeding the cache would mark it fresh and, with
+    // staleTime, suppress the mount fetch entirely — server settings would
+    // never hydrate on a fresh page load. settings() falls back to
+    // schema.defaults until the fetch resolves.
     staleTime: 5 * 60 * 1000,
   }));
 
@@ -57,6 +62,7 @@ export function useGameSettings<T extends object>(schema: GameSettingsSchema<T>)
   return {
     settings: () => query.data ?? schema.defaults,
     isLoading: () => query.isLoading,
+    isHydrated: () => query.isFetched,
     update: (partial) => {
       if (!auth.user) return;
       mutation.mutate(partial);

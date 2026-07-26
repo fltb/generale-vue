@@ -23,6 +23,14 @@ const [muted, setMutedSignal] = createSignal(initialMuted);
 
 export const isMuted = muted;
 
+const [sfxVolume, setSfxVolumeSignal] = createSignal(1);
+
+/** 0..1, synced by each game's settings layer (Bomberman: BombermanUserSettings.soundVolume) */
+export function setSfxVolume(v: number) {
+  setSfxVolumeSignal(Math.max(0, Math.min(1, v)));
+}
+export const getSfxVolume = sfxVolume;
+
 export function setMuted(v: boolean) {
   setMutedSignal(v);
   try {
@@ -79,7 +87,8 @@ function tone(freq: number, dur: number, opts: { type?: Wave; when?: number; gai
   const g = ac.createGain();
   osc.type = opts.type ?? "square";
   osc.frequency.setValueAtTime(freq, t0);
-  const peak = opts.gain ?? 0.18;
+  const peak = (opts.gain ?? 0.18) * getSfxVolume();
+  if (peak <= 0.0001) return;
   g.gain.setValueAtTime(0.0001, t0);
   g.gain.exponentialRampToValueAtTime(peak, t0 + 0.008);
   g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);

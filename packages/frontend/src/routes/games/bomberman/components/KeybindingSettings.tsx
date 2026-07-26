@@ -284,6 +284,25 @@ export const KeybindingSettings: Component = () => {
         </div>
 
         <div class="flex items-center justify-between">
+          <span class="text-sm">{t("bomberman.soundVolume")}</span>
+          <div class="flex items-center gap-2">
+            <input
+              type="range"
+              class="range range-sm"
+              value={settings().soundVolume}
+              min={0}
+              max={1}
+              step={0.1}
+              onInput={(e: Event) => {
+                const target = e.currentTarget as HTMLInputElement;
+                update({ soundVolume: Number(target.value) });
+              }}
+            />
+            <span class="text-xs font-mono w-10 text-right">{(settings().soundVolume * 100).toFixed(0)}%</span>
+          </div>
+        </div>
+
+        <div class="flex items-center justify-between">
           <span class="text-sm">{t("bomberman.showInputOverlay")}</span>
           <input
             type="checkbox"

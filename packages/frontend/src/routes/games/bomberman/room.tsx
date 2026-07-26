@@ -7,8 +7,10 @@ import type {
   PreGamePlayerStatus,
   PreGameRoomState,
 } from "@generale/types";
+import { bombermanSettingsSchema } from "@generale/types";
 import { useParams, useNavigate } from "@solidjs/router";
 import { createMemo, createSignal, createEffect, onCleanup, Show, For, Switch, Match } from "solid-js";
+import { useGameSettings } from "~/hooks/useGameSettings";
 import { ProtectedRoute } from "~/components/ProtectedRoute";
 import { BombermanGame } from "./game";
 import { useT } from "~/i18n/useT";
@@ -129,6 +131,19 @@ export function BombermanRoom() {
   const allReady = createMemo(() => {
     const players = session.roomSync.state().players ?? [];
     return players.length >= 2 && players.every((p) => p.ready);
+  });
+
+  const { settings: bmSettings, isHydrated: bmSettingsHydrated } = useGameSettings(bombermanSettingsSchema);
+  let sentSkin: string | null = null;
+  createEffect(() => {
+    if (!bmSettingsHydrated()) return;
+    const st = session.roomSync.state();
+    const me = st.players.find((p) => p.id === session.playerId());
+    const want = bmSettings().selectedSkinId;
+    if (st.phase === "lobby" && me && me.skinId !== want && sentSkin !== want) {
+      sentSkin = want;
+      session.roomSync.dispatch({ type: "CHANGE_APPEARANCE", skinId: want } as BombermanPreGameClientDispatch);
+    }
   });
 
   const teamMode = createMemo<PreGameTeamMode>(() => session.roomSync.state().config?.teamMode ?? "ffa");

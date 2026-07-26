@@ -1,6 +1,12 @@
 import { Application } from "solid-pixi";
 import { type Accessor, createSignal, createMemo, createEffect, onMount, onCleanup, Show } from "solid-js";
-import type { BombermanState, BombermanOperation, BombermanMatchState, BombermanEvent } from "@generale/types";
+import type {
+  BombermanState,
+  BombermanOperation,
+  BombermanMatchState,
+  BombermanEvent,
+  BombermanDirection,
+} from "@generale/types";
 import { bombermanSettingsSchema } from "@generale/types";
 import { useBombermanInput } from "./hooks/useBombermanInput";
 import { useGameSettings } from "~/hooks/useGameSettings";
@@ -9,7 +15,7 @@ import { EntityLayer } from "./components/EntityLayer";
 import { HUD } from "./components/HUD";
 import { VirtualControls } from "./components/VirtualControls";
 import { Countdown } from "~/ui/Countdown";
-import { sfx, isMuted } from "~/ui/sound";
+import { sfx, isMuted, setSfxVolume } from "~/ui/sound";
 import { formatKey } from "./utils";
 import { useT } from "~/i18n/useT";
 import { Button } from "~/ui";
@@ -20,6 +26,7 @@ import { useBombermanEvents } from "./hooks/useBombermanEvents";
 import { EventFeed } from "./components/EventFeed";
 import { DeathOverlay } from "./components/DeathOverlay";
 import { DangerIndicator } from "./components/DangerIndicator";
+import { InputOverlay } from "./components/InputOverlay";
 import ChatPanel from "~/components/ChatPanel";
 
 interface ScoreRow {
@@ -48,17 +55,26 @@ export function BombermanGame(props: BombermanGameProps) {
   const session = useBombermanGameSession(props.gameSync, () => props.playerId ?? "", props.spectate);
   // ── Countdown (skip for spectators and reconnects) ──
   const [countdownDone, setCountdownDone] = createSignal(!props.freshStart);
-  const { showVirtualControls, pressDirection, releaseDirection } = useBombermanInput({
-    onAction: props.spectate ? () => {} : session.onAction,
-    enabled: countdownDone,
-    onMenu: () => setShowMenuOverlay(true),
-  });
-  // Gate virtual controls behind countdown
-  const gatedOnAction = (op: BombermanOperation) => {
+  const dispatchAction = (op: BombermanOperation) => {
     if (!countdownDone()) return;
+    if (op.type === "PLACE_BOMB" && !isMuted()) sfx.bombPlace();
+    if (op.type === "SET_DIRECTION") {
+      setOverlayDirection(op.direction);
+    } else if (op.type === "PLACE_BOMB" || op.type === "ACTION" || op.type === "DETONATE") {
+      setOverlayAction(op.type);
+      const timerId = setTimeout(() => setOverlayAction(null), 400);
+      onCleanup(() => clearTimeout(timerId));
+    }
     session.onAction(op);
   };
+  const { showVirtualControls, pressDirection, releaseDirection } = useBombermanInput({
+    onAction: props.spectate ? () => {} : dispatchAction,
+    enabled: countdownDone,
+    onMenu: () => setShowMenuOverlay((v) => !v),
+  });
   const { settings: gameSettings } = useGameSettings(bombermanSettingsSchema);
+  // Sync volume setting to sound module
+  createEffect(() => setSfxVolume(gameSettings().soundVolume));
 
   // ── Spectator controls: follow/overview mode and follow target ──
   type SpectatorMode = "follow" | "overview";
@@ -98,6 +114,8 @@ export function BombermanGame(props: BombermanGameProps) {
   const [connectionOk, setConnectionOk] = createSignal(true);
   const [showMenuOverlay, setShowMenuOverlay] = createSignal(false);
   const [showSurrenderConfirm, setShowSurrenderConfirm] = createSignal(false);
+  const [overlayDirection, setOverlayDirection] = createSignal<BombermanDirection | null>(null);
+  const [overlayAction, setOverlayAction] = createSignal<"PLACE_BOMB" | "ACTION" | "DETONATE" | null>(null);
   // ── Between-rounds countdown ──
   const [nextRoundCountdown, setNextRoundCountdown] = createSignal<number | null>(null);
   let countdownTimer: ReturnType<typeof setInterval> | null = null;
@@ -183,6 +201,12 @@ export function BombermanGame(props: BombermanGameProps) {
           case "item_picked_up":
             sfx.pickup();
             break;
+          case "bomb_thrown":
+            sfx.bombPlace();
+            break;
+          case "chain_triggered":
+            sfx.explosion();
+            break;
           case "item_spawned":
             // item_spawned events are kept for visual, no sound by default
             break;
@@ -196,6 +220,17 @@ export function BombermanGame(props: BombermanGameProps) {
       setShowControls(false);
       setControlsAutoHidden(true);
     }, 6000);
+  });
+
+  // Explosion sound effect
+  let lastExplosionSoundTick = -1;
+  createEffect(() => {
+    const s = state();
+    if (!s?.explosions?.length || isMuted()) return;
+    if (s.tick !== lastExplosionSoundTick && s.explosions.some((e) => e.ttl >= 7)) {
+      lastExplosionSoundTick = s.tick;
+      sfx.explosion();
+    }
   });
 
   // Tick-health monitor: starts after countdown, warns if no tick for >3s.
@@ -255,6 +290,9 @@ export function BombermanGame(props: BombermanGameProps) {
               explosions={state().explosions ?? []}
               items={state().items ?? []}
               tickRate={state().config.tickRate}
+              reducedMotion={reducedMotion()}
+              highContrast={gameSettings().highContrast}
+              colorVision={gameSettings().colorVision}
             />
           </Application>
         </Show>
@@ -268,6 +306,9 @@ export function BombermanGame(props: BombermanGameProps) {
         playerItems={myItems()}
         matchState={props.matchState}
         scoreRows={props.scoreRows}
+        carrying={!!myPlayer()?.carriedBomb}
+        actionKeyLabel={formatKey(gameSettings().keybindings.action)}
+        colorVision={gameSettings().colorVision}
       />
 
       <EventFeed
@@ -343,7 +384,16 @@ export function BombermanGame(props: BombermanGameProps) {
         </div>
       </Show>
       <Show when={!props.spectate && showVirtualControls()}>
-        <VirtualControls pressDirection={pressDirection} releaseDirection={releaseDirection} onAction={gatedOnAction} />
+        <VirtualControls
+          pressDirection={pressDirection}
+          releaseDirection={releaseDirection}
+          onAction={dispatchAction}
+          layout={gameSettings().touchLayout}
+          haptics={gameSettings().haptics}
+        />
+      </Show>
+      <Show when={gameSettings().showInputOverlay && !props.spectate}>
+        <InputOverlay direction={overlayDirection()} action={overlayAction()} />
       </Show>
       {/* Spectate mode badge + leave button */}
       {/* Spectator controls — shown for room-spectators AND dead players */}

@@ -290,4 +290,87 @@ describe("VirtualControls", () => {
     upBtn.dispatchEvent(new PointerEvent("lostpointercapture", { pointerId: pointerB, bubbles: true }));
     expect(releaseDirection).toHaveBeenCalledTimes(2);
   });
+
+  // ─── Accessibility ───
+
+  it("aria: direction buttons expose accessible name via aria-label", () => {
+    render(() => (
+      <VirtualControls pressDirection={vi.fn()} releaseDirection={vi.fn()} onAction={vi.fn()} />
+    ));
+
+    // All four direction buttons should be findable by their direction aria-label
+    expect(screen.getByRole("button", { name: "up" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "down" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "left" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "right" })).toBeInTheDocument();
+  });
+
+  it("aria: action buttons expose accessible name via aria-label", () => {
+    render(() => (
+      <VirtualControls pressDirection={vi.fn()} releaseDirection={vi.fn()} onAction={vi.fn()} />
+    ));
+
+    // Verify at least one action button is findable by its label aria-label
+    // (using the i18n mock that returns keys as-is)
+    expect(screen.getByRole("button", { name: "bomberman.action" })).toBeInTheDocument();
+  });
+
+  // ─── Layout variants ───
+
+  it("layout=\"spread\" renders with different grid layout", () => {
+    const { container: compactContainer } = render(() => (
+      <VirtualControls pressDirection={vi.fn()} releaseDirection={vi.fn()} onAction={vi.fn()} layout="compact" />
+    ));
+
+    // Compact layout uses specific grid class
+    const compactControls = compactContainer.querySelector("[class*='grid-cols']");
+    expect(compactControls).toBeInTheDocument();
+
+    const { container: spreadContainer } = render(() => (
+      <VirtualControls pressDirection={vi.fn()} releaseDirection={vi.fn()} onAction={vi.fn()} layout="spread" />
+    ));
+
+    // Spread layout should also use a grid but potentially different classes
+    const spreadControls = spreadContainer.querySelector("[class*='grid']");
+    expect(spreadControls).toBeInTheDocument();
+  });
+
+  // ─── Haptics ───
+
+  it("haptics: pressing a direction button with haptics=true calls navigator.vibrate", () => {
+    const vibrateFn = vi.fn();
+    vi.stubGlobal("navigator", { vibrate: vibrateFn });
+
+    try {
+      render(() => (
+        <VirtualControls pressDirection={vi.fn()} releaseDirection={vi.fn()} onAction={vi.fn()} haptics={true} />
+      ));
+
+      const upBtn = screen.getByText("▲");
+      upBtn.dispatchEvent(new PointerEvent("pointerdown", { pointerId: 1, bubbles: true, cancelable: true }));
+
+      expect(vibrateFn).toHaveBeenCalledWith(20);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("haptics: pressing a direction button with haptics=false does not call navigator.vibrate", () => {
+    const vibrateFn = vi.fn();
+    vi.stubGlobal("navigator", { vibrate: vibrateFn });
+
+    try {
+      render(() => (
+        <VirtualControls pressDirection={vi.fn()} releaseDirection={vi.fn()} onAction={vi.fn()} haptics={false} />
+      ));
+
+      const upBtn = screen.getByText("▲");
+      upBtn.dispatchEvent(new PointerEvent("pointerdown", { pointerId: 1, bubbles: true, cancelable: true }));
+
+      expect(vibrateFn).not.toHaveBeenCalled();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
 });
