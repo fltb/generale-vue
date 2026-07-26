@@ -28,8 +28,8 @@ describe("HUD", () => {
       />
     ));
     expect(screen.getByText((t) => t.includes("1/3") && t.includes("bomberman.bombLimit"))).toBeInTheDocument();
-    expect(screen.getByText("Fire: 2")).toBeInTheDocument();
-    expect(screen.getByText("Speed: 1")).toBeInTheDocument();
+    expect(screen.getByText((t) => t.includes("bomberman.fire") && t.includes("2"))).toBeInTheDocument();
+    expect(screen.getByText((t) => t.includes("bomberman.speed") && t.includes("1"))).toBeInTheDocument();
   });
 
   it("shows active items with badges", () => {
@@ -49,6 +49,33 @@ describe("HUD", () => {
   it("hides inventory when no stats provided", () => {
     render(() => <HUD timeLeft={0} aliveCount={1} totalPlayers={4} />);
     expect(screen.queryByText((t) => t.includes("bomberman.bombLimit"))).not.toBeInTheDocument();
-    expect(screen.queryByText("Fire:")).not.toBeInTheDocument();
+    expect(screen.queryByText((t) => t.includes("bomberman.fire"))).not.toBeInTheDocument();
+  });
+
+  it("renders carrying badge when carrying bomb with action key", () => {
+    render(() => (
+      <HUD
+        timeLeft={100}
+        aliveCount={2}
+        totalPlayers={4}
+        playerStats={{ bombMax: 2, bombActive: 1, blastRadius: 1, speed: 1 }}
+        carrying={true}
+        actionKeyLabel="Q"
+      />
+    ));
+    expect(screen.getByText((t) => t.includes("bomberman.carryingBomb"))).toBeInTheDocument();
+  });
+
+  it("hides carrying badge when not carrying bomb", () => {
+    render(() => (
+      <HUD
+        timeLeft={100}
+        aliveCount={2}
+        totalPlayers={4}
+        playerStats={{ bombMax: 2, bombActive: 1, blastRadius: 1, speed: 1 }}
+        carrying={false}
+      />
+    ));
+    expect(screen.queryByText((t) => t.includes("bomberman.carryingBomb"))).not.toBeInTheDocument();
   });
 });

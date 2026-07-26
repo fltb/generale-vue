@@ -1,29 +1,11 @@
 import { For, Show } from "solid-js";
 import type { Component } from "solid-js";
 import { useT } from "~/i18n/useT";
-import type { TranslationKey } from "@generale/i18n";
 import { Button, Modal } from "~/ui";
 import { formatKey } from "../utils";
 import { BOMBERMAN_SETTINGS_DEFAULTS } from "@generale/types";
 import type { BombermanKeybindings } from "@generale/types";
-interface TutorialItem {
-  type: "passive" | "active";
-  label: string;
-  color: string;
-  i18nKey: TranslationKey;
-}
-
-const ITEMS: TutorialItem[] = [
-  { type: "passive", label: "B+", color: "#f44", i18nKey: "bomberman.tutorial.bombUp" },
-  { type: "passive", label: "F+", color: "#f80", i18nKey: "bomberman.tutorial.fireUp" },
-  { type: "passive", label: "S+", color: "#4af", i18nKey: "bomberman.tutorial.speedUp" },
-  { type: "passive", label: "Kick", color: "#a6f", i18nKey: "bomberman.tutorial.kick" },
-  { type: "active", label: "Glove", color: "#ccc", i18nKey: "bomberman.tutorial.glove" },
-  { type: "active", label: "Punch", color: "#fa0", i18nKey: "bomberman.tutorial.punch" },
-  { type: "active", label: "Rmte", color: "#0ff", i18nKey: "bomberman.tutorial.remote" },
-  { type: "passive", label: "Prce", color: "#fff", i18nKey: "bomberman.tutorial.pierce" },
-  { type: "passive", label: "Spirit", color: "#f0f", i18nKey: "bomberman.tutorial.spirit" },
-];
+import { ITEM_ORDER, ITEM_DISPLAY, itemAccentCss } from "../itemDisplay";
 
 interface Props {
   open: boolean;
@@ -84,6 +66,7 @@ export const BombermanTutorial: Component<Props> = (props) => {
         {/* Items */}
         <section>
           <h3 class="text-lg font-semibold mb-2">{t("bomberman.tutorial.items")}</h3>
+          <p class="text-xs text-base-content/60 mb-2">{t("bomberman.tutorial.carryHint")}</p>
 
           {/* Passive items */}
           <div class="mb-3">
@@ -91,18 +74,21 @@ export const BombermanTutorial: Component<Props> = (props) => {
               {t("bomberman.tutorial.passive")}
             </p>
             <div class="space-y-1.5">
-              <For each={ITEMS.filter((i) => i.type === "passive")}>
-                {(item) => (
-                  <div class="flex items-start gap-2 text-sm">
-                    <span
-                      class="inline-flex items-center justify-center px-1.5 py-0.5 rounded text-xs font-bold shrink-0 mt-0.5 min-w-[3.5rem] text-center"
-                      style={{ background: item.color, color: "#000" }}
-                    >
-                      {item.label}
-                    </span>
-                    <span>{t(item.i18nKey)}</span>
-                  </div>
-                )}
+              <For each={ITEM_ORDER.filter((type) => ITEM_DISPLAY[type].kind === "passive")}>
+                {(type) => {
+                  const info = ITEM_DISPLAY[type];
+                  return (
+                    <div class="flex items-start gap-2 text-sm">
+                      <span
+                        class="inline-flex items-center justify-center px-1.5 py-0.5 rounded text-xs font-bold shrink-0 mt-0.5 min-w-[3.5rem] text-center"
+                        style={{ background: itemAccentCss(type, "default"), color: "#000" }}
+                      >
+                        {info.label}
+                      </span>
+                      <span>{t(info.descKey)}</span>
+                    </div>
+                  );
+                }}
               </For>
             </div>
           </div>
@@ -113,18 +99,21 @@ export const BombermanTutorial: Component<Props> = (props) => {
               {t("bomberman.tutorial.active")}
             </p>
             <div class="space-y-1.5">
-              <For each={ITEMS.filter((i) => i.type === "active")}>
-                {(item) => (
-                  <div class="flex items-start gap-2 text-sm">
-                    <span
-                      class="inline-flex items-center justify-center px-1.5 py-0.5 rounded text-xs font-bold shrink-0 mt-0.5 min-w-[3.5rem] text-center"
-                      style={{ background: item.color, color: "#000" }}
-                    >
-                      {item.label}
-                    </span>
-                    <span>{t(item.i18nKey)}</span>
-                  </div>
-                )}
+              <For each={ITEM_ORDER.filter((type) => ITEM_DISPLAY[type].kind === "active")}>
+                {(type) => {
+                  const info = ITEM_DISPLAY[type];
+                  return (
+                    <div class="flex items-start gap-2 text-sm">
+                      <span
+                        class="inline-flex items-center justify-center px-1.5 py-0.5 rounded text-xs font-bold shrink-0 mt-0.5 min-w-[3.5rem] text-center"
+                        style={{ background: itemAccentCss(type, "default"), color: "#000" }}
+                      >
+                        {info.label}
+                      </span>
+                      <span>{t(info.descKey)}</span>
+                    </div>
+                  );
+                }}
               </For>
             </div>
           </div>

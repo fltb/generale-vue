@@ -1,19 +1,11 @@
 import type { BombermanPlayer, Bomb, Explosion, Item } from "@generale/types";
 import type { Graphics as PIXIGraphics, Texture } from "pixi.js";
-import { For, Show, createEffect, createMemo, createSignal, onCleanup, type Accessor } from "solid-js";
+import { For, Show, createEffect, createSignal, onCleanup, type Accessor } from "solid-js";
 import { Container, Graphics as PGraphics, Sprite } from "solid-pixi";
 import { useSprites, type PlayerTextures } from "../hooks/useSprites";
-import { TILE_SIZE } from "../sprites/spritesheet";
+import { TILE_SIZE, SKIN_SPRITE_INDEX } from "../sprites/spritesheet";
+import { itemAccentNumber } from "../itemDisplay";
 import { useInterpolatedBombermanPosition } from "../hooks/useInterpolatedBombermanPosition";
-
-// ─── Fallback colors for items without sprites ───
-const ITEM_DOT_COLORS: Record<string, number> = {
-  FIRE_UP: 0xff8800,
-  SPEED_UP: 0x0088cc,
-  PUNCH: 0xcc0000,
-  REMOTE: 0x8800cc,
-  SPIRIT: 0x44cc44,
-};
 
 interface EntityLayerProps {
   players: BombermanPlayer[];
@@ -21,6 +13,9 @@ interface EntityLayerProps {
   explosions: Explosion[];
   items: Item[];
   tickRate: number;
+  reducedMotion?: boolean;
+  highContrast?: boolean;
+  colorVision?: "default" | "safe";
 }
 
 /** Pick idle or walk frame based on facing direction and animation tick. */
@@ -39,6 +34,7 @@ export function PlayerSprite(props: {
   colorIdx: number;
   tick: Accessor<number>;
   tickRate: number;
+  reducedMotion?: boolean;
 }) {
   const target = () => ({
     x: props.player.x,
@@ -64,7 +60,7 @@ export function PlayerSprite(props: {
   const flipX = () => (props.player.facing === "right" ? -1 : 1);
 
   return (
-    <Container sortableChildren>
+    <Container sortableChildren zIndex={10}>
       <Sprite
         texture={tex()}
         x={x() * TILE_SIZE + TILE_SIZE / 2}
@@ -77,17 +73,40 @@ export function PlayerSprite(props: {
         zIndex={10}
       />
       <Show when={props.player.carriedBomb}>
-        <Sprite
-          texture={props.bombTextures[0]}
-          x={x() * TILE_SIZE + TILE_SIZE / 2}
-          y={y() * TILE_SIZE + TILE_SIZE / 2 - TILE_SIZE * 0.55}
-          anchor={{ x: 0.5, y: 0.5 }}
-          scale={{
-            x: (TILE_SIZE / 16) * 0.5,
-            y: (TILE_SIZE / 16) * 0.5,
-          }}
-          zIndex={11}
-        />
+        {(_bomb) => {
+          const above = props.player.y >= 1;
+          const bob = props.reducedMotion ? 0 : [0, 1.5, 3, 1.5][props.tick() % 4];
+          const offsetY = above ? -TILE_SIZE * 0.6 : TILE_SIZE * 0.6;
+          const indicatorY = y() * TILE_SIZE + TILE_SIZE / 2 + offsetY + bob;
+          return (
+            <>
+              <PGraphics
+                ref={(graphics: PIXIGraphics) => {
+                  createEffect(() => {
+                    if (!graphics) return;
+                    graphics.clear();
+                    graphics.lineStyle(2, 0xffffff, 0.9);
+                    graphics.drawCircle(0, 0, TILE_SIZE * 0.28);
+                  });
+                }}
+                x={x() * TILE_SIZE + TILE_SIZE / 2}
+                y={indicatorY}
+                zIndex={10.5}
+              />
+              <Sprite
+                texture={props.bombTextures[0]}
+                x={x() * TILE_SIZE + TILE_SIZE / 2}
+                y={indicatorY}
+                anchor={{ x: 0.5, y: 0.5 }}
+                scale={{
+                  x: (TILE_SIZE / 16) * 0.7,
+                  y: (TILE_SIZE / 16) * 0.7,
+                }}
+                zIndex={11}
+              />
+            </>
+          );
+        }}
       </Show>
     </Container>
   );
@@ -103,28 +122,44 @@ export function EntityLayer(props: EntityLayerProps) {
   }, 150);
   onCleanup(() => clearInterval(animTimer));
 
-  // ── Items only with sprites ──
-  const spritedItems = createMemo(() => {
-    const sheet = s();
-    if (!sheet) return [];
-    return props.items.filter((item) => sheet.items[item.type]);
-  });
+  // ── Pulse animation for item plates ──
+  const pulse = () => (props.reducedMotion ? 1 : [1, 0.75, 0.5, 0.75][tick() % 4]);
 
   return (
     <Show when={s()}>
       {(sprites) => (
         <Container sortableChildren>
-          {/* ── Items (z=1) ── */}
-          <For each={spritedItems()}>
+          {/* ── Items (z=1) with accent plates (z=0.8) ── */}
+          <For each={props.items}>
             {(item) => (
-              <Sprite
-                texture={sprites().items[item.type]}
-                x={item.x * TILE_SIZE + TILE_SIZE / 2}
-                y={item.y * TILE_SIZE + TILE_SIZE / 2}
-                anchor={{ x: 0.5, y: 0.5 }}
-                scale={{ x: (TILE_SIZE / 16) * 0.85, y: (TILE_SIZE / 16) * 0.85 }}
-                zIndex={1}
-              />
+              <Show when={sprites().items[item.type]}>
+                {(_texture) => {
+                  const accent = itemAccentNumber(item.type, props.colorVision ?? "default");
+                  const itemScale = props.highContrast ? 1.1 : 1.0;
+                  return (
+                    <>
+                      <ItemPlate
+                        x={item.x}
+                        y={item.y}
+                        accent={accent}
+                        highContrast={props.highContrast ?? false}
+                        pulse={pulse()}
+                      />
+                      <Sprite
+                        texture={sprites().items[item.type]}
+                        x={item.x * TILE_SIZE + TILE_SIZE / 2}
+                        y={item.y * TILE_SIZE + TILE_SIZE / 2}
+                        anchor={{ x: 0.5, y: 0.5 }}
+                        scale={{
+                          x: (TILE_SIZE / 16) * itemScale,
+                          y: (TILE_SIZE / 16) * itemScale,
+                        }}
+                        zIndex={1}
+                      />
+                    </>
+                  );
+                }}
+              </Show>
             )}
           </For>
 
@@ -170,7 +205,7 @@ export function EntityLayer(props: EntityLayerProps) {
           <For each={props.players}>
             {(player, idx) => {
               if (!player.alive) return null;
-              const colorIdx = idx() % sprites().players.length;
+              const colorIdx = SKIN_SPRITE_INDEX[player.skinId] ?? idx() % sprites().players.length;
               return (
                 <PlayerSprite
                   player={player}
@@ -179,48 +214,30 @@ export function EntityLayer(props: EntityLayerProps) {
                   colorIdx={colorIdx}
                   tick={tick}
                   tickRate={props.tickRate}
+                  reducedMotion={props.reducedMotion}
                 />
               );
             }}
           </For>
-
-          {/* ── Non-sprited item dots (z=0, behind items with sprites) ── */}
-          <NonSpritedItems allItems={props.items} spritesheet={sprites()} />
         </Container>
       )}
     </Show>
   );
 }
 
-// ─── Non-sprited items rendered as colored dots ───
-
-interface NonSpritedItemsProps {
-  allItems: Item[];
-  spritesheet: { items: Record<string, Texture> };
-}
-
-function NonSpritedItems(props: NonSpritedItemsProps) {
-  const dotItems = () => props.allItems.filter((item) => !props.spritesheet.items[item.type]);
-
-  return (
-    <For each={dotItems()}>
-      {(item) => {
-        const color = ITEM_DOT_COLORS[item.type] ?? 0x888888;
-        return <ItemDot x={item.x} y={item.y} color={color} />;
-      }}
-    </For>
-  );
-}
-
-function ItemDot(props: { x: number; y: number; color: number }) {
+/** Accent plate beneath each item sprite (z=0.8, behind item z=1) */
+function ItemPlate(props: { x: number; y: number; accent: number; highContrast: boolean; pulse: number }) {
   const [g, setG] = createSignal<PIXIGraphics | undefined>(undefined);
 
   createEffect(() => {
     const graphics = g();
     if (!graphics) return;
     graphics.clear();
-    graphics.circle(0, 0, TILE_SIZE * 0.15).fill({ color: props.color });
-    graphics.circle(0, 0, TILE_SIZE * 0.15).stroke({ color: 0x000000, width: 1 });
+    const bgAlpha = props.highContrast ? 1 : 0.85;
+    graphics
+      .roundRect(-TILE_SIZE * 0.42, -TILE_SIZE * 0.42, TILE_SIZE * 0.84, TILE_SIZE * 0.84, 4)
+      .fill({ color: 0x0f0f1a, alpha: bgAlpha })
+      .stroke({ color: props.accent, width: props.highContrast ? 3 : 2, alpha: props.pulse });
   });
 
   return (
@@ -231,7 +248,7 @@ function ItemDot(props: { x: number; y: number; color: number }) {
       }}
       x={props.x * TILE_SIZE + TILE_SIZE / 2}
       y={props.y * TILE_SIZE + TILE_SIZE / 2}
-      zIndex={0}
+      zIndex={0.8}
     />
   );
 }

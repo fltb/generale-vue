@@ -3,10 +3,11 @@ import { ALL_PLAYER_FRAMES } from "../spritesheet";
 
 describe("player upward frames", () => {
   it("uses the player sprites rather than the effects-strip tiles", () => {
+    // Order matches BOMBERMAN_SKIN_MANIFEST frameIndex: blue(p2), green(p0), red(p1), purple(p3).
     expect(ALL_PLAYER_FRAMES.map((frames) => frames.idleUp)).toEqual([
+      { x: 96, y: 240, w: 16, h: 16 },
       { x: 96, y: 224, w: 16, h: 16 },
       { x: 96, y: 272, w: 16, h: 16 },
-      { x: 96, y: 240, w: 16, h: 16 },
       { x: 96, y: 256, w: 16, h: 16 },
     ]);
   });

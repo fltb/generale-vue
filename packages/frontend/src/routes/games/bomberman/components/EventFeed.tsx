@@ -1,6 +1,7 @@
 import { For, Show, createEffect, createSignal, onCleanup } from "solid-js";
 import { useT } from "~/i18n/useT";
 import type { BombermanEvent, BombermanPlayer, ItemType } from "@generale/types";
+import { ITEM_DISPLAY } from "../itemDisplay";
 
 /**
  * Max elimination feed entries shown concurrently.
@@ -31,18 +32,6 @@ interface EventFeedProps {
   /** Animation disabled? */
   reducedMotion?: boolean;
 }
-
-const ITEM_ICONS: Record<ItemType, string> = {
-  BOMB_UP: "\u{1F4A3}",
-  FIRE_UP: "\u{1F525}",
-  SPEED_UP: "\u26A1",
-  KICK: "\u{1F43E}",
-  GLOVE: "\u{1F9E4}",
-  PUNCH: "\u{1F44A}",
-  REMOTE: "\u{1F4E1}",
-  PIERCE: "\u{1F5E1}",
-  SPIRIT: "\u{1F47B}",
-};
 
 export function EventFeed(props: EventFeedProps) {
   const { t } = useT();
@@ -114,11 +103,7 @@ export function EventFeed(props: EventFeedProps) {
   }
 
   function itemLabel(item: ItemType): string {
-    const key = `bomberman.itemNames.${item}` as const;
-    const label = t(key);
-    // Fallback if i18n key doesn't resolve
-    if (label === key) return item;
-    return label;
+    return t(ITEM_DISPLAY[item].nameKey);
   }
 
   return (
@@ -143,7 +128,7 @@ export function EventFeed(props: EventFeedProps) {
               killer,
             });
           } else {
-            message = t("bomberman.eliminatedSelf", { victim: isLocal ? "You" : victim });
+            message = t("bomberman.eliminatedSelf", { victim: isLocal ? t("You") : victim });
           }
           return (
             <div
@@ -166,7 +151,7 @@ export function EventFeed(props: EventFeedProps) {
           if (ev.type !== "item_picked_up") return null;
           const player = playerName(ev.playerId);
           const item = itemLabel(ev.item);
-          const icon = ITEM_ICONS[ev.item] ?? "";
+          const icon = ITEM_DISPLAY[ev.item].emoji;
           const isLocalPlayer = ev.playerId === props.localPlayerId;
           return (
             <div
@@ -177,7 +162,7 @@ export function EventFeed(props: EventFeedProps) {
             >
               <span>{icon}</span>
               {isLocalPlayer
-                ? `${t("bomberman.pickedUp", { player: "You", item })}`
+                ? `${t("bomberman.pickedUp", { player: t("You"), item })}`
                 : `${t("bomberman.pickedUp", { player, item })}`}
             </div>
           );

@@ -62,7 +62,7 @@ export function DangerIndicator(props: DangerIndicatorProps) {
     >
       <div
         class="text-2xl font-black text-red-500 select-none"
-        style={props.reducedMotion ? { opacity: 0.6 } : { opacity: flash() ? 0.9 : 0.2, transition: "opacity 0.1s" }}
+        style={props.reducedMotion ? { opacity: 0.6 } : { opacity: flash() ? 0.9 : 0.45, transition: "opacity 0.1s" }}
       >
         {t("bomberman.danger")}
       </div>

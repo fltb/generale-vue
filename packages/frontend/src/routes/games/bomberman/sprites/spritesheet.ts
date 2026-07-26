@@ -6,6 +6,8 @@
  * pixelX = col * 16, pixelY = row * 16
  */
 
+import { BOMBERMAN_SKIN_MANIFEST } from "@generale/types";
+
 export interface FrameDef {
   x: number;
   y: number;
@@ -41,7 +43,7 @@ export interface PlayerFrames {
 }
 
 /**
- * Player 0 (blue-ish): Row 15
+ * Player sprite p0 — GREEN clothing (pixel-verified; older comments mislabeled the rows): Row 15
  *   up=217, down=211, right=214, left=288
  *   walk-down: 212,213  walk-right: 215,216,217  walk-up: 218,219  walk-left: 285,286,287
  */
@@ -57,7 +59,7 @@ const p0: PlayerFrames = {
 };
 
 /**
- * Player 1 (green): Row 18
+ * Player sprite p1 — ORANGE/RED clothing (pixel-verified): Row 18
  *   up=262, down=256, right=259, left=202
  *   walk-down: 257,258  walk-right: 260,261,262  walk-up: 263,264  walk-left: 199,200,201
  */
@@ -73,7 +75,7 @@ const p1: PlayerFrames = {
 };
 
 /**
- * Player 2 (red): Row 16
+ * Player sprite p2 — BLUE clothing (pixel-verified): Row 16
  *   up=232, down=226, right=229, left=292
  *   walk-down: 227,228  walk-right: 230,231,232  walk-up: 233,234  walk-left: 289,290,291
  */
@@ -89,7 +91,7 @@ const p2: PlayerFrames = {
 };
 
 /**
- * Player 3 (purple): Row 17
+ * Player sprite p3 — PURPLE clothing (pixel-verified): Row 17
  *   up=247, down=241, right=244(=walk-right0), left=296
  *   walk-down: 242,243  walk-right: 244,245,246  walk-up: 248,249  walk-left: 293,294,295
  */
@@ -104,7 +106,13 @@ const p3: PlayerFrames = {
   idleLeft: tid(296),
 };
 
-export const ALL_PLAYER_FRAMES: PlayerFrames[] = [p0, p1, p2, p3];
+// Order MUST match BOMBERMAN_SKIN_MANIFEST frameIndex: blue(0), green(1), red(2), purple(3).
+// Actual sheet art: p2=blue, p0=green, p1=orange/red, p3=purple.
+export const ALL_PLAYER_FRAMES: PlayerFrames[] = [p2, p0, p1, p3];
+/** skinId → ALL_PLAYER_FRAMES index, derived from the canonical manifest. */
+export const SKIN_SPRITE_INDEX: Record<string, number> = Object.fromEntries(
+  BOMBERMAN_SKIN_MANIFEST.map((skin) => [skin.id, skin.frameIndex]),
+);
 
 // ─── Bomb frames (6 frames, row 18, cols 3-8) ───
 export const BOMB_FRAMES: FrameDef[] = [tid(274), tid(275), tid(276), tid(277), tid(278), tid(279)];
