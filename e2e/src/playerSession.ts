@@ -36,7 +36,7 @@ export class PlayerSession {
   }
 
   async createRoom(opts?: { roomName?: string; password?: string }) {
-    await this.page.goto(`${this.baseUrl}/?__test__=1`);
+    await this.page.goto(`${this.baseUrl}/generale?__test__=1`);
     await this.page.click('[data-testid="create-room"]');
 
     const name = opts?.roomName ?? `room-${Date.now()}`;
@@ -47,7 +47,7 @@ export class PlayerSession {
     await this.page.click('[data-testid="create-room-submit"]');
 
     // wait for navigation to room page
-    await this.page.waitForURL(/\/game\//, { timeout: 15000 });
+    await this.page.waitForURL(/\/generale\/room\//, { timeout: 15000 });
     // wait for player list to appear
     await expect(this.page.locator('[data-testid="player-list"]')).toBeVisible({ timeout: 10000 });
   }
@@ -80,16 +80,8 @@ export class PlayerSession {
 
   /** ── Escape hatch（window.__test__） ── */
 
-  async clickTile(x: number, y: number) {
-    await this.page.evaluate(([cx, cy]) => window.__test__?.clickTile(cx, cy), [x, y]);
-  }
-
   async getGameState() {
     return this.page.evaluate(() => window.__test__?.getGameState());
-  }
-
-  async getTileOwner(x: number, y: number): Promise<string | null> {
-    return this.page.evaluate(([cx, cy]) => window.__test__?.getTileOwner(cx, cy) ?? null, [x, y]);
   }
 
   async waitForStatus(status: string, timeout = 30000) {
@@ -108,18 +100,22 @@ export class PlayerSession {
     );
   }
 
-  async waitForTileOwner(x: number, y: number, owner: string, timeout = 10000) {
+  async waitForConnectionState(
+    state: "connecting" | "connected" | "reconnecting" | "disconnected",
+    timeout = 15000,
+  ) {
     await this.page.waitForFunction(
-      ([cx, cy, o]) => window.__test__?.waitForTileOwner(cx, cy, o).then(() => true).catch(() => false),
-      [x, y, owner],
+      (s) => window.__test__?.getConnectionState() === s,
+      state,
       { timeout },
     );
   }
 
+
   /** ── 获取 roomId（从 URL 或 window.__test__） ── */
   async getRoomId(): Promise<string> {
     const url = this.page.url();
-    const match = url.match(/\/game\/([^/?]+)/);
+    const match = url.match(/\/generale\/room\/([^/?]+)/);
     if (match) return match[1];
     return this.page.evaluate(() => window.__test__?.roomId ?? "");
   }

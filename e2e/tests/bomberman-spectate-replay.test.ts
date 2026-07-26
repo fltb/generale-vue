@@ -29,8 +29,8 @@ const FRONTEND_DIR = resolve(__dirname, "../../packages/frontend");
 test.describe("Bomberman Spectate + Replay", () => {
   let scenario: TestScenario;
 
-  test.beforeEach(async () => {
-    scenario = new TestScenario();
+  test.beforeEach(async ({}, testInfo) => {
+    scenario = new TestScenario(testInfo);
     await scenario.start(BACKEND_DIR, FRONTEND_DIR);
   });
 
@@ -44,16 +44,19 @@ test.describe("Bomberman Spectate + Replay", () => {
       (await scenario.createSession(users[0])).page,
       scenario.frontendUrl(),
       users[0],
+      scenario.outputPath,
     );
     const p2 = new BombermanSession(
       (await scenario.createSession(users[1])).page,
       scenario.frontendUrl(),
       users[1],
+      scenario.outputPath,
     );
     const p3 = new BombermanSession(
       (await scenario.createSession(users[2])).page,
       scenario.frontendUrl(),
       users[2],
+      scenario.outputPath,
     );
 
     // ── All login ──
@@ -79,7 +82,6 @@ test.describe("Bomberman Spectate + Replay", () => {
     await p2.waitForPlaying(25000);
 
     // Screenshot: game in progress
-    await p1.screenshot("spectate-game-active");
 
     // ── p3 joins as a server-resolved spectator via URL ──
     // Spectator connections must opt into role=spectator before the room
@@ -95,7 +97,6 @@ test.describe("Bomberman Spectate + Replay", () => {
     await expect(p3.page.getByRole("button", { name: "Surrender" })).toHaveCount(0);
 
     // Screenshot: spectator view
-    await p3.screenshot("spectate-active-view");
 
     // ── p2 surrenders → match ends ──
     await p2.surrender();
@@ -104,7 +105,6 @@ test.describe("Bomberman Spectate + Replay", () => {
     await p1.waitForMatchEnded(30000);
 
     // Screenshot: match ended
-    await p1.screenshot("spectate-match-ended");
 
     // ── Verify replay via backend API ──
     // NOTE: This is a backend assertion since frontend replays route doesn't exist
@@ -146,10 +146,8 @@ test.describe("Bomberman Spectate + Replay", () => {
     expect(replayDetailData.data.result.winner).toBeTruthy();
 
     // Screenshot placeholder for replay page (not available via frontend)
-    await p1.screenshot("replay-api-verified");
 
     // ── p1 clicks "Back to Room" ──
     await p1.leaveRoom();
-    await p1.screenshot("spectate-lobby-return");
   });
 });

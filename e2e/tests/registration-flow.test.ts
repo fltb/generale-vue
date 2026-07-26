@@ -12,8 +12,8 @@ const FRONTEND_DIR = resolve(__dirname, "../../packages/frontend");
 test.describe("Registration Flow", () => {
   let scenario: TestScenario;
 
-  test.beforeEach(async () => {
-    scenario = new TestScenario();
+  test.beforeEach(async ({}, testInfo) => {
+    scenario = new TestScenario(testInfo);
     await scenario.start(BACKEND_DIR, FRONTEND_DIR);
   });
 
@@ -30,14 +30,15 @@ test.describe("Registration Flow", () => {
     await expect(alice.page.locator('[data-testid="login-username"]')).toBeVisible();
 
     // Switch to registration tab
-    await alice.page.getByText("去注册").click();
-    await expect(alice.page.locator('input[placeholder="用户名"]')).toBeVisible();
+    await alice.page.getByText("Register here").click();
+    await expect(alice.page.locator('input[placeholder="Username"]')).toBeVisible();
 
     // Fill registration form
     const username = `regtest_${Date.now()}`;
-    await alice.page.fill('input[placeholder="用户名"]', username);
-    await alice.page.fill('input[placeholder="邮箱"]', `${username}@test.com`);
-    await alice.page.fill('input[placeholder="密码"]', 'TestPass123!');
+    await alice.page.fill('input[placeholder="Username"]', username);
+    await alice.page.fill('input[placeholder="Email"]', `${username}@test.com`);
+    await alice.page.fill('input[placeholder="Password"]', 'TestPass123!');
+    await alice.page.check('input[type="checkbox"]');
     await alice.page.click('button[type="submit"]');
 
     // Check for success message (email "sent" — backend returns success even if SMTP not configured)

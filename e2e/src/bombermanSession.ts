@@ -16,7 +16,8 @@ export class BombermanSession {
   constructor(
     public readonly page: Page,
     private readonly baseUrl: string,
-    private readonly user?: TestUser,
+    private readonly user: TestUser | undefined,
+    private readonly outputPath: (name: string) => string,
   ) {
     // auto-dismiss dialogs
     this.page.on("dialog", async (d: Dialog) => {
@@ -63,7 +64,7 @@ export class BombermanSession {
         await expect(formatSelect).toHaveCount(1, { timeout: 5000 });
         await formatSelect.selectOption({ value: opts.matchFormat }, { timeout: 5000 });
       } catch (error) {
-        await this.page.screenshot({ path: "e2e/screenshots/create-room-format-failed.png" }).catch(() => {});
+        await this.page.screenshot({ path: this.outputPath("create-room-format-failed.png") }).catch(() => {});
         throw new Error(
           `createRoom: could not select match format "${opts.matchFormat}" using its stable option locator. ` +
             `${error instanceof Error ? error.message : String(error)}`,
@@ -165,7 +166,7 @@ export class BombermanSession {
       await expect(confirm).toBeVisible({ timeout: 5000 });
       await confirm.click();
     } catch (error) {
-      await this.page.screenshot({ path: "e2e/screenshots/surrender-failed.png" }).catch(() => {});
+      await this.page.screenshot({ path: this.outputPath("surrender-failed.png") }).catch(() => {});
       throw new Error(
         `surrender: game surrender controls did not complete on ${this.page.url()}. ` +
           `${error instanceof Error ? error.message : String(error)}`,
@@ -202,7 +203,7 @@ export class BombermanSession {
       await expect(surrender).toBeVisible({ timeout });
     } catch (error) {
       const bodyText = await this.page.evaluate(() => document.body?.innerText ?? "").catch(() => "");
-      await this.page.screenshot({ path: "e2e/screenshots/waitForPlaying-timeout.png", fullPage: false }).catch(() => {});
+      await this.page.screenshot({ path: this.outputPath("waitForPlaying-timeout.png"), fullPage: false }).catch(() => {});
       throw new Error(
         `waitForPlaying timed out after ${timeout}ms at ${this.page.url()}. ` +
           `Body text: ${bodyText.slice(0, 300)}. ` +
@@ -225,7 +226,7 @@ export class BombermanSession {
       }
     }
     const bodyText = await this.page.evaluate(() => document.body?.innerText ?? "").catch(() => "");
-    await this.page.screenshot({ path: "e2e/screenshots/waitForBetweenRounds-timeout.png" }).catch(() => {});
+    await this.page.screenshot({ path: this.outputPath("waitForBetweenRounds-timeout.png") }).catch(() => {});
     throw new Error(
       `waitForBetweenRounds timed out after ${timeout}ms at ${this.page.url()}. ` +
         `Body text: ${bodyText.slice(0, 500)}. ` +
@@ -238,7 +239,7 @@ export class BombermanSession {
       await expect(this.page.getByRole("button", { name: "Back to Room", exact: true })).toBeVisible({ timeout });
     } catch (error) {
       const bodyText = await this.page.evaluate(() => document.body?.innerText ?? "").catch(() => "");
-      await this.page.screenshot({ path: "e2e/screenshots/waitForMatchEnded-timeout.png" }).catch(() => {});
+      await this.page.screenshot({ path: this.outputPath("waitForMatchEnded-timeout.png") }).catch(() => {});
       throw new Error(
         `waitForMatchEnded timed out after ${timeout}ms at ${this.page.url()}. ` +
           `Body text: ${bodyText.slice(0, 500)}. ` +
@@ -259,7 +260,7 @@ export class BombermanSession {
       const scoreRow = scoreSection.getByText(playerName, { exact: true }).locator("..");
       await expect(scoreRow).toContainText(expectedScore, { timeout: 10000 });
     } catch (error) {
-      await this.page.screenshot({ path: "e2e/screenshots/score-row-failed.png" }).catch(() => {});
+      await this.page.screenshot({ path: this.outputPath("score-row-failed.png") }).catch(() => {});
       const bodyText = await this.page.evaluate(() => document.body?.innerText ?? "").catch(() => "");
       throw new Error(
         `expectScoreRow: expected player "${playerName}" with score "${expectedScore}" at ${this.page.url()}. ` +
@@ -293,10 +294,4 @@ export class BombermanSession {
 
   /** ── Screenshot ── */
 
-  async screenshot(name: string): Promise<void> {
-    await this.page.screenshot({
-      path: `e2e/screenshots/${name}.png`,
-      fullPage: false,
-    });
-  }
 }

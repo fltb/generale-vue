@@ -12,8 +12,8 @@ const FRONTEND_DIR = resolve(__dirname, "../../packages/frontend");
 test.describe("Game Flow E2E", () => {
   let scenario: TestScenario;
 
-  test.beforeEach(async () => {
-    scenario = new TestScenario();
+  test.beforeEach(async ({}, testInfo) => {
+    scenario = new TestScenario(testInfo);
     await scenario.start(BACKEND_DIR, FRONTEND_DIR);
   });
 
@@ -42,16 +42,16 @@ test.describe("Game Flow E2E", () => {
     expect(roomId).toBeTruthy();
 
     // others join
-    await p2.page.goto(`${scenario.frontendUrl()}/game/${roomId}?__test__=1`);
-    await p2.page.waitForURL(/\/game\//);
+    await p2.page.goto(`${scenario.frontendUrl()}/generale/room/${roomId}?__test__=1`);
+    await p2.page.waitForURL(/\/generale\/room\//);
     await expect(p2.page.locator('[data-testid="player-list"]')).toBeVisible({ timeout: 10000 });
 
-    await p3.page.goto(`${scenario.frontendUrl()}/game/${roomId}?__test__=1`);
-    await p3.page.waitForURL(/\/game\//);
+    await p3.page.goto(`${scenario.frontendUrl()}/generale/room/${roomId}?__test__=1`);
+    await p3.page.waitForURL(/\/generale\/room\//);
     await expect(p3.page.locator('[data-testid="player-list"]')).toBeVisible({ timeout: 10000 });
 
-    await p4.page.goto(`${scenario.frontendUrl()}/game/${roomId}?__test__=1`);
-    await p4.page.waitForURL(/\/game\//);
+    await p4.page.goto(`${scenario.frontendUrl()}/generale/room/${roomId}?__test__=1`);
+    await p4.page.waitForURL(/\/generale\/room\//);
     await expect(p4.page.locator('[data-testid="player-list"]')).toBeVisible({ timeout: 10000 });
 
     // verify 4 players in room

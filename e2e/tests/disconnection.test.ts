@@ -11,8 +11,8 @@ const FRONTEND_DIR = resolve(__dirname, "../../packages/frontend");
 test.describe("Disconnection & Reconnection", () => {
   let scenario: TestScenario;
 
-  test.beforeEach(async () => {
-    scenario = new TestScenario();
+  test.beforeEach(async ({}, testInfo) => {
+    scenario = new TestScenario(testInfo);
     await scenario.start(BACKEND_DIR, FRONTEND_DIR);
   });
 
@@ -34,8 +34,8 @@ test.describe("Disconnection & Reconnection", () => {
     const roomId = await p1.getRoomId();
     expect(roomId).toBeTruthy();
 
-    await p2.page.goto(`${scenario.frontendUrl()}/game/${roomId}?__test__=1`);
-    await p2.page.waitForURL(/\/game\//);
+    await p2.page.goto(`${scenario.frontendUrl()}/generale/room/${roomId}?__test__=1`);
+    await p2.page.waitForURL(/\/generale\/room\//);
     await expect(p2.page.locator('[data-testid="player-list"]')).toBeVisible({ timeout: 10000 });
 
     await p2.readyUp();
@@ -46,24 +46,18 @@ test.describe("Disconnection & Reconnection", () => {
     await p2.waitForStatus("PLAYING");
     await expect(p1.page.locator('[data-testid="game-hud"]')).toBeVisible({ timeout: 10000 });
 
-    // Verify WS connected
-    const wsConnected1 = await p1.page.evaluate(() => window.__test__?.wsManager !== null);
-    expect(wsConnected1).toBe(true);
+    // Simulate a real network drop instead of reaching into ws internals.
+    await p1.waitForConnectionState("connected");
 
-    // Close WebSocket on p1
-    await p1.page.evaluate(() => {
-      const mgr = window.__test__?.wsManager;
-      if (mgr && 'close' in mgr && typeof (mgr as any).close === 'function') {
-        (mgr as any).close();
-      }
-    });
+    await p1.page.context().setOffline(true);
+    await p1.waitForConnectionState("reconnecting", 20000);
 
-    // Wait for reconnection
-    await p1.waitForWSConnected(30000);
+    await p1.page.context().setOffline(false);
+    await p1.waitForConnectionState("connected", 20000);
 
     // Verify game is still running after reconnect
     const stateAfter = await p1.getGameState();
     expect(stateAfter).toBeTruthy();
-    expect(stateAfter.status).toBe("PLAYING");
+    expect(stateAfter?.status).toBe("PLAYING");
   });
 });

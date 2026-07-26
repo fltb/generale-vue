@@ -29,8 +29,8 @@ const FRONTEND_DIR = resolve(__dirname, "../../packages/frontend");
 test.describe("Bomberman BO3 Series", () => {
   let scenario: TestScenario;
 
-  test.beforeEach(async () => {
-    scenario = new TestScenario();
+  test.beforeEach(async ({}, testInfo) => {
+    scenario = new TestScenario(testInfo);
     await scenario.start(BACKEND_DIR, FRONTEND_DIR);
   });
 
@@ -44,11 +44,13 @@ test.describe("Bomberman BO3 Series", () => {
       (await scenario.createSession(users[0])).page,
       scenario.frontendUrl(),
       users[0],
+      scenario.outputPath,
     );
     const p2 = new BombermanSession(
       (await scenario.createSession(users[1])).page,
       scenario.frontendUrl(),
       users[1],
+      scenario.outputPath,
     );
 
     // ── Login both ──
@@ -62,7 +64,6 @@ test.describe("Bomberman BO3 Series", () => {
     });
     const roomId = await p1.getRoomId();
     expect(roomId).toBeTruthy();
-    await p1.screenshot("bo3-room-created");
 
     // ── p2 joins ──
     await p2.joinRoom(roomId);
@@ -76,7 +77,6 @@ test.describe("Bomberman BO3 Series", () => {
       p1.waitForPlaying(20000),
       p2.waitForPlaying(20000),
     ]);
-    await p1.screenshot("bo3-round1-playing");
 
     // ── Round 1: p2 surrenders, then verify the 1:0 score ──
     await p2.surrender();
@@ -95,15 +95,12 @@ test.describe("Bomberman BO3 Series", () => {
       p2.expectScoreRow(users[0].username, 1, 2),
       p2.expectScoreRow(users[1].username, 0, 2),
     ]);
-    await p1.screenshot("bo3-round1-between-rounds");
-    await p2.screenshot("bo3-round1-refresh-between-rounds");
 
     // ── Round 2: p1 surrenders, producing a 1:1 match-point score ──
     await Promise.all([
       p1.waitForPlaying(12000),
       p2.waitForPlaying(12000),
     ]);
-    await p1.screenshot("bo3-round2-playing");
     await p1.surrender();
     await Promise.all([
       p1.waitForBetweenRounds(12000),
@@ -115,24 +112,20 @@ test.describe("Bomberman BO3 Series", () => {
       p2.expectScoreRow(users[0].username, 1, 2),
       p2.expectScoreRow(users[1].username, 1, 2),
     ]);
-    await p1.screenshot("bo3-round2-between-rounds");
 
     // ── Round 3: p2 surrenders, ending the BO3 series for p1 ──
     await Promise.all([
       p1.waitForPlaying(12000),
       p2.waitForPlaying(12000),
     ]);
-    await p1.screenshot("bo3-round3-playing");
     await p2.surrender();
     await Promise.all([
       p1.waitForMatchEnded(12000),
       p2.waitForMatchEnded(12000),
     ]);
     await p1.expectChampion(users[0].username);
-    await p1.screenshot("bo3-match-ended");
 
     // ── p1 returns to the room lobby ──
     await p1.leaveRoom();
-    await p1.screenshot("bo3-back-to-lobby");
   });
 });

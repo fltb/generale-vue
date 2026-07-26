@@ -3,6 +3,7 @@ import { createServer, type AddressInfo } from "node:net";
 import { mkdtempSync, writeFileSync, realpathSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { stopProcess } from "./process";
 
 function getRandomPort(): Promise<number> {
   return new Promise((resolve, reject) => {
@@ -63,7 +64,7 @@ export async function startBackend(backendDir: string): Promise<BackendControlle
     attempts++;
   }
   if (attempts >= 30) {
-    proc.kill();
+    await stopProcess(proc);
     throw new Error("Backend failed to start within 15s");
   }
 
@@ -82,7 +83,7 @@ export async function startBackend(backendDir: string): Promise<BackendControlle
       seedProc.on("error", reject);
     });
   } catch (err) {
-    proc.kill();
+    await stopProcess(proc);
     throw err;
   }
 
@@ -90,11 +91,7 @@ export async function startBackend(backendDir: string): Promise<BackendControlle
     port,
     dbPath,
     stop: async () => {
-      proc.kill();
-      await new Promise<void>((resolve) => {
-        proc.on("exit", () => resolve());
-        setTimeout(() => resolve(), 2000);
-      });
+      await stopProcess(proc);
     },
   };
 }

@@ -1,5 +1,6 @@
 import { spawn } from "node:child_process";
 import { createServer, type AddressInfo } from "node:net";
+import { stopProcess } from "./process";
 
 function getRandomPort(): Promise<number> {
   return new Promise((resolve, reject) => {
@@ -56,7 +57,7 @@ export async function startFrontend(frontendDir: string, backendPort: number): P
     attempts++;
   }
   if (attempts >= 60) {
-    proc.kill();
+    await stopProcess(proc);
     throw new Error("Frontend failed to start within 60s");
   }
 
@@ -64,11 +65,7 @@ export async function startFrontend(frontendDir: string, backendPort: number): P
     port,
     url,
     stop: async () => {
-      proc.kill();
-      await new Promise<void>((resolve) => {
-        proc.on("exit", () => resolve());
-        setTimeout(() => resolve(), 3000);
-      });
+      await stopProcess(proc);
     },
   };
 }

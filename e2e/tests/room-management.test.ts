@@ -11,8 +11,8 @@ const FRONTEND_DIR = resolve(__dirname, "../../packages/frontend");
 test.describe("Room Management", () => {
   let scenario: TestScenario;
 
-  test.beforeEach(async () => {
-    scenario = new TestScenario();
+  test.beforeEach(async ({}, testInfo) => {
+    scenario = new TestScenario(testInfo);
     await scenario.start(BACKEND_DIR, FRONTEND_DIR);
   });
 
@@ -20,7 +20,7 @@ test.describe("Room Management", () => {
     await scenario.stop();
   });
 
-  test("host can transfer host to another player", async () => {
+  test("host transfer changes authority; new host can kick", async () => {
     const [p1, p2] = await Promise.all([
       scenario.createSession(scenario.testUsers[0]),
       scenario.createSession(scenario.testUsers[1]),
@@ -30,21 +30,30 @@ test.describe("Room Management", () => {
     await p2.login();
 
     // p1 creates room
-    await p1.createRoom({ roomName: "transfer-test" });
+    await p1.createRoom({ roomName: "transfer-kick-test" });
     const roomId = await p1.getRoomId();
     expect(roomId).toBeTruthy();
 
     // p2 joins
-    await p2.page.goto(`${scenario.frontendUrl()}/game/${roomId}?__test__=1`);
-    await p2.page.waitForURL(/\/game\//);
+    await p2.page.goto(`${scenario.frontendUrl()}/generale/room/${roomId}?__test__=1`);
+    await p2.page.waitForURL(/\/generale\/room\//);
     await expect(p2.page.locator('[data-testid="player-list"]')).toBeVisible({ timeout: 10000 });
 
     // p1 transfers host to p2
-    await p1.page.click('[data-testid="transfer-host"]');
+    const transferBtn = p1.page.locator('[data-testid="transfer-host"]').first();
+    await expect(transferBtn).toBeVisible({ timeout: 5000 });
+    await transferBtn.click();
 
-    // Now p2 should be able to start the game (is host)
-    // The test passes if no crash and buttons update
+    // Deterministic signal that authority actually moved: p1 loses host controls.
     await expect(p1.page.locator('[data-testid="start-game"]')).not.toBeVisible({ timeout: 5000 });
+
+    // p2 (now host) can kick — proves the transfer actually granted authority,
+    // not just that p1's own UI updated.
+    const kickBtn = p2.page.locator('[data-testid="kick-player"]').first();
+    await expect(kickBtn).toBeVisible({ timeout: 5000 });
+    await kickBtn.click();
+
+    await p1.page.waitForURL(/\//, { timeout: 10000 });
   });
 
   test("host can kick a player", async () => {
@@ -62,8 +71,8 @@ test.describe("Room Management", () => {
     expect(roomId).toBeTruthy();
 
     // p2 joins
-    await p2.page.goto(`${scenario.frontendUrl()}/game/${roomId}?__test__=1`);
-    await p2.page.waitForURL(/\/game\//);
+    await p2.page.goto(`${scenario.frontendUrl()}/generale/room/${roomId}?__test__=1`);
+    await p2.page.waitForURL(/\/generale\/room\//);
     await expect(p2.page.locator('[data-testid="player-list"]')).toBeVisible({ timeout: 10000 });
 
     // Verify both players visible

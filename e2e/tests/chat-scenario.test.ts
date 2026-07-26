@@ -11,8 +11,8 @@ const FRONTEND_DIR = resolve(__dirname, "../../packages/frontend");
 test.describe("Chat", () => {
   let scenario: TestScenario;
 
-  test.beforeEach(async () => {
-    scenario = new TestScenario();
+  test.beforeEach(async ({}, testInfo) => {
+    scenario = new TestScenario(testInfo);
     await scenario.start(BACKEND_DIR, FRONTEND_DIR);
   });
 
@@ -35,8 +35,8 @@ test.describe("Chat", () => {
     expect(roomId).toBeTruthy();
 
     // p2 joins room
-    await p2.page.goto(`${scenario.frontendUrl()}/game/${roomId}?__test__=1`);
-    await p2.page.waitForURL(/\/game\//);
+    await p2.page.goto(`${scenario.frontendUrl()}/generale/room/${roomId}?__test__=1`);
+    await p2.page.waitForURL(/\/generale\/room\//);
     await expect(p2.page.locator('[data-testid="player-list"]')).toBeVisible({ timeout: 10000 });
 
     // Wait for chat to be available

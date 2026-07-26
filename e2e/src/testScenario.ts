@@ -1,4 +1,4 @@
-import { chromium, type Browser, type BrowserContext, type Page } from "@playwright/test";
+import { chromium, type Browser, type BrowserContext, type Page, type TestInfo } from "@playwright/test";
 import { startBackend, type BackendController } from "./backend";
 import { startFrontend, type FrontendController } from "./frontend";
 import { PlayerSession } from "./playerSession";
@@ -22,6 +22,10 @@ export class TestScenario {
   private browser: Browser | null = null;
   private contexts: BrowserContext[] = [];
   sessions: PlayerSession[] = [];
+
+  constructor(private readonly testInfo: TestInfo) {}
+
+  outputPath = (name: string): string => this.testInfo.outputPath(name);
 
   async start(backendDir: string, frontendDir: string) {
     this.backendCtrl = await startBackend(backendDir);
