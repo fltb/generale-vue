@@ -3,9 +3,9 @@ import { fetchBombermanReplays, fetchBombermanReplayDetail } from "../replays";
 import type { BombermanReplay, BombermanReplaySummary } from "@generale/types";
 
 const mockFetch = vi.fn();
-vi.stubGlobal("fetch", mockFetch);
 
 beforeEach(() => {
+  vi.stubGlobal("fetch", mockFetch);
   mockFetch.mockReset();
 });
 

@@ -25,6 +25,18 @@
     "paths": {
       "~/*": [
         "./src/*"
+      ],
+      "@generale/types": [
+        "../types/src/index.ts"
+      ],
+      "@generale/i18n": [
+        "../i18n/src/index.ts"
+      ],
+      "@generale/i18n/locales": [
+        "../i18n/locales"
+      ],
+      "@generale/bomberman-engine": [
+        "../bomberman-engine/src/index.ts"
       ]
     }
   },

@@ -6,6 +6,8 @@ export default defineConfig({
   plugins: [solidPlugin()],
   resolve: {
     alias: [
+      { find: "@generale/bomberman-engine", replacement: path.resolve(__dirname, "../bomberman-engine/src/index.ts") },
+      { find: "@generale/types", replacement: path.resolve(__dirname, "../types/src/index.ts") },
       { find: "@generale/i18n/locales", replacement: path.resolve(__dirname, "../i18n/locales") },
       { find: "@generale/i18n", replacement: path.resolve(__dirname, "../i18n/src/index.ts") },
       { find: "~", replacement: path.resolve(__dirname, "src") },
