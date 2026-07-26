@@ -31,6 +31,17 @@ vi.mock("../components/EntityLayer", () => ({
   EntityLayer: () => <div data-testid="replay-entities" />,
 }));
 
+vi.mock("~/hooks/useGameSettings", () => ({
+  useGameSettings: () => ({
+    settings: () => ({
+      highContrast: false,
+      colorVision: "default",
+      selectedSkinId: "default",
+    }),
+    update: vi.fn(),
+  }),
+}));
+
 import { useQuery } from "@tanstack/solid-query";
 import { BombermanReplayPlayer } from "../replay-player";
 

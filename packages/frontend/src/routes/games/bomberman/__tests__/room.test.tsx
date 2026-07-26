@@ -94,6 +94,19 @@ vi.mock("../hooks/useBombermanRoomSession", () => ({
   useBombermanRoomSession: () => mockSession.session,
 }));
 
+vi.mock("~/hooks/useGameSettings", () => ({
+  useGameSettings: () => ({
+    settings: () => ({
+      highContrast: false,
+      colorVision: "default",
+      selectedSkinId: "default",
+    }),
+    isLoading: () => false,
+    isHydrated: () => true,
+    update: vi.fn(),
+  }),
+}));
+
 import { BombermanRoom } from "../room";
 
 describe("BombermanRoom between-rounds state", () => {

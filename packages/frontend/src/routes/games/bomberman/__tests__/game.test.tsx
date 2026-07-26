@@ -49,6 +49,13 @@ vi.mock("~/hooks/useGameSettings", () => ({
       roundTimeSec: 120,
       mapSize: 11,
       shrinkEnabled: true,
+      soundVolume: 1,
+      touchLayout: "classic",
+      haptics: false,
+      showInputOverlay: false,
+      highContrast: false,
+      colorVision: "default",
+      selectedSkinId: "default",
       keybindings: {
         up: "ArrowUp",
         down: "ArrowDown",
@@ -73,6 +80,8 @@ vi.mock("~/ui/sound", () => ({
     countdownBeep: vi.fn(),
     go: vi.fn(),
   },
+  isMuted: vi.fn(() => false),
+  setSfxVolume: vi.fn(),
 }));
 
 vi.mock("../hooks/useBombermanInput", () => ({
