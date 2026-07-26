@@ -122,6 +122,8 @@ export class ClientConnectionManager<OpenPayload extends WSOpenPayloadBase = WSO
   private pingIntervalId = 0;
   private rttSamples: number[] = [];
   private pendingPingSentAt: number | null = null;
+  /** Consecutive pings sent without receiving a pong — used to detect silently dead connections */
+  private missedPongs = 0;
   /** Estimated offset between server time and local time, computed from latest pong */
   public serverTimeOffset: number | null = null;
 
@@ -210,29 +212,7 @@ export class ClientConnectionManager<OpenPayload extends WSOpenPayloadBase = WSO
       };
       this.ws.onclose = (ev) => {
         console.debug("[WS] onclose", ev);
-        this.isConnected = false;
-        this.isConnectedSignal[1](false);
-        this._stopPing();
-
-        if (this.manualClose) {
-          this.connectionStateSignal[1]("disconnected");
-        } else {
-          this.connectionStateSignal[1]("reconnecting");
-        }
-
-        for (const sc of this.subConnectors.values()) sc._triggerDisconnect(new Error("socket closed"));
-
-        // if the server sent an application-level auth-close, don't auto reconnect
-        if (ev && ev.code === 4001) {
-          console.warn("[WS] closed due to auth failure (4001). Will not attempt reconnect.");
-          this.manualClose = true;
-          try {
-            window.dispatchEvent(new CustomEvent("ws:auth-failed"));
-          } catch {}
-          return;
-        }
-
-        if (!this.manualClose) this._scheduleReconnect();
+        this._handleSocketDown(ev);
       };
 
       this.ws.onerror = (err) => {
@@ -242,6 +222,33 @@ export class ClientConnectionManager<OpenPayload extends WSOpenPayloadBase = WSO
       console.error("[WS] _connectInternal error:", err);
       this._scheduleReconnect();
     }
+  }
+
+  /** Shared teardown for a dead socket: from onclose or the pong watchdog. */
+  private _handleSocketDown(ev?: CloseEvent) {
+    this.isConnected = false;
+    this.isConnectedSignal[1](false);
+    this._stopPing();
+
+    if (this.manualClose) {
+      this.connectionStateSignal[1]("disconnected");
+    } else {
+      this.connectionStateSignal[1]("reconnecting");
+    }
+
+    for (const sc of this.subConnectors.values()) sc._triggerDisconnect(new Error("socket closed"));
+
+    // if the server sent an application-level auth-close, don't auto reconnect
+    if (ev && ev.code === 4001) {
+      console.warn("[WS] closed due to auth failure (4001). Will not attempt reconnect.");
+      this.manualClose = true;
+      try {
+        window.dispatchEvent(new CustomEvent("ws:auth-failed"));
+      } catch {}
+      return;
+    }
+
+    if (!this.manualClose) this._scheduleReconnect();
   }
 
   private _scheduleReconnect() {
@@ -280,6 +287,7 @@ export class ClientConnectionManager<OpenPayload extends WSOpenPayloadBase = WSO
 
   private _stopPing() {
     this.pendingPingSentAt = null;
+    this.missedPongs = 0;
     this.rttSamples = [];
     this.latencyMsSignal[1](null);
     if (this.pingIntervalId !== 0) {
@@ -290,6 +298,27 @@ export class ClientConnectionManager<OpenPayload extends WSOpenPayloadBase = WSO
 
   private _sendPing() {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
+    if (this.pendingPingSentAt !== null) {
+      // Previous ping never got a pong within the 5s interval.
+      this.missedPongs++;
+      if (this.missedPongs >= 2) {
+        // Connection is silently dead (e.g. network dropped without a TCP FIN).
+        // A close handshake can't complete without connectivity, so don't wait
+        // for onclose — detach the stale socket and run the down path directly.
+        console.warn("[WS] no pong after", this.missedPongs, "pings — dropping stale socket");
+        this.missedPongs = 0;
+        const stale = this.ws;
+        stale.onclose = null;
+        stale.onerror = null;
+        stale.onmessage = null;
+        try {
+          stale.close();
+        } catch {}
+        this.ws = null;
+        this._handleSocketDown();
+        return;
+      }
+    }
     const sentAt = Date.now();
     this.pendingPingSentAt = sentAt;
     this.sendRaw({ type: "ping", payload: { sentAt } });
@@ -301,6 +330,7 @@ export class ClientConnectionManager<OpenPayload extends WSOpenPayloadBase = WSO
     // Ignore stale pongs (mismatch with current pending ping)
     if (this.pendingPingSentAt !== sentAt) return;
     this.pendingPingSentAt = null;
+    this.missedPongs = 0;
 
     // Estimate server time offset: serverAt + one-way delay - local time
     // (assumes symmetric network latency)
