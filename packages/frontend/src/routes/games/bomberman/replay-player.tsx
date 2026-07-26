@@ -1,8 +1,12 @@
+import { Application } from "solid-pixi";
 import { createSignal, createMemo, createEffect, onMount, onCleanup, Show, For } from "solid-js";
+import { unwrap } from "solid-js/store";
 import { useParams, useNavigate } from "@solidjs/router";
 import { ProtectedRoute } from "~/components/ProtectedRoute";
 import { useT } from "~/i18n/useT";
 import { Button, Alert, Spinner, Select } from "~/ui";
+import { bombermanSettingsSchema } from "@generale/types";
+import { useGameSettings } from "~/hooks/useGameSettings";
 import { fetchBombermanReplayDetail } from "./api/replays";
 import { MapLayer } from "./components/MapLayer";
 import { EntityLayer } from "./components/EntityLayer";
@@ -50,6 +54,18 @@ export function BombermanReplayPlayer() {
   const [currentTick, setCurrentTick] = createSignal(0);
   const [playing, setPlaying] = createSignal(false);
   const [speed, setSpeed] = createSignal<PlaybackSpeed>(1);
+  const { settings: gameSettings } = useGameSettings(bombermanSettingsSchema);
+
+  // Detect reduced motion preference
+  const [reducedMotion, setReducedMotion] = createSignal(false);
+  onMount(() => {
+    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+    setReducedMotion(mq.matches);
+    const handler = (e: MediaQueryListEvent) => setReducedMotion(e.matches);
+    mq.addEventListener("change", handler);
+    onCleanup(() => mq.removeEventListener("change", handler));
+  });
+
   const totalTicks = createMemo(() => {
     const r = currentRound();
     if (!r) return 0;
@@ -60,7 +76,9 @@ export function BombermanReplayPlayer() {
   createEffect(() => {
     const r = currentRound();
     if (!r) return;
-    const newSession = createBombermanReplaySession(r as unknown as EngineReplayRound);
+    // unwrap: solid-query wraps data in a store proxy, which the engine's
+    // structuredClone cannot clone (DataCloneError).
+    const newSession = createBombermanReplaySession(unwrap(r) as unknown as EngineReplayRound);
     setSession(newSession);
     setCurrentState(newSession.getState());
     setCurrentTick(newSession.getTick());
@@ -276,14 +294,24 @@ export function BombermanReplayPlayer() {
           <div class="flex-1 relative overflow-hidden flex items-center justify-center">
             <div style={{ transform: `scale(${gameScale()})`, "transform-origin": "center" }}>
               <Show when={mapTiles().length > 0}>
-                <MapLayer tiles={mapTiles()} />
-                <EntityLayer
-                  players={players()}
-                  bombs={bombs()}
-                  explosions={explosions()}
-                  items={items()}
-                  tickRate={tickRate()}
-                />
+                <Application
+                  width={(mapTiles()[0]?.length ?? 1) * TILE_SIZE}
+                  height={mapTiles().length * TILE_SIZE}
+                  resolution={window.devicePixelRatio}
+                  autoDensity
+                >
+                  <MapLayer tiles={mapTiles()} />
+                  <EntityLayer
+                    players={players()}
+                    bombs={bombs()}
+                    explosions={explosions()}
+                    items={items()}
+                    tickRate={tickRate()}
+                    reducedMotion={reducedMotion()}
+                    highContrast={gameSettings().highContrast}
+                    colorVision={gameSettings().colorVision}
+                  />
+                </Application>
               </Show>
             </div>
 

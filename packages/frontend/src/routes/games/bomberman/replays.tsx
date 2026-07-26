@@ -34,6 +34,13 @@ export function BombermanReplays() {
     return summary.winner.kind === "player" ? summary.winner.id.slice(0, 8) : summary.winner.id;
   };
 
+  const replayErrorText = () => {
+    const msg = String(replaysQuery.error ?? "");
+    if (msg.includes("REPLAY_CORRUPT")) return t("Replay data is corrupted");
+    if (msg.includes("DENIED")) return t("You do not have access to this replay");
+    return t("Failed to load replays");
+  };
+
   return (
     <ProtectedRoute>
       <div class="container mx-auto max-w-3xl p-8">
@@ -52,13 +59,13 @@ export function BombermanReplays() {
 
         <Show when={replaysQuery.isError}>
           <Alert variant="error" class="mb-4">
-            {replaysQuery.error?.toString() ?? "Failed to load replays"}
+            {replayErrorText()}
           </Alert>
         </Show>
 
         <Show when={replaysQuery.isSuccess && (replaysQuery.data ?? []).length === 0}>
           <div class="text-center py-16 text-base-content/50">
-            <p>No replays yet. Complete a match to see it here.</p>
+            <p>{t("No replays yet. Complete a match to see it here.")}</p>
           </div>
         </Show>
 
@@ -81,8 +88,7 @@ export function BombermanReplays() {
                             : t("bomberman.bo5")}
                       </Badge>
                       <span class="text-xs text-base-content/50">
-                        {replay.roundCount}{" "}
-                        {replay.roundCount === 1 ? t("bomberman.round") : `${t("bomberman.round")}s`}
+                        {t("{n} round(s)", { n: String(replay.roundCount) })}
                       </span>
                     </div>
                     <div class="text-sm mt-1">
@@ -108,16 +114,18 @@ export function BombermanReplays() {
               disabled={page() === 0}
               onClick={() => setPage((p) => Math.max(0, p - 1))}
             >
-              Previous
+              {t("Previous")}
             </Button>
-            <span class="flex items-center text-sm text-base-content/50 px-3">Page {page() + 1}</span>
+            <span class="flex items-center text-sm text-base-content/50 px-3">
+              {t("Page {n}", { n: String(page() + 1) })}
+            </span>
             <Button
               size="sm"
               variant="ghost"
               disabled={(replaysQuery.data ?? []).length < pageSize}
               onClick={() => setPage((p) => p + 1)}
             >
-              Next
+              {t("Next")}
             </Button>
           </div>
         </Show>

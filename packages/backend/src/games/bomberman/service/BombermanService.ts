@@ -393,14 +393,23 @@ export class BombermanService {
       const header: BombermanReplayHeader = {
         schemaVersion: 1,
         engineVersion: BOMBERMAN_REPLAY_ENGINE_VERSION,
-        matchId: this.gameId,
+        // Unique per match: the room's gameId is stable across rematches, and
+        // bomberman_replays.match_id has a UNIQUE constraint.
+        matchId: `${this.gameId}:${crypto.randomUUID()}`,
         config,
         participants: replayParticipants,
       };
-      this.replayId = bombermanReplayService.startRecording(
-        header,
-        gamePlayers.filter((player) => !player.isBot).map((player) => player.id),
-      );
+      try {
+        this.replayId = bombermanReplayService.startRecording(
+          header,
+          gamePlayers.filter((player) => !player.isBot).map((player) => player.id),
+        );
+      } catch (error) {
+        // Recording is best-effort: a replay DB failure must never block or
+        // crash a match start. All downstream uses null-check replayId.
+        console.error(`[Bomberman] replay recording unavailable for ${this.gameId}:`, error);
+        this.replayId = null;
+      }
     }
     this.roundRecording = {
       roundNumber: match.currentRound,
