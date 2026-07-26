@@ -19,6 +19,14 @@ type EmailConfig = {
 let transporter: nodemailer.Transporter;
 
 export async function initEmailServiceWithEnv() {
+  if (process.env["EMAIL_METHOD"] === "none") {
+    // No-op transport: serializes mail to JSON instead of hitting the network.
+    // Used by e2e tests and local setups without SMTP credentials.
+    transporter = nodemailer.createTransport({ jsonTransport: true });
+    console.log("Email service disabled (EMAIL_METHOD=none) — emails will not be sent");
+    return;
+  }
+
   const requiredVars = ["EMAIL_FROM", "SMTP_HOST", "SMTP_PORT", "SMTP_USER", "SMTP_PASS"];
 
   for (const varName of requiredVars) {
