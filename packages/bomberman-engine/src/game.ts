@@ -5,14 +5,13 @@ import type {
   BombermanConfig,
   BombermanMapDefinition,
   BombermanInputIndicator,
-  BombermanEvent,
+
   ItemType,
   PlayerId,
   TeamId,
 } from "@generale/types";
 import { GameStatus } from "@generale/types";
 
-import type { BombermanRandom } from "./random.js";
 import { pushEvent } from "./events.js";
 
 // ─── Public types ───

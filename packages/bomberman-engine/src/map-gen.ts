@@ -1,4 +1,4 @@
-import type { BombermanTile, BombermanMapDefinition, BombermanMapValidationIssue, ItemType } from "@generale/types";
+import type { BombermanTile, BombermanMapDefinition, BombermanMapValidationIssue } from "@generale/types";
 import type { BombermanRandom } from "./random.js";
 
 // ─── Public options ───
@@ -110,7 +110,7 @@ export function generateBombermanMap(options: BombermanMapGenerationOptions): Bo
   const rest = validSpawns.slice(1);
   let cur: { x: number; y: number } = validSpawns[0]!;
   for (const target of rest) {
-    const path = bfsPath(tiles, width, height, cur, target);
+    const path = bfsPath(tiles, cur, target);
     if (path) {
       for (const p of path) {
         const tile = tiles[p.y]?.[p.x];
@@ -160,8 +160,6 @@ export function generateBombermanMap(options: BombermanMapGenerationOptions): Bo
 
 function bfsPath(
   tiles: BombermanTile[][],
-  width: number,
-  height: number,
   start: { x: number; y: number },
   end: { x: number; y: number },
 ): { x: number; y: number }[] | null {
