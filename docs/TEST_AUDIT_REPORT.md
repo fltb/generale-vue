@@ -1,120 +1,160 @@
-# 测试套件审计交接记录
+# 测试套件审计报告
 
-> **状态：用户于 2026-07-26 要求立即停止。本文是可恢复工作的唯一仓库内参考。**
->
-> 本文记录实际完成、已验证、正在进行和未开始的事项；未标为“已验证”的内容不得视为完成。原批准计划来自会话资源 `local://test-suite-audit-plan.md`，其完整要求应在恢复前重新读取。
+> 状态：**已完成**。本报告替换先前的“审计交接记录”，只记录已实际执行并取得真实输出的结果。
+> 完成日期：2026-07-26。执行环境：Bun 1.3.14、Node v24.18.0（经 fnm；系统 Node 20.19.0 不满足 depcruise `^22||^24||>=26` 要求）、Vitest 3.2.4、Playwright（Chromium，headless）。
 
-## 目标与判定口径
+## 审计范围与口径
 
-审计目标：保留的测试必须有唯一、可观察的契约；测试和测试支持代码必须有明确 runner、真实依赖边界和隔离策略；最终应形成完整中文测试审计报告。
+- 范围：`packages/backend`、`packages/frontend`、`packages/bomberman-engine`、`packages/i18n`、`e2e` 全部测试与测试支撑代码，外加根 workspace 质量门与运行时冒烟。
+- 处置口径：`KEEP` / `FIX` / `MERGE` / `DELETE`。
+- 依赖标签口径:`REAL` / `MOCK` / `FAKE` / `TIME` / `NETWORK`;fake WebSocket / mock Drizzle / 假 SMTP 一律不得标为 REAL。
+- 验收标准：所有 runner 退出码为 0；e2e 两次运行（单次 + `--repeat-each=2`）全绿且**首次尝试即通过**（零 retry）。
 
-测试处置只能使用：`KEEP`、`FIX`、`MERGE`、`DELETE`。依赖标签只能使用：`REAL`、`MOCK`、`FAKE`、`TIME`、`NETWORK`。fake WebSocket/Drizzle/SMTP 不能标为真实集成。
+## 测试文件 manifest（初始 → 最终）
 
-首次扫描实际发现 **158** 个源测试文件（批准计划中的 156 已过时）：backend 41、frontend 104、bomberman-engine 2、i18n 1、e2e 10。临时基线 manifest 已写入：`/tmp/generale-test-audit-manifest.json`；它不在工作树中，恢复时应重新生成并解释计数差异。
+| 包 | 初始 | 最终 | 差值 | 原因 |
+|---|---|---|---|---|
+| backend | 41 | 37 | −4 | 删除 `debug9.test.ts`、`websocket.{basic,functional,realtime}.test.ts`（前期已提交，本次核验确认） |
+| frontend | 104 | 100 | −4 | 删除 MapTile、`routes/test.test.tsx`、Bomberman `role-room-entry`、`bomberman-sync-protocol`（前期已提交，本次核验确认） |
+| bomberman-engine | 2 | 2 | 0 | 无变化 |
+| i18n | 1 | 1 | 0 | 无变化 |
+| e2e | 10 | 8 | −2 | 删除 `kick-host.test.ts`（MERGE 进 room-management）、`in-game-interaction.test.ts`（依赖已删除的 bridge 方法，契约已被 game-flow 覆盖） |
+| **合计** | **158** | **148** | **−10** | |
 
-已记录运行时版本：Node `v24.1.0`、Bun `1.3.14`、Vitest `3.2.4`、Playwright `1.61.1`。`fnm env` 在当前 shell 输出 `rehash`，执行命令前使用 `rehash() { :; }; eval "$(fnm env)" && fnm use 24` 才能正常激活 Node 24。
+backend 37 = 32 个 vitest 单元文件 + 5 个 bun:test 集成文件（`helpers/integration.test.ts`、`routes/{auth,game,map,settings}.integration.test.ts`）。
+另删除非测试脚本 `packages/backend/scripts/testEmail.ts`（前期已提交）。
 
-## 已完成并验证
+## 按包的测试处置清单
 
-### Runner、工作区与全局清理
+未在下表列出的文件均为 `KEEP`（契约唯一、有明确 runner 与依赖边界）。
 
-- 根 `typecheck` 已扩展为 packages workspace 加 `e2e` typecheck。
-- backend scripts 已拆为：
-  - `test:unit`: `vitest run`
-  - `test:integration`: 五个显式 Bun integration 文件、`--isolate --max-concurrency=1`
-  - `test`: unit 后 integration
-  - `test:watch`: 保持 Vitest watch，且不含 Bun integration。
-- i18n 已有 `test` 与 `typecheck` scripts，开发依赖加入 Vitest/TypeScript；`createT.test.ts` 收敛为五个实际契约（English、中文翻译、单参数、多参数、全局缺失 key）。批准计划所称“空 zh-CN fallback”不符合当前 locale 数据：当前 English 的每个 key 都有非空 zh-CN 值，不能伪造 fallback 用例。
-- e2e package 已添加 `typecheck` script。
-- backend/frontend 已加入 `@vitest/coverage-v8` 3.2.4；frontend coverage include 改为 `src/**/*.{ts,tsx}`，排除测试与 `.d.ts`，Bomberman 阈值保留。
-- backend Vitest `afterEach` 清空模块 store、clear mocks、restore spies、unstub globals/env、恢复 real timers；frontend setup 对 DOM cleanup、pending fake timers、real timers、unstub、clear/restore 做清理。
-- backend 声明了实际生产 import 所需的 `@generale/i18n` workspace dependency；`bun.lock` 已刷新。
-- i18n export 增加 default 条件；Vitest backend/frontend 加 i18n alias。frontend alias 必须保持数组顺序：`@generale/i18n/locales` 必须在 `@generale/i18n` 前。
+### backend（前期已提交，本次重新执行验证）
 
-已验证：
+| 文件 | 处置 | 理由 |
+|---|---|---|
+| `src/debug9.test.ts` | DELETE | 调试残留，无契约 |
+| `src/plugins/__tests__/websocket.{basic,functional,realtime}.test.ts` | DELETE | 与保留的 3 个 canonical websocket suite 重复 |
+| `src/plugins/__tests__/websocket.{unit,domain-handlers,multi-dev-reconnection}.test.ts` | KEEP | canonical WebSocket 契约（33 pass） |
+| `src/__tests__/`（5 个集成文件） | KEEP | 每例 mkdtemp 临时 SQLite + 真实 drizzle migrations |
 
-- `bun run --filter=@generale/i18n test && bun run --filter=@generale/i18n typecheck`：5 tests pass、typecheck exit 0。
-- backend unit：32 files、481 tests pass。
-- backend integration：5 files、38 tests pass；每例 production migration 临时 SQLite。
+本次会话新增修复：`src/services/emailService.ts` 补上 `EMAIL_METHOD=none` 分支（nodemailer `jsonTransport`，不触网）。该开关在 AGENTS.md 与 e2e runner 中早已使用但后端从未实现——此缺失导致 e2e 注册旅程在假 SMTP 上挂起超时。
 
-### Backend 审计
+### frontend（前期已提交 + 本次会话修复）
 
-已删除：
+| 文件 | 处置 | 理由 |
+|---|---|---|
+| MapTile、`routes/test.test.tsx`、`role-room-entry`、`bomberman-sync-protocol` 测试 | DELETE | 无效/重复契约（前期已提交） |
+| `vitest.config.ts` | FIX | 缺少 `@generale/types`、`@generale/bomberman-engine` workspace alias，导致整包测试无法解析依赖 |
+| `tsconfig.json` | FIX | 补 paths 映射，使 `tsc --noEmit` 与 vitest 解析一致 |
+| `src/routes/games/bomberman/api/__tests__/replays.test.ts` | FIX | fetch mock 从模块作用域移入 `beforeEach`（happy-dom 初始化顺序问题） |
+| `src/routes/games/generale/components/__tests__/roomlist/index.test.tsx` | FIX | 断言更新为 `/generale/room/g1` ——原断言钉住的是一个真实产品 bug（见下） |
 
-- `packages/backend/src/debug9.test.ts`
-- `packages/backend/scripts/testEmail.ts`
-- `packages/backend/src/plugins/__tests__/websocket.basic.test.ts`
-- `packages/backend/src/plugins/__tests__/websocket.functional.test.ts`
-- `packages/backend/src/plugins/__tests__/websocket.realtime.test.ts`
+**测试驱动发现的产品 bug（本次会话修复于源头）：**
+1. `CreateRoomModal.tsx` 与 `roomlist/index.tsx` 在多游戏平台重构后仍导航到已不存在的 `/game/:id` 路由（命中 404 catch-all）——创建/加入 Generale 房间在产品中实际不可用。已改为 `/generale/room/:id`，并在 dev 冒烟中真机验证。
+2. `src/ws/manager.ts` 没有 pong 看门狗：静默断网（无 TCP FIN）时客户端永远检测不到连接死亡。已加入「连续 2 次 ping 无 pong（约 10-15s）→ 主动废弃 socket → 走既有 `reconnecting` + 退避重连路径」；`onclose` 与看门狗共用提取出的 `_handleSocketDown()`。
+3. `packages/i18n/package.json` 存在尾随逗号（Bun 容忍 JSONC，rspack 严格 JSON 解析失败），导致 rsbuild 构建失败。已移除。
+4. `packages/bomberman-engine` 的 `dist/` 从未构建（exports 指向 `./dist/index.js`），且根 `node_modules` 缺少其 workspace 链接——backend 运行时无法解析该包。已 `bun install` 重链 + 构建（构建前需先重建 `@generale/types` dist）。
 
-已完成的关键变更：
+### bomberman-engine
 
-- `src/__tests__/helpers/integration.ts` 使用每例临时 SQLite、production migrations、确定性 seed、环境恢复与递归清理；五个 Bun suite 改为独立 arrange/cleanup。
-- map integration 取得 Bomberman 15×13 tiles round-trip 契约；单独 map suite 10 pass。
-- workshop map `startGame()` 覆盖转入 `bomberman-service.test.ts`，断言公开 connector snapshot 的 playing 状态与地图维度。
-- WebSocket 收敛到 `websocket.unit.test.ts`、`websocket.domain-handlers.test.ts`、`websocket.multi-dev-reconnection.test.ts`；canonical suites 33 pass。
-- Generale core fuzz 固定 seed；map generator 调试可视化删除；Bomberman game-sync 重复 confirmedOp 微例删除；bot 的 `Math.random` 边界改为 spy；测试的 mock/instance cleanup 随新的 global cleanup 修复。
-- `GameChatInstance` 对未注册 sender 忽略；测试断言不会发出该用户的新消息。
+2 文件（`determinism.test.ts`、`replay.test.ts`）KEEP；18 tests pass（446ms）。本次会话顺带修复其 `src/game.ts`、`src/map-gen.ts` 对新版 `@generale/types` 的过期 import（frontend typecheck 曾因此失败）。
 
-已验证：`bun test packages/backend/src/__tests__/routes/map.integration.test.ts` 10 pass；`bun run --cwd packages/backend test:unit` 32 files/481 pass；`bun run --cwd packages/backend test:integration` 38 pass。integration 注册路径仍会输出 “Email service not initialized” 日志，但用例通过；后续应评估是否需消除该噪音，不能把 SMTP 纳入确定性测试。
+### i18n
 
-## 前端：部分完成，未验收
+`src/__tests__/createT.test.ts` KEEP：5 个契约（en、zh-CN、单参数、多参数、全局缺失 key）。已确认根 `bun run test` 的 `--filter=./packages/*` **确实执行** i18n（输出含 `@generale/i18n test: Tests 5 passed`），交接遗留疑问关闭，无需 fallback 串联。
 
-后台任务在用户停止时被取消。它声称完成或部分完成的修改必须重新审查和重新运行，不能据此标记完成。
+### e2e（本次会话完成）
 
-已报告的改动包括：
+基础设施（全部新建/改造）：
+- `e2e/src/global.d.ts`（新建）：与 `packages/frontend/src/global.d.ts` 逐字段对齐的 5 成员 `window.__test__` 独立声明（两 TS 项目不互通）。
+- `e2e/src/process.ts`（新建）：`stopProcess()` —— SIGTERM → 等真实 exit → 超时升级 SIGKILL → 仍等真实 exit；替换 backend.ts（3 处）/frontend.ts（2 处）原「kill + 固定 timeout 必然 resolve」模式。两次全量运行后 `ps` 均确认 **无残留子进程**。
+- `e2e/src/testScenario.ts`：构造函数接受 Playwright `TestInfo`；新增绑定字段 `outputPath = (name) => testInfo.outputPath(name)`，截图 artifact 按 test 隔离。
+- `e2e/src/bombermanSession.ts`：第 4 个构造参数注入 `outputPath`；6 处失败路径截图不再写死 `e2e/screenshots/`；公开 `screenshot()` 方法删除。
+- `e2e/src/playerSession.ts`：删除 3 个引用已废除 bridge 字段的方法（`clickTile`/`getTileOwner`/`waitForTileOwner`）；新增 `waitForConnectionState()`；`createRoom`/`getRoomId` 的路由从 `/`、`/game/` 修正为 `/generale`、`/generale/room/`。
 
-- 删除预定无效测试：MapTile、`routes/test.test.tsx`、Bomberman `role-room-entry`、`bomberman-sync-protocol`；产品 `/test` route 应保留。
-- 测试桥已收窄：frontend bridge 只保留 `roomId`、`gameState`、`wsManager`；window bridge 只读暴露 room id、game state、connection state、wait helpers。移除了 tile click、tile owner、viewport、armies、operation queue 等接口。**恢复时必须重新核对 e2e callsites 和 TypeScript 声明。**
-- `useBombermanRoomSession` role 传输测试、`useSyncedState` adapter 测试、`replay-controls` UI 测试据报告已重写；`useSyncedState` cleanup 改为拒绝 pending commits、清空 outbox 并关闭 sub。
-- 新增 `packages/frontend/src/__tests__/helpers/jsonResponse.ts`；API endpoint tests 迁移到它。`api-base.test.ts` 保留独有 credentials/header/non-JSON/ApiError 契约。
-- UI/route/tile theme 多个重复测试已收敛；报告的 focused suites 通过，但没有完成全量 frontend suite 验收。
-- 多个 frontend 测试被类型化、timer/`createRoot` cleanup 有局部修复。
+spec 处置：
 
-恢复时必须完成原计划前端步骤：
+| 文件 | 处置 | 理由 |
+|---|---|---|
+| `kick-host.test.ts` | DELETE(MERGE) | 「转移后新 host 可踢人」授权链并入 room-management 第一个 test |
+| `in-game-interaction.test.ts` | DELETE | 依赖已删除的 `clickTile`；投降/终局契约由 game-flow 独立覆盖 |
+| `room-management.test.ts` | MERGE+FIX | 第一 test 合并授权链（以 start-game 按钮消失为确定性信号，无固定 sleep）；第二 test 原样保留；URL 修正 |
+| `disconnection.test.ts` | FIX | 弃用 `(mgr as any).close()` 私有接口，改 `context().setOffline(true/false)` 真实断网，断言 reconnecting → connected → PLAYING；e2e 内 `as any` 清零 |
+| `registration-flow.test.ts` | FIX | 中文选择器（`去注册`/`用户名`/`邮箱`/`密码`）更新为现英文 UI；补勾选条款 checkbox（不勾则提交按钮 disabled） |
+| `chat-scenario.test.ts` / `game-flow.test.ts` | FIX | 房间 URL、`TestScenario(testInfo)` 接线 |
+| `bomberman-map-team.test.ts` | FIX+DELETE | 第二个纯 `fetch()` test 删除——与 backend `map.integration.test.ts` 的 `POST then GET /maps/detail/:id — preserves a Bomberman map` 完全同契约；`generateBombermanTiles()` 随之删除；doc 注释改指 backend 契约名；4 处成功路径截图删除 |
+| `bomberman-series.test.ts` | FIX | 9 处成功路径截图删除；ctor/beforeEach 接线 |
+| `bomberman-spectate-replay.test.ts` | FIX | 5 处成功路径截图删除；ctor/beforeEach 接线 |
 
-1. 用 source/LSP references（若 TS LSP 可用）确认 bridge 净化后的全调用方；不得留兼容字段或空 handler。
-2. 对所有删除、role transport、generic sync、replay controls、API helper、DOM 行为、UI matrix、tileTheme、chat/lobby waits、Pixi doubles、timer/root cleanup 逐项复核。
-3. 清除保留 frontend tests 与 e2e helpers 中不必要的 `as any`、debug logs、未释放 subscriptions/roots。
-4. 在 `packages/frontend` cwd 执行 `bun run test` 和 `bun run typecheck`。当前已知 Vitest 会产生 Solid multiple-instance/disposal 警告；不得把 warning 当作通过依据，也不得掩盖真实 failure。
+## 依赖标签统计（按 suite 类别）
 
-## E2E：未开始
+| Suite | 标签 | 说明 |
+|---|---|---|
+| backend vitest（32 文件/481 tests） | FAKE + MOCK + TIME | `vitest.setup.ts` 整体 mock `drizzle-orm/bun-sqlite`；WebSocket 用 fake 对象；nodemailer mock；无真实 DB/网络 |
+| backend bun:test（5 文件/38 tests） | REAL | 每例临时 SQLite 文件库 + 真实 drizzle migrations + 真实 Elysia 路由 |
+| frontend vitest（100 文件/600 tests） | FAKE + MOCK + TIME | happy-dom、FakeWebSocket、fetch mock、fake timers |
+| bomberman-engine（2 文件/18 tests） | REAL(纯函数) | 确定性引擎，无外部依赖，固定 seed |
+| i18n（1 文件/5 tests） | REAL | 直接加载真实 locale JSON |
+| e2e（8 spec/9 tests） | REAL + NETWORK | 真实 backend 子进程 + rsbuild dev + Chromium；断网用 `setOffline` 模拟 NETWORK 边界 |
 
-以下是批准计划的待办，尚未执行：
+## Coverage 结果
 
-- 最终只保留八条旅程：registration、game flow、chat、Bomberman BO3、spectate/replay、map/team、disconnection、合并后的 room-management permissions。
-- 删除 `kick-host.test.ts` 和 `in-game-interaction.test.ts`；把 host transfer → kick 授权链合并到 `room-management.test.ts`。
-- Bomberman map HTTP API 契约应仅在 backend integration，不应留在 e2e。
-- 断线必须使用 `page.context().setOffline(true/false)`；bridge 只读 `getConnectionState`，等待 reconnecting 再 connected，并验证同一 room/game 的 PLAYING 状态。
-- 新增 `e2e/src/global.d.ts`，精确定义真实读取的 window bridge；spec 不得 `as any`。
-- 新增 `e2e/src/process.ts` 的确定性 child process shutdown；controllers 和 `TestScenario.stop()` 必须使用它，artifact 路径从 `TestInfo.outputPath()` 注入。
-- 去掉成功路径截图和固定 sleeps；保留失败截图且每 case 使用隔离 artifact path。
-- 更新八个 specs 的 `TestScenario(testInfo)` 初始化；保持 Chromium-only、workers 1。执行 `bun run test:e2e` 及 `bun run --cwd e2e test -- --repeat-each=2`，零 retry 才可验收。
+`vitest run --coverage`（v8），两包退出码均 0：
 
-## 仍未执行的最终验证与报告要求
+| 包 | Lines | Branches | Functions | Statements |
+|---|---|---|---|---|
+| backend | 51.94% | 71.99% | 64.62% | 51.94% |
+| frontend | 55.61% | 80.93% | 65.20% | 55.61% |
 
-以下都未完成，恢复后必须重新实跑并只记录真实输出：
+Bomberman 专属阈值（`src/routes/games/bomberman/**`：lines 20 / branches 10 / functions 10 / statements 20）达标（coverage 运行退出码 0，未触发阈值失败）。
 
-1. `bun run --cwd packages/bomberman-engine test`。
-2. 完整 frontend/i18n/backend workspace test，再确认根 `bun run test` 包含 i18n。
-3. 两次 e2e 运行及八旅程收集数。
-4. coverage：
-   - `bun run --cwd packages/backend vitest run --coverage`
-   - `bun run --cwd packages/frontend vitest run --coverage`
-   记录 lines/branches/functions/statements 和阈值结果。
-5. 根质量门：`bun run typecheck`、`bun run test`、`bun run ci:lint`、`bun run check:conventions`、`bun run check:architecture`、`bun run arch`。
-6. `bun run dev` runtime smoke：login → create room → join → start → play/surrender → end。
-7. 重新生成最终 manifest；目标计划写的是 146 files（backend 36、frontend 99、engine 2、i18n 1、e2e 8），但初始实际是 158 而不是 156，必须逐项解释差异，禁止硬写目标数字。
+## e2e 旅程清单与执行结果
 
-## 恢复顺序
+8 条旅程（Chromium-only，workers=1，retries=1 仅作保险丝）：
 
-1. 阅读原批准计划 `local://test-suite-audit-plan.md`（若仍可用）与本交接记录。
-2. 先完成并验证 frontend，再完成并验证 e2e；不要在未完成前撰写“通过”的最终报告。
-3. 重新跑全部最终验证；最后替换本文为按文件处置、support assets、收集/执行数、coverage、e2e 产物与真实命令时长完整记录的正式报告。
+1. registration-flow — 注册新用户 + seeded 用户登录建房
+2. game-flow — 4 人登录 → 建房 → ready → 开局 → 连环投降 → 终局
+3. chat-scenario — 双人房间聊天互发
+4. room-management — host 转移改变权限（新 host 踢人）；host 直接踢人
+5. disconnection — 游戏中真实断网 → reconnecting → 恢复 → PLAYING
+6. bomberman-series — BO3 轮转投降、比分、冠军、回大厅
+7. bomberman-spectate-replay — 观战 + 终局 replay API
+8. bomberman-map-team — 团队模式 UI 全流程
 
-## 明确限制
+执行记录（最终代码状态下）：
+- `bun run test:e2e`：**9 passed (1.9m)**，退出码 0，输出中无任何 `retry`/`flaky`，全部首次尝试通过。
+- `bun run --cwd e2e test -- --repeat-each=2`：**18 passed (3.3m)**，退出码 0，零 retry。
+- 两次运行后 `ps aux | grep -E "rsbuild|bun run src/index"` 均为空（`stopProcess` 生效，无僵尸进程）。
 
-- 外部真实 SMTP 不进入确定性测试。
-- e2e 仍是独立 `test:e2e`，不应擅自纳入根快速 `test` 或 CI。
-- 不要提交 coverage HTML/JSON 或 Playwright 原始 artifact。
-- 此次停止前没有运行 formatter、lint、architecture、full root test、coverage、dev smoke、浏览器或 e2e；因此这些都不能报告为通过。
+## 质量门结果
+
+| 命令 | 退出码 | 备注 |
+|---|---|---|
+| `bun run typecheck` | 0 | 5 包 + e2e 全部 0 |
+| `bun run test` | 0 | i18n 5、engine 18、backend 481(vitest)+38(bun:test)、frontend 600，全部通过 |
+| `bun run ci:lint` | 0 | biome ci，0 error 0 warning |
+| `bun run check:conventions` | 0* | *工作树含用户未跟踪草稿 `packages/frontend/src/routes/games/bomberman/api/lobbyApi.ts` 时为 1（forbidden import 唯一来源即该文件）；将其移出后运行为 0。该草稿属本审计范围外，未删除、未修改 |
+| `bun run check:architecture` | 0 | 需 Node ≥22（fnm use 24）；`✔ no dependency violations (367 modules, 526 dependencies)` |
+| `bun run arch` | 0 | 需 Node ≥22；ts-archunit 报告中唯一非基线新增重复函数体同样指向上述范围外草稿 |
+
+## 运行时冒烟（bun run dev）
+
+真实 dev 服务（backend :3000 + rsbuild :5173，`EMAIL_METHOD=none`，seed 4 用户）+ headless Chromium 实测：
+
+- test-alice 登录 → `/generale` 大厅 → 建房 → **成功导航到 `/generale/room/game_1785076266266`**（验证 CreateRoomModal 导航修复在真机生效）；
+- test-bob 登录 → 直接进房 URL → 出现在 Player List → Ready；
+- alice Start Game → 游戏进入 **In Game / Tick 26**（DOM 断言）→ 游戏结束回到房间视图；
+- Surrender 按钮触发原生 `confirm("确定投降吗？")` —— 完整「投降 → game-end-overlay」契约由 e2e game-flow spec 覆盖（两次运行首试通过）；
+- 结束后 `hub stop` 关闭两个 dev 服务，无残留进程。
+
+注：生产模式下 `window.__test__` bridge 确认不存在（未带 `?__test__=1` 时 `typeof window.__test__ === "undefined"`），bridge 门控正确。
+
+## 已知限制
+
+1. **范围外草稿**：未跟踪文件 `bomberman/api/lobbyApi.ts`（与 `api/rooms.ts` 重复实现、无引用）是 `check:conventions` 非零与 ts-archunit 报告项的唯一来源；处理与否由用户决定。
+2. **Node 版本**：`check:architecture` / `arch` 需 Node ≥22（本机经 `fnm use 24`）；系统默认 Node 20.19.0 会直接失败。
+3. **zh-CN locale** 有 4 个未翻译 key（值为英文原文，L72/392/504/526）——内容翻译问题，不在测试审计范围。
+4. **coverage 绝对值**（backend lines ~52%、routes/中间件多为 0%）反映单元层大量 mock 化 + 路由契约主要由 bun:test 集成与 e2e 覆盖（这两层不计入 vitest coverage）。
+5. **冒烟测试中的多标签页**：同一浏览器 profile 的多个标签共享 localStorage 会话（后登录者覆盖先登录者）——e2e 使用相互隔离的 browser context，正是正确做法。
+6. SMTP 真实外发不进入任何确定性测试（`EMAIL_METHOD=none` 已在后端实现）。
+7. e2e 保持独立 `test:e2e`，未纳入根 `test` 或 CI 快速门。
