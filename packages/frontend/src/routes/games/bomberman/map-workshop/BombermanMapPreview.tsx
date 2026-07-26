@@ -58,10 +58,10 @@ export default function BombermanMapPreview() {
       if (data && typeof data === "object" && "tiles" in data) {
         setMap(data);
       } else {
-        setError("Invalid map data");
+        setError(t("Invalid map data"));
       }
     } catch {
-      setError("Failed to load map");
+      setError(t("Failed to load map"));
     } finally {
       setLoading(false);
     }

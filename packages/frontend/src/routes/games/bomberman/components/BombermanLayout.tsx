@@ -85,13 +85,13 @@ export default function BombermanLayout(props: Props) {
             href="/bomberman/maps"
             class="text-xs px-2 py-1 rounded border border-base-300 hover:bg-base-300 text-base-content/60 hover:text-base-content"
           >
-            {t("bomberman.maps") || "Maps"}
+            {t("bomberman.maps")}
           </A>
           <A
             href="/bomberman/replays"
             class="text-xs px-2 py-1 rounded border border-base-300 hover:bg-base-300 text-base-content/60 hover:text-base-content"
           >
-            {t("bomberman.replays") || "Replays"}
+            {t("bomberman.replays")}
           </A>
           <Button
             size="sm"

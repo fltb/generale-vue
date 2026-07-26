@@ -13,6 +13,7 @@ import { useSyncedState } from "~/hooks/useSyncedState";
 import { applyBombermanRoomEventLocal } from "./bombermanRoomReducer";
 import { applyBombermanEventLocal } from "./bombermanGameReducer";
 import bridge from "~/testBridge";
+import { useT } from "~/i18n/useT";
 
 /**
  * Public shape of a synced-state handle, mirroring what useSyncedState returns.
@@ -113,6 +114,7 @@ export function useBombermanRoomSession(params: {
   const [selfStatus, setSelfStatus] = createSignal<"lobby" | "playing" | "spectating">("lobby");
   const [gameJustEnded, setGameJustEnded] = createSignal(false);
   const [startedThisSession] = createSignal(false);
+  const { t } = useT();
 
   const showingGameUI = createMemo(
     () =>
@@ -240,11 +242,11 @@ export function useBombermanRoomSession(params: {
           gameSync.reset(null as unknown as BombermanState);
           break;
         case "kicked":
-          setError("You have been kicked from the room");
+          setError(t("You have been kicked from the room"));
           setPhase("error");
           break;
         case "disbanded":
-          setError("The room has been disbanded");
+          setError(t("The room has been disbanded"));
           setPhase("error");
           break;
         case "displaced":
@@ -300,7 +302,7 @@ export function useBombermanRoomSession(params: {
         data?: BombermanConnectResponse;
       } = await res.json();
       if (!(d.success && d.data)) {
-        setError(d.message || "Failed to connect");
+        setError(d.message || t("Failed to connect"));
         setPhase("error");
         return;
       }
@@ -337,7 +339,7 @@ export function useBombermanRoomSession(params: {
         roomSync.connect();
       }
     } catch {
-      setError("Network error");
+      setError(t("Network error"));
       setPhase("error");
     }
   });

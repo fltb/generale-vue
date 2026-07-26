@@ -12,7 +12,7 @@ const SORT_OPTIONS = [
   { value: "usage", label: "Most popular" },
   { value: "largest", label: "Largest" },
   { value: "smallest", label: "Smallest" },
-];
+] as const;
 
 export default function BombermanMapsList() {
   const { t } = useT();
@@ -76,7 +76,7 @@ export default function BombermanMapsList() {
             />
           </div>
           <Select bordered value={sortBy()} onChange={(e) => setSortBy(e.currentTarget.value)}>
-            <For each={SORT_OPTIONS}>{(opt) => <option value={opt.value}>{opt.label}</option>}</For>
+            <For each={SORT_OPTIONS}>{(opt) => <option value={opt.value}>{t(opt.label)}</option>}</For>
           </Select>
         </div>
 

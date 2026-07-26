@@ -84,7 +84,7 @@ export default function BombermanMapEditor() {
       }
       setMapId(id);
     } catch {
-      setError("Failed to load map");
+      setError(t("Failed to load map"));
     } finally {
       setLoading(false);
     }
@@ -193,7 +193,7 @@ export default function BombermanMapEditor() {
   async function handleSave(publish: boolean) {
     const m = map();
     if (!name().trim()) {
-      setError("Please enter a map name");
+      setError(t("Please enter a map name"));
       return;
     }
 
@@ -223,7 +223,7 @@ export default function BombermanMapEditor() {
       }
       navigate("/bomberman/maps");
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to save map");
+      setError(e instanceof Error ? e.message : t("Failed to save map"));
     } finally {
       setSaving(false);
     }
@@ -409,7 +409,7 @@ export default function BombermanMapEditor() {
                     </ul>
                   }
                 >
-                  <p class="text-xs text-success mt-1">No issues</p>
+                  <p class="text-xs text-success mt-1">{t("No issues")}</p>
                 </Show>
               </div>
 
@@ -428,7 +428,7 @@ export default function BombermanMapEditor() {
                 </Button>
                 <Show when={editId()}>
                   <Button variant="ghost" onClick={handleDiscardDraft}>
-                    Discard Draft
+                    {t("Discard Draft")}
                   </Button>
                 </Show>
               </div>
