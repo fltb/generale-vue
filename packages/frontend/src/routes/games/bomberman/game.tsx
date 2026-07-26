@@ -307,9 +307,7 @@ export function BombermanGame(props: BombermanGameProps) {
                   })}
                 </div>
                 <Show when={nextRoundCountdown() !== null}>
-                  <div class="text-4xl text-yellow-400 font-bold font-mono animate-pulse">
-                    {nextRoundCountdown()}
-                  </div>
+                  <div class="text-4xl text-yellow-400 font-bold font-mono animate-pulse">{nextRoundCountdown()}</div>
                   <div class="text-sm text-white/70 mt-1">
                     {t("bomberman.nextRoundIn", { s: String(nextRoundCountdown() ?? 0) })}
                   </div>

@@ -1,6 +1,9 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@solidjs/testing-library";
+import { PreGamePlayerStatus } from "@generale/types";
+import type { JSX } from "solid-js";
 
+type MockProps = { children?: JSX.Element; [key: string]: unknown };
 vi.mock("~/routes/games/generale/hooks/usePreGameRoom", () => ({
   usePreGameRoom: () => ({
     room: () => ({
@@ -9,7 +12,7 @@ vi.mock("~/routes/games/generale/hooks/usePreGameRoom", () => ({
       players: [],
       teams: [],
       gameSetting: { speed: 1, tileGrow: {}, afkThreshold: 30 },
-      mapSetting: { type: "random", width: 20, height: 20, tileFrequency: {} as any, sizeLabel: "medium" },
+      mapSetting: { type: "random", width: 20, height: 20, tileFrequency: {}, sizeLabel: "medium" },
       roomType: "standard",
       teamMode: "ffa",
       teamCount: 0,
@@ -19,7 +22,7 @@ vi.mock("~/routes/games/generale/hooks/usePreGameRoom", () => ({
     selfId: () => "p1",
     isHost: () => true,
     selfReady: () => false,
-    selfStatus: () => "LOBBY" as any,
+    selfStatus: () => PreGamePlayerStatus.Lobby,
     notice: () => null,
     isKicked: () => false,
     displaced: () => false,
@@ -48,17 +51,17 @@ vi.mock("~/routes/games/generale/hooks/usePreGameRoom", () => ({
 }));
 
 vi.mock("@solidjs/router", () => ({
-  A: (p: any) => p.children,
+  A: (p: MockProps) => p.children,
   useNavigate: () => vi.fn(),
   useSearchParams: () => [() => ({}), vi.fn()],
 }));
 
 vi.mock("~/ui", () => ({
-  Alert: (p: any) => <div {...p} />,
-  Button: (p: any) => <button {...p}>{p.children}</button>,
-  Card: (p: any) => <div {...p} />,
-  Panel: (p: any) => <div {...p} />,
-  Range: (p: any) => <div {...p} />,
+  Alert: (p: MockProps) => <div {...p} />,
+  Button: (p: MockProps) => <button {...p}>{p.children}</button>,
+  Card: (p: MockProps) => <div {...p} />,
+  Panel: (p: MockProps) => <div {...p} />,
+  Range: (p: MockProps) => <div {...p} />,
   TakeoverOverlay: () => null,
 }));
 

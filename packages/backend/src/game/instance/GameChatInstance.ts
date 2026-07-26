@@ -128,6 +128,7 @@ export class GameChatInstance implements IBaseInstance<ChatClientToServer, ChatS
 
   /** 处理用户发消息 */
   private handleSendMessage(pid: PlayerId, msg: ChatSendMessageReq) {
+    if (!this.playerNames.has(pid)) return;
     const name = this.playerNames.get(pid) || `玩家${pid}`;
     const content = msg.content.trim();
     if (!content) {

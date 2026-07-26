@@ -1,25 +1,30 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@solidjs/testing-library";
 import { PreGameMapType } from "@generale/types";
-import type { PreGameCustomMapSetting, PreGameMapSetting, PreGameRandomMapSetting } from "@generale/types";
+import type { PreGameCustomMapSetting, PreGameImportedMapSetting, PreGameRandomMapSetting } from "@generale/types";
+
+type MapSelectorProps = {
+  placeholder?: string;
+  [key: string]: unknown;
+};
 
 vi.mock("~/components/map-editor/MapSelector", () => ({
-  MapSelector: (p: any) => <div data-testid="map-selector">{p.placeholder}</div>,
+  MapSelector: (p: MapSelectorProps) => <div data-testid="map-selector">{p.placeholder}</div>,
 }));
 
 import { PreGameMapSettingForm } from "~/routes/games/generale/components/room/PreGameMapSettingForm";
 
-function randomSetting(overrides?: Partial<PreGameRandomMapSetting>): PreGameMapSetting {
+function randomSetting(overrides?: Partial<PreGameRandomMapSetting>): PreGameRandomMapSetting {
   return {
     type: PreGameMapType.Random,
     width: 32,
     height: 24,
     tileFrequency: {},
     ...overrides,
-  } as PreGameMapSetting;
+  };
 }
 
-function customSetting(overrides?: Partial<PreGameCustomMapSetting>): PreGameMapSetting {
+function customSetting(overrides?: Partial<PreGameCustomMapSetting>): PreGameCustomMapSetting {
   return {
     type: PreGameMapType.Custom,
     width: 32,
@@ -27,11 +32,11 @@ function customSetting(overrides?: Partial<PreGameCustomMapSetting>): PreGameMap
     tileFrequency: {},
     customData: "",
     ...overrides,
-  } as PreGameMapSetting;
+  };
 }
 
-function importedSetting(mapId?: string): PreGameMapSetting {
-  return { type: PreGameMapType.Imported, customMapId: mapId ?? "map1" } as PreGameMapSetting;
+function importedSetting(mapId?: string): PreGameImportedMapSetting {
+  return { type: PreGameMapType.Imported, customMapId: mapId ?? "map1" };
 }
 
 describe("PreGameMapSettingForm", () => {

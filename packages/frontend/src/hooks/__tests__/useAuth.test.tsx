@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor, fireEvent } from "@solidjs/testing-library";
 import { QueryClient, QueryClientProvider } from "@tanstack/solid-query";
+import type { UserProfileRespBody, UserSuccessRespBody } from "@generale/types/dist/api";
 import { AuthProvider, useAuth } from "../useAuth";
-
 vi.mock("~/api/auth", () => ({
   meApi: vi.fn(),
   loginApi: vi.fn(),
@@ -13,6 +13,12 @@ vi.mock("~/api/auth", () => ({
 }));
 
 import * as authApi from "~/api/auth";
+const alice: UserProfileRespBody = {
+  id: "u1",
+  username: "alice",
+  email: "alice@example.com",
+};
+const aliceResponse: UserSuccessRespBody = { user: alice };
 
 function TestConsumer() {
   const auth = useAuth();
@@ -48,19 +54,19 @@ beforeEach(() => {
 });
 
 describe("useAuth", () => {
-  it("shows null user initially when meApi returns no data", async () => {
-    vi.mocked(authApi.meApi).mockResolvedValue({ user: undefined as any });
-    renderWithProviders();
+  it("shows null user when meApi returns no data", async () => {
+    vi.mocked(authApi.meApi).mockRejectedValue(new Error("unauthenticated"));
+    const view = renderWithProviders();
     await waitFor(() => {
       expect(screen.getByTestId("user").textContent).toBe("null");
     });
+    view.unmount();
   });
 
   it("calls loginApi on login button click", async () => {
-    vi.mocked(authApi.meApi).mockResolvedValue({ user: undefined as any });
-    vi.mocked(authApi.loginApi).mockResolvedValue({ user: { id: "u1", username: "alice" } as any });
-
-    renderWithProviders();
+    vi.mocked(authApi.meApi).mockRejectedValue(new Error("unauthenticated"));
+    vi.mocked(authApi.loginApi).mockResolvedValue(aliceResponse);
+    const view = renderWithProviders();
 
     await waitFor(() => {
       expect(screen.getByTestId("user").textContent).toBe("null");
@@ -71,13 +77,13 @@ describe("useAuth", () => {
     await waitFor(() => {
       expect(authApi.loginApi).toHaveBeenCalledWith({ username: "test", password: "pass" });
     });
+    view.unmount();
   });
 
   it("calls logoutApi on logout button click", async () => {
-    vi.mocked(authApi.meApi).mockResolvedValue({ user: { id: "u1", username: "alice" } as any });
-    vi.mocked(authApi.logoutApi).mockResolvedValue({ ok: true } as any);
-
-    renderWithProviders();
+    vi.mocked(authApi.meApi).mockResolvedValue(aliceResponse);
+    vi.mocked(authApi.logoutApi).mockResolvedValue({ ok: true });
+    const view = renderWithProviders();
 
     await waitFor(() => {
       expect(screen.getByTestId("user").textContent).toBe("alice");
@@ -88,11 +94,10 @@ describe("useAuth", () => {
     await waitFor(() => {
       expect(authApi.logoutApi).toHaveBeenCalled();
     });
+    view.unmount();
   });
 
   it("throws error if used outside AuthProvider", () => {
-    const orig = console.error;
-    console.error = vi.fn();
     expect(() =>
       render(() => {
         const Test = () => {
@@ -102,6 +107,5 @@ describe("useAuth", () => {
         return <Test />;
       }),
     ).toThrow("useAuth must be used inside AuthProvider");
-    console.error = orig;
   });
 });

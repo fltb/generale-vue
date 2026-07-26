@@ -1,16 +1,33 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@solidjs/testing-library";
+import type { JSX } from "solid-js";
+import type { GameSummaryRoute } from "@generale/types";
+
+type AnchorProps = { children?: JSX.Element };
+type MockProps = { children?: JSX.Element; [key: string]: unknown };
 
 const mockNavigate = vi.fn();
 const mockInvalidateQueries = vi.fn();
 
-let mockQueryData: unknown[] = [];
+let mockQueryData: GameSummaryRoute[] = [];
 let mockQueryLoading = false;
 let mockQueryError: { message: string } | null = null;
 
+function makeGame(overrides: Partial<GameSummaryRoute> = {}): GameSummaryRoute {
+  return {
+    id: "g1",
+    roomName: "Test Game",
+    playerCount: 1,
+    maxPlayers: 4,
+    status: "lobby",
+    hasPassword: false,
+    type: "standard",
+    ...overrides,
+  };
+}
+
 vi.mock("@tanstack/solid-query", () => ({
-  useQuery: (opts: any) => {
-    const fn = typeof opts === "function" ? opts : () => opts;
+  useQuery: (_opts: unknown) => {
     return {
       get isLoading() { return mockQueryLoading; },
       get isError() { return !!mockQueryError; },
@@ -34,7 +51,7 @@ vi.mock("@tanstack/solid-query", () => ({
 
 vi.mock("@solidjs/router", () => ({
   useNavigate: () => mockNavigate,
-  A: (p: any) => p.children,
+  A: (p: AnchorProps) => p.children,
   useSearchParams: () => [() => ({}), vi.fn()],
 }));
 
@@ -49,7 +66,7 @@ vi.mock("~/routes/games/generale/api/gameApi", () => ({
 }));
 
 vi.mock("~/routes/games/generale/components/roomlist/CreateRoomModal", () => ({
-  default: (p: any) => <div data-testid="create-room-modal" />,
+  default: (_p: MockProps) => <div data-testid="create-room-modal" />,
 }));
 
 vi.mock("~/routes/games/generale/components/roomlist/RoomFilter", () => ({
@@ -100,17 +117,7 @@ describe("RoomList", () => {
   });
 
   it("renders game cards on success with data", () => {
-    mockQueryData = [
-      {
-        id: "g1",
-        roomName: "Test Game",
-        hostName: "Host1",
-        type: "standard",
-        playerCount: 2,
-        maxPlayers: 4,
-        status: "lobby",
-      },
-    ];
+    mockQueryData = [makeGame({ hostName: "Host1", playerCount: 2 })];
     render(() => <RoomList />);
     expect(screen.getByText("Test Game")).toBeInTheDocument();
     expect(screen.getByText("Host1")).toBeInTheDocument();
@@ -118,15 +125,7 @@ describe("RoomList", () => {
   });
 
   it("renders Join button for game cards", () => {
-    mockQueryData = [
-      {
-        id: "g1",
-        roomName: "Test Game",
-        playerCount: 1,
-        maxPlayers: 4,
-        status: "lobby",
-      },
-    ];
+    mockQueryData = [makeGame()];
     render(() => <RoomList />);
     expect(screen.getByText("Join")).toBeInTheDocument();
   });
@@ -138,45 +137,20 @@ describe("RoomList", () => {
   });
 
   it("navigates to game when Join clicked", () => {
-    mockQueryData = [
-      {
-        id: "g1",
-        roomName: "Test Game",
-        playerCount: 1,
-        maxPlayers: 4,
-        status: "lobby",
-      },
-    ];
+    mockQueryData = [makeGame()];
     render(() => <RoomList />);
     fireEvent.click(screen.getByText("Join"));
     expect(mockNavigate).toHaveBeenCalledWith("/game/g1");
   });
 
   it("shows Locked badge for password-protected rooms", () => {
-    mockQueryData = [
-      {
-        id: "g1",
-        roomName: "Locked Game",
-        hasPassword: true,
-        playerCount: 1,
-        maxPlayers: 4,
-        status: "lobby",
-      },
-    ];
+    mockQueryData = [makeGame({ roomName: "Locked Game", hasPassword: true })];
     render(() => <RoomList />);
     expect(screen.getByText("Locked")).toBeInTheDocument();
   });
 
   it("shows Details button for game cards", () => {
-    mockQueryData = [
-      {
-        id: "g1",
-        roomName: "Test Game",
-        playerCount: 1,
-        maxPlayers: 4,
-        status: "lobby",
-      },
-    ];
+    mockQueryData = [makeGame()];
     render(() => <RoomList />);
     expect(screen.getByText("Details")).toBeInTheDocument();
   });

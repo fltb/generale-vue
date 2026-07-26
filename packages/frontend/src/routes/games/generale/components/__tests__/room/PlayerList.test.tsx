@@ -1,29 +1,33 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@solidjs/testing-library";
 import { PlayerColor, PreGamePlayerReadyState, PreGamePlayerStatus } from "@generale/types";
+import type { PreGamePlayerInfo } from "@generale/types";
+import type { JSX } from "solid-js";
 import { PlayerList } from "~/routes/games/generale/components/room/PlayerList";
+import type { PlayerListProps } from "~/routes/games/generale/components/room/PlayerList";
 
+type AnchorProps = { children?: JSX.Element };
 vi.mock("@solidjs/router", () => ({
-  A: (p: any) => p.children,
+  A: (p: AnchorProps) => p.children,
   useNavigate: () => vi.fn(),
   useSearchParams: () => [() => ({}), vi.fn()],
 }));
 
-function makePlayer(id: string, overrides?: Record<string, unknown>) {
+function makePlayer(id: string, overrides?: Partial<PreGamePlayerInfo>): PreGamePlayerInfo {
   return {
     id,
     name: `user${id}`,
     displayName: `User ${id}`,
-    teamId: "",
+    teamId: "team1",
     isHost: id === "p1",
     ready: PreGamePlayerReadyState.Ready,
     tileColor: PlayerColor.Blue,
     status: PreGamePlayerStatus.Lobby,
     ...overrides,
-  } as any;
+  };
 }
 
-function defaultProps() {
+function defaultProps(): PlayerListProps {
   return {
     players: [makePlayer("p1"), makePlayer("p2", { isHost: false, ready: PreGamePlayerReadyState.Ready })],
     teams: [],

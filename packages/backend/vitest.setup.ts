@@ -1,4 +1,4 @@
-import { vi } from "vitest";
+import { afterEach, vi } from "vitest";
 import * as nodeCrypto from "node:crypto";
 
 // Polyfill globalThis.crypto for elysia (Node 18 doesn't provide it as a global)
@@ -101,3 +101,12 @@ vi.mock("drizzle-orm/bun-sqlite", () => ({
         fns.every((f) => f(row)),
   ),
 }));
+
+afterEach(() => {
+  store.clear();
+  vi.clearAllMocks();
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+  vi.unstubAllEnvs();
+  vi.useRealTimers();
+});

@@ -3,36 +3,30 @@ import { render, screen } from "@solidjs/testing-library";
 import { Checkbox } from "../Checkbox";
 
 describe("Checkbox", () => {
-  it("renders checkbox input", () => {
-    render(() => <Checkbox />);
+  it.each([
+    ["default", undefined],
+    ["small", "sm"],
+  ] as const)("%s checkbox renders", (_name, size) => {
+    render(() => <Checkbox size={size} />);
     expect(screen.getByRole("checkbox")).toBeInTheDocument();
   });
 
-  it("applies size class", () => {
-    render(() => <Checkbox size="sm" />);
-    expect(screen.getByRole("checkbox").className).toContain("checkbox-sm");
+  it("applies size and custom classes", () => {
+    render(() => <Checkbox size="sm" class="my-cb" />);
+    expect(screen.getByRole("checkbox")).toHaveClass("checkbox-sm", "my-cb");
   });
 
-  it("renders checked state", () => {
-    render(() => <Checkbox checked />);
-    const cb = screen.getByRole("checkbox") as HTMLInputElement;
-    expect(cb.checked).toBe(true);
-  });
-
-  it("renders disabled state", () => {
-    render(() => <Checkbox disabled />);
-    expect(screen.getByRole("checkbox")).toBeDisabled();
+  it("renders checked and disabled states", () => {
+    render(() => <Checkbox checked disabled />);
+    const checkbox = screen.getByRole("checkbox");
+    expect(checkbox).toBeChecked();
+    expect(checkbox).toBeDisabled();
   });
 
   it("triggers onChange", () => {
-    let val = false;
-    render(() => <Checkbox onChange={() => { val = true; }} />);
+    let changed = false;
+    render(() => <Checkbox onChange={() => { changed = true; }} />);
     screen.getByRole("checkbox").click();
-    expect(val).toBe(true);
-  });
-
-  it("merges custom class", () => {
-    render(() => <Checkbox class="my-cb" />);
-    expect(screen.getByRole("checkbox").className).toContain("my-cb");
+    expect(changed).toBe(true);
   });
 });

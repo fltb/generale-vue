@@ -1,6 +1,7 @@
 import { type GameId, GamePhase } from "@generale/types";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { GeneraleRoom } from "../../instance/GeneraleRoom";
+import { GeneraleRoom } from "../../instance/GeneraleRoom";
+import { GameChatInstance } from "../../../../game/instance/GameChatInstance";
 import { GeneraleGame } from "../../instance/GeneraleGame";
 import { GeneraleService, type GeneraleServiceConfig } from "../GeneraleService";
 import type { WSContextBase } from "../../../../plugins/websocket";
@@ -69,6 +70,33 @@ vi.mock("../../../../game/instance/GameChatInstance", () => ({
     onStartGame: vi.fn(),
   })),
 }));
+function installMocks(): void {
+  vi.mocked(GeneraleRoom).mockImplementation(() => ({
+    getState: vi.fn().mockReturnValue({ players: [], playerLimit: 8 }),
+    destroy: vi.fn(),
+    onStateChange: vi.fn(() => () => {}),
+    onDisband: vi.fn(() => () => {}),
+    broadcastGameEnded: vi.fn(),
+    resume: vi.fn(),
+    suspend: vi.fn(),
+    addPlayer: vi.fn().mockReturnValue({ success: true }),
+    onStartGame: vi.fn(),
+  }) as unknown as GeneraleRoom);
+  vi.mocked(GeneraleGame).mockImplementation(() => ({
+    getState: vi.fn().mockReturnValue({ players: {}, status: "Playing" }),
+    destroy: vi.fn(),
+    addPlayer: vi.fn().mockReturnValue({ success: true }),
+    advance: vi.fn(),
+    startTicking: vi.fn(),
+    stopTicking: vi.fn(),
+    onStartGame: vi.fn(),
+  }) as unknown as GeneraleGame);
+  vi.mocked(GameChatInstance).mockImplementation(() => ({
+    destroy: vi.fn(),
+    addPlayer: vi.fn().mockReturnValue({ success: true }),
+    onStartGame: vi.fn(),
+  }) as unknown as GameChatInstance);
+}
 
 function gs(s: GeneraleService) {
   return s as unknown as {
@@ -86,8 +114,8 @@ function gs(s: GeneraleService) {
 describe("GeneraleService Domain Handlers", () => {
   let generaleService: GeneraleService;
   let config: GeneraleServiceConfig;
-
   beforeEach(() => {
+    installMocks();
     config = {
       gameId: "test-game-123" as GameId,
       maxPlayers: 4,

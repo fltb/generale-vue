@@ -1,6 +1,7 @@
 import { type GameId, GamePhase, GameStatus, PreGameMapType } from "@generale/types";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { registerDomainHandler, unregisterDomainHandler } from "../../../../plugins/websocket";
+import { GameChatInstance } from "../../../../game/instance/GameChatInstance";
 import { GeneraleGame } from "../../instance/GeneraleGame";
 import { GeneraleRoom } from "../../instance/GeneraleRoom";
 import { GeneraleService, type GeneraleServiceConfig } from "../GeneraleService";
@@ -62,6 +63,44 @@ vi.mock("../../../../game/instance/GameChatInstance", () => ({
     suspend: vi.fn(),
   })),
 }));
+function installMocks(): void {
+  vi.mocked(GeneraleRoom).mockImplementation(() => ({
+    getState: vi.fn().mockReturnValue({
+      players: [
+        { id: "player1", name: "Player 1", teamId: "team1", isHost: true, ready: false, tileColor: 0xff0000 },
+        { id: "player2", name: "Player 2", teamId: "team2", isHost: false, ready: true, tileColor: 0x00ff00 },
+      ],
+      playerLimit: 8,
+      gameSetting: { speed: 1, tileGrowth: 1, tileConsume: 1 },
+      mapSetting: { type: "Random", width: 10, height: 10, tileFrequency: {} },
+    }),
+    destroy: vi.fn(),
+    addPlayer: vi.fn().mockReturnValue({ success: true }),
+    broadcastGameEnded: vi.fn(),
+    resume: vi.fn(),
+    suspend: vi.fn(),
+    getPassword: vi.fn().mockReturnValue(undefined),
+  }) as unknown as GeneraleRoom);
+  vi.mocked(GeneraleGame).mockImplementation(() => ({
+    getState: vi.fn().mockReturnValue({ players: { player1: { id: "player1", status: "Playing", army: 10, land: 5, teamId: "team1" }, player2: { id: "player2", status: "Playing", army: 8, land: 3, teamId: "team2" } }, status: "Playing", tick: 0 }),
+    destroy: vi.fn(),
+    addPlayer: vi.fn().mockReturnValue({ success: true }),
+    broadcastGameEnded: vi.fn(),
+    resume: vi.fn(),
+    suspend: vi.fn(),
+    advance: vi.fn(),
+    startTicking: vi.fn(),
+    stopTicking: vi.fn(),
+    onEndGame: vi.fn(),
+  }) as unknown as GeneraleGame);
+  vi.mocked(GameChatInstance).mockImplementation(() => ({
+    destroy: vi.fn(),
+    addPlayer: vi.fn().mockReturnValue({ success: true }),
+    broadcastGameEnded: vi.fn(),
+    resume: vi.fn(),
+    suspend: vi.fn(),
+  }) as unknown as GameChatInstance);
+}
 
 function gs(s: GeneraleService) {
   return s as unknown as {
@@ -86,6 +125,7 @@ describe("GeneraleService Lifecycle", () => {
   let config: GeneraleServiceConfig;
 
   beforeEach(() => {
+    installMocks();
     config = {
       gameId: "test-game-123" as GameId,
       maxPlayers: 4,

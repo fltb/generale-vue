@@ -1,32 +1,90 @@
-import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor } from "@solidjs/testing-library";
 import type { JSX } from "solid-js";
 
-const syncMocks = vi.hoisted(() => {
-  const calls: Array<{ options: { initialState: unknown }; handle: Record<string, unknown> }> = [];
-  const useSyncedState = vi.fn((options: { initialState: unknown }) => {
-    const handle = {
-      state: vi.fn(() => options.initialState),
-      dispatch: vi.fn(() => 1),
-      connect: vi.fn(async () => {}),
-      disconnect: vi.fn(),
-      isReady: vi.fn(() => false),
-      reset: vi.fn(),
-    };
-    calls.push({ options, handle });
-    return handle;
-  });
-  return { calls, useSyncedState };
-});
-
-vi.mock("~/hooks/useSyncedState", () => ({
-  useSyncedState: syncMocks.useSyncedState,
+vi.mock("~/hooks/useWebsocket", () => ({
+  useWS: vi.fn(),
 }));
 
+import { useWS } from "~/hooks/useWebsocket";
+import type { ClientConnectionManager } from "~/ws/manager";
 import { useBombermanRoomSession } from "../useBombermanRoomSession";
 
-function SessionHarness(): JSX.Element {
-  const session = useBombermanRoomSession({ id: "room-reload" });
+type ServerRole = "player" | "spectator";
+type TestSub = {
+  readonly domain: string;
+  ready: boolean;
+  onOpen(callback: () => void): void;
+  onMessage(callback: (payload: unknown) => void): void;
+  onDisconnect(callback: (error?: Error) => void): void;
+  onClose(callback: (code?: number, reason?: string) => void): void;
+  send(payload: unknown): void;
+  close(): void;
+};
+
+function createMockManager() {
+  const subs = new Map<string, TestSub>();
+  const openDomain = vi.fn<(domain: string, payload?: Record<string, unknown>) => void>();
+  const manager = {
+    isConnected: true,
+    connect: vi.fn(),
+    openDomain,
+    getOrCreateSub(domain: string) {
+      const existing = subs.get(domain);
+      if (existing) return existing;
+      let openCallback: (() => void) | undefined;
+      let messageCallback: ((payload: unknown) => void) | undefined;
+      let disconnectCallback: ((error?: Error) => void) | undefined;
+      let closeCallback: ((code?: number, reason?: string) => void) | undefined;
+      const sub: TestSub = {
+        domain,
+        ready: false,
+        onOpen(callback) {
+          openCallback = callback;
+        },
+        onMessage(callback) {
+          messageCallback = callback;
+        },
+        onDisconnect(callback) {
+          disconnectCallback = callback;
+        },
+        onClose(callback) {
+          closeCallback = callback;
+        },
+        send: vi.fn(),
+        close: vi.fn(() => {
+          sub.ready = false;
+          closeCallback?.();
+        }),
+      };
+      void openCallback;
+      void messageCallback;
+      void disconnectCallback;
+      subs.set(domain, sub);
+      return sub;
+    },
+  };
+  return { manager, openDomain, subs };
+}
+
+function connectResponse(role?: ServerRole, phase: "lobby" | "playing" | "between_rounds" = "playing") {
+  return {
+    success: true,
+    data: {
+      playerId: "player-1",
+      phase,
+      ...(role ? { role } : {}),
+      domains: { primary: "room-domain", game: "game-domain", chat: "chat-domain" },
+    },
+  };
+}
+
+function SessionHarness(props: { password?: string; role?: ServerRole }): JSX.Element {
+  const session = useBombermanRoomSession({
+    id: "room-reload",
+    password: props.password,
+    role: props.role,
+  });
   return (
     <>
       <output data-testid="phase">{session.phase()}</output>
@@ -36,38 +94,65 @@ function SessionHarness(): JSX.Element {
   );
 }
 
-describe("useBombermanRoomSession reconnect lifecycle", () => {
-  beforeEach(() => {
-    syncMocks.calls.length = 0;
-    vi.stubGlobal("fetch", async () => ({
-      json: async () => ({
-        success: true,
-        data: {
-          playerId: "player-1",
-          phase: "between_rounds",
-          role: "player",
-          domains: { primary: "room-reload", game: "game-reload", chat: "chat-reload" },
-        },
-      }),
-    }));
-  });
+describe("useBombermanRoomSession role-aware entry", () => {
+  function setup() {
+    sessionStorage.clear();
+    const mockManager = createMockManager();
+    vi.mocked(useWS).mockReturnValue(mockManager.manager as ClientConnectionManager);
+    const fetchMock = vi.fn<typeof fetch>();
+    vi.stubGlobal("fetch", fetchMock);
+    return { fetchMock, mockManager };
+  }
 
   afterEach(() => {
     vi.unstubAllGlobals();
   });
 
-  it("shows between-rounds UI state after reload before game sync exists", async () => {
+  it("connects a player without a role query and shows game UI", async () => {
+    const { fetchMock, mockManager } = setup();
+    fetchMock.mockResolvedValue(new Response(JSON.stringify(connectResponse("player"))));
     render(() => <SessionHarness />);
 
-    await waitFor(() => {
-      expect(screen.getByTestId("phase")).toHaveTextContent("between_rounds");
-    });
-
+    await waitFor(() => expect(screen.getByTestId("phase")).toHaveTextContent("playing"));
+    expect(fetchMock).toHaveBeenCalledWith("/api/bomberman/room/connect/room-reload");
     expect(screen.getByTestId("self-status")).toHaveTextContent("playing");
     expect(screen.getByTestId("showing-game-ui")).toHaveTextContent("true");
-    expect(syncMocks.calls).toHaveLength(2);
-    expect(syncMocks.calls[0]?.handle.connect).toHaveBeenCalledTimes(1);
-    expect(syncMocks.calls[1]?.handle.connect).not.toHaveBeenCalled();
-    expect(syncMocks.calls[1]?.handle.state()).toBeNull();
+    expect(mockManager.openDomain).toHaveBeenCalledWith("room-room-reload", { role: "player" });
+    expect(mockManager.openDomain).toHaveBeenCalledWith("game-room-reload", { role: "player" });
+  });
+
+  it("connects a spectator with role=spectator and keeps spectator status", async () => {
+    const { fetchMock, mockManager } = setup();
+    fetchMock.mockResolvedValue(new Response(JSON.stringify(connectResponse("spectator"))));
+    render(() => <SessionHarness role="spectator" />);
+
+    await waitFor(() => expect(screen.getByTestId("phase")).toHaveTextContent("playing"));
+    expect(fetchMock).toHaveBeenCalledWith("/api/bomberman/room/connect/room-reload?role=spectator");
+    expect(screen.getByTestId("self-status")).toHaveTextContent("spectating");
+    expect(screen.getByTestId("showing-game-ui")).toHaveTextContent("true");
+    expect(mockManager.openDomain).toHaveBeenCalledWith("room-room-reload", { role: "spectator" });
+    expect(mockManager.openDomain).toHaveBeenCalledWith("game-room-reload", { role: "spectator" });
+  });
+
+  it("passes password and role to the room transport payload", async () => {
+    const { fetchMock, mockManager } = setup();
+    fetchMock.mockResolvedValue(new Response(JSON.stringify(connectResponse("spectator", "lobby"))));
+    render(() => <SessionHarness password="secret" role="spectator" />);
+
+    await waitFor(() => expect(screen.getByTestId("phase")).toHaveTextContent("lobby"));
+    expect(mockManager.openDomain).toHaveBeenCalledWith("room-room-reload", {
+      password: "secret",
+      role: "spectator",
+    });
+  });
+
+  it("falls back to player when the server omits role", async () => {
+    const { fetchMock, mockManager } = setup();
+    fetchMock.mockResolvedValue(new Response(JSON.stringify(connectResponse(undefined, "between_rounds"))));
+    render(() => <SessionHarness />);
+
+    await waitFor(() => expect(screen.getByTestId("phase")).toHaveTextContent("between_rounds"));
+    expect(screen.getByTestId("self-status")).toHaveTextContent("playing");
+    expect(mockManager.openDomain).toHaveBeenCalledWith("room-room-reload", { role: "player" });
   });
 });

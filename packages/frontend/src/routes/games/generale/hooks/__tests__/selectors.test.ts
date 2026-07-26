@@ -1,33 +1,50 @@
 import { describe, it, expect } from "vitest";
 import { playerSummaries, computeEndgameResult, isGameInProgress } from "../selectors";
 import {
-  PlayerStatus,
-  PreGamePlayerStatus,
   GameStatus,
+  PlayerColor,
+  PlayerStatus,
+  PreGamePlayerReadyState,
+  PreGamePlayerStatus,
   TileType,
+  type GameSettings,
+  type PreGamePlayerInfo,
+  type SyncedGameState,
+  type Tile,
 } from "@generale/types";
-import type { SyncedGameState, PlayerId, PreGamePlayerInfo } from "@generale/types";
 
-function tile(owner: string | null): any {
+function tile(owner: string | null): Tile {
   return { type: TileType.Plain, ownerId: owner, army: 0 };
 }
 
-function row(...owners: (string | null)[]): any[] {
+function row(...owners: (string | null)[]): Tile[] {
   return owners.map((o) => tile(o));
 }
+
+const gameSettings = {
+  tileGrow: {
+    [TileType.Plain]: { duration: 40, growth: 1 },
+    [TileType.Throne]: { duration: 1, growth: 1 },
+    [TileType.Barracks]: { duration: 1, growth: 1 },
+    [TileType.Mountain]: { duration: 1e10, growth: 0 },
+    [TileType.Swamp]: { duration: 1, growth: -1 },
+    [TileType.Fog]: { duration: 1e10, growth: 0 },
+  },
+  afkThreshold: 100,
+} satisfies GameSettings;
 
 const mockGameState = (overrides?: Partial<SyncedGameState>): SyncedGameState => ({
   status: GameStatus.Ended,
   tick: 100,
-  settings: { tileGrow: {} as any, afkThreshold: 100 },
+  settings: gameSettings,
   players: {
-    p1: { id: "p1", status: PlayerStatus.Won, army: 30, land: 3, lastActiveTick: 100, teamId: "t1" as any },
-    p2: { id: "p2", status: PlayerStatus.Defeated, army: 15, land: 2, lastActiveTick: 100, teamId: "t2" as any },
-  } as any,
+    p1: { id: "p1", status: PlayerStatus.Won, army: 30, land: 3, lastActiveTick: 100, teamId: "team1" },
+    p2: { id: "p2", status: PlayerStatus.Defeated, army: 15, land: 2, lastActiveTick: 100, teamId: "team2" },
+  } satisfies SyncedGameState["players"],
   teams: {
-    t1: { id: "t1", memberIds: ["p1" as PlayerId], status: PlayerStatus.Won },
-    t2: { id: "t2", memberIds: ["p2" as PlayerId], status: PlayerStatus.Defeated },
-  } as any,
+    team1: { id: "team1", memberIds: ["p1"], status: PlayerStatus.Won },
+    team2: { id: "team2", memberIds: ["p2"], status: PlayerStatus.Defeated },
+  } satisfies SyncedGameState["teams"],
   map: {
     width: 5,
     height: 5,
@@ -75,7 +92,7 @@ describe("playerSummaries", () => {
 
   it("handles missing playerDisplay gracefully", () => {
     const state = mockGameState();
-    state.playerDisplay = {} as any;
+    state.playerDisplay = {};
     const result = playerSummaries(state);
     expect(result).toHaveLength(2);
     expect(result[0].name).toBeUndefined();
@@ -84,35 +101,35 @@ describe("playerSummaries", () => {
 
 describe("computeEndgameResult", () => {
   it("returns won for winner player", () => {
-    const result = computeEndgameResult(mockGameState(), "p1" as PlayerId);
+    const result = computeEndgameResult(mockGameState(), "p1");
     expect(result.selfOutcome).toBe("won");
     expect(result.winnerLabel).toContain("Alice");
   });
 
   it("returns lost for defeated player", () => {
-    const result = computeEndgameResult(mockGameState(), "p2" as PlayerId);
+    const result = computeEndgameResult(mockGameState(), "p2");
     expect(result.selfOutcome).toBe("lost");
   });
 
   it("returns null selfOutcome for spectator", () => {
-    const result = computeEndgameResult(mockGameState(), "spec" as PlayerId);
+    const result = computeEndgameResult(mockGameState(), "spec");
     expect(result.selfOutcome).toBeNull();
   });
 });
 
 describe("isGameInProgress", () => {
-  it("returns true if any player is Playing", () => {
-    const players = [
+  it("returns true if at least one player is Playing", () => {
+    const players: PreGamePlayerInfo[] = [
       {
-        id: "p1" as PlayerId,
+        id: "p1",
         status: PreGamePlayerStatus.Playing,
-        teamId: "t1" as any,
+        teamId: "team1",
         isHost: false,
         name: "Alice",
-        ready: 0 as any,
-        tileColor: 0xff0000 as any,
-      },
-    ] as PreGamePlayerInfo[];
+        ready: PreGamePlayerReadyState.NotReady,
+        tileColor: PlayerColor.Red,
+      } satisfies PreGamePlayerInfo,
+    ];
     expect(isGameInProgress(players)).toBe(true);
   });
 

@@ -3,16 +3,26 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
+  "scripts": {
+    "test": "vitest run --reporter verbose",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "exports": {
     ".": {
       "import": "./src/index.ts",
+      "default": "./src/index.ts",
       "types": "./src/index.ts"
     },
     "./locales/*": {
       "import": "./locales/*",
+      "default": "./locales/*",
       "types": "./locales/*"
     }
-  }
+  },
+  "devDependencies": {
+    "typescript": "^5.9.2",
+    "vitest": "^3.2.4"
+  },
 }

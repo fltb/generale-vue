@@ -1,15 +1,35 @@
 import { describe, it, expect, vi } from "vitest";
 import { render } from "@solidjs/testing-library";
-import { TileType } from "@generale/types";
+import { GameStatus, PlayerOperationType, TileType } from "@generale/types";
 import type { SyncedGameState } from "@generale/types";
+import type { JSX } from "solid-js";
+
+type MockProps = {
+  children?: JSX.Element;
+  each?: ((fallback?: JSX.Element) => JSX.Element) | JSX.Element;
+  fallback?: JSX.Element;
+  [key: string]: unknown;
+};
+
+const settings: SyncedGameState["settings"] = {
+  afkThreshold: 100,
+  tileGrow: {
+    [TileType.Plain]: { duration: 10, growth: 1 },
+    [TileType.Throne]: { duration: 0, growth: 0 },
+    [TileType.Barracks]: { duration: 0, growth: 0 },
+    [TileType.Mountain]: { duration: 20, growth: 1 },
+    [TileType.Swamp]: { duration: 0, growth: 0 },
+    [TileType.Fog]: { duration: 0, growth: 0 },
+  },
+};
 
 vi.mock("solid-pixi", () => ({
-  Application: (p: any) => p.children ?? null,
-  Container: (p: any) => p.children ?? null,
+  Application: (p: MockProps) => p.children ?? null,
+  Container: (p: MockProps) => p.children ?? null,
   Graphics: () => null,
   Text: () => null,
-  Index: (p: any) => p.each?.(p.fallback) ?? null,
-  For: (p: any) => p.each ?? null,
+  Index: (p: MockProps) => (typeof p.each === "function" ? p.each(p.fallback) : null),
+  For: (p: MockProps) => p.each ?? null,
 }));
 
 vi.mock("pixi.js", () => ({
@@ -49,7 +69,7 @@ import { MapRender } from "../MapRender";
 
 function makeState(overrides?: Partial<SyncedGameState>): SyncedGameState {
   return {
-    status: 0 as any,
+    status: GameStatus.Playing,
     tick: 1,
     map: {
       width: 3,
@@ -74,7 +94,7 @@ function makeState(overrides?: Partial<SyncedGameState>): SyncedGameState {
     },
     players: {},
     teams: {},
-    settings: {} as any,
+    settings,
     playerDisplay: {
       p1: { name: "Player1", displayName: "Player 1", tileColor: 0xff0000, avatarThumbUrl: "" },
       p2: { name: "Player2", displayName: "Player 2", tileColor: 0x0000ff, avatarThumbUrl: "" },
@@ -96,7 +116,7 @@ describe("MapRender", () => {
   });
 
   it("renders with empty map state", () => {
-    const emptyState = makeState({ map: { width: 0, height: 0, tiles: [] } as any });
+    const emptyState = makeState({ map: { width: 0, height: 0, tiles: [] } });
     render(() => <MapRender state={emptyState} />);
   });
 
@@ -104,8 +124,7 @@ describe("MapRender", () => {
     const state = makeState({
       playerOperationQueue: [
         {
-          type: 0 as any,
-          payload: { from: { x: 0, y: 0 }, to: { x: 1, y: 0 }, percentage: 100 },
+          type: PlayerOperationType.Move,
         },
       ],
     });

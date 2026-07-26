@@ -3,37 +3,46 @@ import { render, screen } from "@solidjs/testing-library";
 import { Collapse, CollapseContent, CollapseTitle } from "../Collapse";
 
 describe("Collapse", () => {
-  it("renders children", () => {
-    render(() => <Collapse><div>content</div></Collapse>);
-    expect(screen.getByText("content")).toBeInTheDocument();
+  it.each([
+    ["default", false, "pixel-border"],
+    ["arrow", true, "collapse-arrow"],
+  ] as const)("%s state renders its expected class and children", (_name, arrow, expectedClass) => {
+    render(() => <Collapse arrow={arrow}><div>content</div></Collapse>);
+    const content = screen.getByText("content");
+    expect(content).toBeInTheDocument();
+    expect(content.parentElement).toHaveClass(expectedClass);
   });
-  it("has pixel-border class", () => {
-    render(() => <Collapse><div>c</div></Collapse>);
-    const div = screen.getByText("c").parentElement!;
-    expect(div.className).toContain("pixel-border");
-  });
-  it("applies arrow class when arrow prop set", () => {
-    render(() => <Collapse arrow><div>a</div></Collapse>);
-    const div = screen.getByText("a").parentElement!;
-    expect(div.className).toContain("collapse-arrow");
-  });
+
   it("merges custom class", () => {
-    render(() => <Collapse class="my-custom"><div>c</div></Collapse>);
-    const div = screen.getByText("c").parentElement!;
-    expect(div.className).toContain("my-custom");
+    render(() => <Collapse class="my-custom"><div>content</div></Collapse>);
+    expect(screen.getByText("content").parentElement).toHaveClass("my-custom");
   });
 });
 
 describe("CollapseTitle", () => {
   it("renders with collapse-title class", () => {
     render(() => <CollapseTitle>Title</CollapseTitle>);
-    expect(screen.getByText("Title").className).toContain("collapse-title");
+    expect(screen.getByText("Title")).toHaveClass("collapse-title");
   });
 });
 
 describe("CollapseContent", () => {
   it("renders with collapse-content class", () => {
     render(() => <CollapseContent>Body</CollapseContent>);
-    expect(screen.getByText("Body").className).toContain("collapse-content");
+    expect(screen.getByText("Body")).toHaveClass("collapse-content");
+  });
+});
+
+describe("CollapseTitle", () => {
+  it("renders with collapse-title class", () => {
+    render(() => <CollapseTitle>Title</CollapseTitle>);
+    expect(screen.getByText("Title")).toHaveClass("collapse-title");
+  });
+});
+
+describe("CollapseContent", () => {
+  it("renders with collapse-content class", () => {
+    render(() => <CollapseContent>Body</CollapseContent>);
+    expect(screen.getByText("Body")).toHaveClass("collapse-content");
   });
 });

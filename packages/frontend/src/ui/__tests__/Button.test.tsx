@@ -7,69 +7,34 @@ vi.mock("../sound", () => ({
 }));
 
 describe("Button", () => {
-  it("renders children text", () => {
-    render(() => <Button>Click me</Button>);
-    expect(screen.getByText("Click me")).toBeInTheDocument();
+  it.each([
+    ["variant", <Button variant="primary">Button</Button>, "btn-primary"],
+    ["size", <Button size="sm">Button</Button>, "btn-sm"],
+    ["active", <Button active>Button</Button>, "btn-active"],
+    ["outline", <Button outline>Button</Button>, "btn-outline"],
+    ["circle", <Button circle>Button</Button>, "btn-circle"],
+    ["block", <Button block>Button</Button>, "btn-block"],
+  ] as const)("%s state renders its expected class", (_name, element, expectedClass) => {
+    render(() => element);
+    expect(screen.getByRole("button", { name: "Button" })).toHaveClass(expectedClass);
   });
 
-  it("applies variant class", () => {
-    render(() => <Button variant="primary">Primary</Button>);
-    const btn = screen.getByText("Primary");
-    expect(btn.className).toContain("btn-primary");
-  });
-
-  it("applies size class", () => {
-    render(() => <Button size="sm">Small</Button>);
-    const btn = screen.getByText("Small");
-    expect(btn.className).toContain("btn-sm");
-  });
-
-  it("applies active class", () => {
-    render(() => <Button active>Active</Button>);
-    const btn = screen.getByText("Active");
-    expect(btn.className).toContain("btn-active");
-  });
-
-  it("applies outline class", () => {
-    render(() => <Button outline>Outline</Button>);
-    const btn = screen.getByText("Outline");
-    expect(btn.className).toContain("btn-outline");
-  });
-
-  it("applies circle class", () => {
-    render(() => <Button circle>Circle</Button>);
-    const btn = screen.getByText("Circle");
-    expect(btn.className).toContain("btn-circle");
-  });
-
-  it("applies block class", () => {
-    render(() => <Button block>Block</Button>);
-    const btn = screen.getByText("Block");
-    expect(btn.className).toContain("btn-block");
-  });
-
-  it("merges custom class", () => {
+  it("renders children, default classes, and custom class", () => {
     render(() => <Button class="my-custom">Custom</Button>);
-    const btn = screen.getByText("Custom");
-    expect(btn.className).toContain("my-custom");
+    const button = screen.getByRole("button", { name: "Custom" });
+    expect(button).toBeInTheDocument();
+    expect(button).toHaveClass("btn", "my-custom");
   });
 
   it("calls onClick when clicked", () => {
     const onClick = vi.fn();
     render(() => <Button onClick={onClick}>Clickable</Button>);
-    fireEvent.click(screen.getByText("Clickable"));
+    fireEvent.click(screen.getByRole("button", { name: "Clickable" }));
     expect(onClick).toHaveBeenCalledTimes(1);
   });
 
   it("renders disabled button", () => {
     render(() => <Button disabled>Disabled</Button>);
-    const btn = screen.getByText("Disabled");
-    expect(btn).toBeDisabled();
-  });
-
-  it("renders default variant (neutral) when variant not specified", () => {
-    render(() => <Button>No Variant</Button>);
-    const btn = screen.getByText("No Variant");
-    expect(btn.className).toContain("btn");
+    expect(screen.getByRole("button", { name: "Disabled" })).toBeDisabled();
   });
 });

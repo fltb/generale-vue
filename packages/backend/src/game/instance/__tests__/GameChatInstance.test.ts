@@ -51,8 +51,6 @@ describe("GameChatInstance", () => {
     // 输出调试信息
     const sendCalls1 = (connector1.send as unknown as Mock).mock.calls as [ChatServerToClient][];
     const sendCalls2 = (connector2.send as unknown as Mock).mock.calls as [ChatServerToClient][];
-    console.log("sendCalls1 after hello:", JSON.stringify(sendCalls1, null, 2));
-    console.log("sendCalls2 after hello:", JSON.stringify(sendCalls2, null, 2));
     expect(
       sendCalls1.some(([msg]) => msg.type === "new_message" && msg.message.content === "hello"),
     ).toBe(true);
@@ -92,10 +90,16 @@ describe("GameChatInstance", () => {
     expect(connector2.send).not.toHaveBeenCalledWith(expect.objectContaining({ content: "bye" }));
   });
 
-  it("未加入玩家发消息无效", () => {
-    // 不注册 onMessage
-    // 直接调用内部方法模拟
-    expect(() => (chat as unknown as { handleMessage: (pid: string, msg: ChatClientToServer) => void }).handleMessage("ghost", { type: "send_message", content: "xxx" })).not.toThrow();
+  it("未加入玩家发消息不会广播", () => {
+    chat.addPlayer({ id: player1, name: "Alice" }, connector1);
+    const handler = (chat as unknown as { handleMessage: (this: GameChatInstance, pid: string, msg: ChatClientToServer) => void }).handleMessage;
+    handler.call(chat, "ghost", { type: "send_message", content: "xxx" });
+    expect(connector1.send).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "new_message",
+        message: expect.objectContaining({ content: "xxx" }),
+      }),
+    );
   });
 
   it("多次加入/移除同一玩家无副作用", () => {

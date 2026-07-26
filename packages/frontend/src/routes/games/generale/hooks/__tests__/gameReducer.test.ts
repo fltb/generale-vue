@@ -2,23 +2,41 @@ import { describe, it, expect } from "vitest";
 import { applyGameEventLocal } from "../gameReducer";
 import { applyPregameEventLocal } from "../pregameReducer";
 import {
+  GameStatus,
   PlayerColor,
   PlayerOperationType,
   PreGameMapType,
   PreGamePlayerStatus,
   SyncedGameClientActionTypes,
   SyncedPreGameClientActionTypes,
+  TileType,
+  type GameSettings,
+  type PlayerOperation,
+  type SyncedGameClientActions,
   type SyncedGameState,
+  type SyncedPreGameClientActions,
   type SyncedPreGameState,
 } from "@generale/types";
+
+const gameSettings = {
+  tileGrow: {
+    [TileType.Plain]: { duration: 40, growth: 1 },
+    [TileType.Throne]: { duration: 1, growth: 1 },
+    [TileType.Barracks]: { duration: 1, growth: 1 },
+    [TileType.Mountain]: { duration: 1e10, growth: 0 },
+    [TileType.Swamp]: { duration: 1, growth: -1 },
+    [TileType.Fog]: { duration: 1e10, growth: 0 },
+  },
+  afkThreshold: 3,
+} satisfies GameSettings;
 
 function mockGameState(overrides?: Partial<SyncedGameState>): SyncedGameState {
   return {
     map: { width: 10, height: 10, tiles: [] },
     players: {},
-    status: "PLAYING" as any,
+    status: GameStatus.Playing,
     teams: {},
-    settings: {} as any,
+    settings: gameSettings,
     tick: 0,
     playerDisplay: {},
     playerOperationQueue: [],
@@ -26,8 +44,11 @@ function mockGameState(overrides?: Partial<SyncedGameState>): SyncedGameState {
   };
 }
 
-function makeOp() {
-  return { type: PlayerOperationType.Move, payload: { from: { x: 0, y: 0 }, to: { x: 1, y: 1 }, percentage: 100 } };
+function makeOp(
+  from = { x: 0, y: 0 },
+  to = { x: 1, y: 1 },
+): PlayerOperation {
+  return { type: PlayerOperationType.Move, payload: { from, to, percentage: 100 } };
 }
 
 function mockPregameState(): SyncedPreGameState {
@@ -89,7 +110,14 @@ describe("applyGameEventLocal", () => {
   it("PUSH appends operations to queue", () => {
     const state = mockGameState();
     const op = makeOp();
-    const next = applyGameEventLocal(state, { type: SyncedGameClientActionTypes.PUSH, payload: [op] } as any);
+    const next = applyGameEventLocal(
+      state,
+      {
+        type: SyncedGameClientActionTypes.PUSH,
+        payload: [op],
+        optimisticId: 1,
+      } satisfies SyncedGameClientActions,
+    );
     expect(next.playerOperationQueue).toHaveLength(1);
     expect(next.playerOperationQueue![0]).toEqual(op);
   });
@@ -97,8 +125,15 @@ describe("applyGameEventLocal", () => {
   it("PUSH appends to existing queue", () => {
     const op1 = makeOp();
     const state = mockGameState({ playerOperationQueue: [op1] });
-    const op2 = { type: PlayerOperationType.Move, payload: { from: { x: 1, y: 1 }, to: { x: 2, y: 2 }, percentage: 100 } };
-    const next = applyGameEventLocal(state, { type: SyncedGameClientActionTypes.PUSH, payload: [op2] } as any);
+    const op2 = makeOp({ x: 1, y: 1 }, { x: 2, y: 2 });
+    const next = applyGameEventLocal(
+      state,
+      {
+        type: SyncedGameClientActionTypes.PUSH,
+        payload: [op2],
+        optimisticId: 2,
+      } satisfies SyncedGameClientActions,
+    );
     expect(next.playerOperationQueue).toHaveLength(2);
     expect(next.playerOperationQueue![0]).toEqual(op1);
     expect(next.playerOperationQueue![1]).toEqual(op2);
@@ -106,20 +141,30 @@ describe("applyGameEventLocal", () => {
 
   it("CLEAN_ALL empties queue", () => {
     const state = mockGameState({ playerOperationQueue: [makeOp()] });
-    const next = applyGameEventLocal(state, { type: SyncedGameClientActionTypes.CLEAN_ALL } as any);
+    const next = applyGameEventLocal(
+      state,
+      { type: SyncedGameClientActionTypes.CLEAN_ALL, optimisticId: 3 } satisfies SyncedGameClientActions,
+    );
     expect(next.playerOperationQueue).toHaveLength(0);
   });
 
   it("unknown action returns cloned state unchanged", () => {
     const state = mockGameState();
-    const next = applyGameEventLocal(state, { type: "UNKNOWN" } as any);
+    const next = applyGameEventLocal(state, { type: "UNKNOWN", optimisticId: 4 } as SyncedGameClientActions);
     expect(next.playerOperationQueue).toEqual([]);
   });
 
   it("does not mutate original state", () => {
     const state = mockGameState();
     const op = makeOp();
-    applyGameEventLocal(state, { type: SyncedGameClientActionTypes.PUSH, payload: [op] } as any);
+    applyGameEventLocal(
+      state,
+      {
+        type: SyncedGameClientActionTypes.PUSH,
+        payload: [op],
+        optimisticId: 5,
+      } satisfies SyncedGameClientActions,
+    );
     expect(state.playerOperationQueue).toHaveLength(0);
   });
 });
@@ -127,60 +172,111 @@ describe("applyGameEventLocal", () => {
 describe("applyPregameEventLocal", () => {
   it("READY marks non-host as ready", () => {
     const state = mockPregameState();
-    const next = applyPregameEventLocal(state, { type: SyncedPreGameClientActionTypes.READY } as any);
+    const next = applyPregameEventLocal(
+      state,
+      { type: SyncedPreGameClientActionTypes.READY, optimisticId: 6 } satisfies SyncedPreGameClientActions,
+    );
     const p1 = next.room.players.find((p) => p.id === "player1");
     expect(p1?.ready).toBe(1);
   });
 
   it("READY does not affect host", () => {
     const state = mockPregameState();
-    const next = applyPregameEventLocal(state, { type: SyncedPreGameClientActionTypes.READY } as any);
+    const next = applyPregameEventLocal(
+      state,
+      { type: SyncedPreGameClientActionTypes.READY, optimisticId: 7 } satisfies SyncedPreGameClientActions,
+    );
     const host = next.room.players.find((p) => p.id === "host");
     expect(host?.ready).toBe(1);
   });
 
   it("UNREADY marks non-host as unready", () => {
     const state = mockPregameState();
-    const ready = applyPregameEventLocal(state, { type: SyncedPreGameClientActionTypes.READY } as any);
-    const unready = applyPregameEventLocal(ready, { type: SyncedPreGameClientActionTypes.UNREADY } as any);
+    const ready = applyPregameEventLocal(
+      state,
+      { type: SyncedPreGameClientActionTypes.READY, optimisticId: 8 } satisfies SyncedPreGameClientActions,
+    );
+    const unready = applyPregameEventLocal(
+      ready,
+      { type: SyncedPreGameClientActionTypes.UNREADY, optimisticId: 9 } satisfies SyncedPreGameClientActions,
+    );
     const p1 = unready.room.players.find((p) => p.id === "player1");
     expect(p1?.ready).toBe(0);
   });
 
   it("CHANGE_SETTING merges game settings", () => {
     const state = mockPregameState();
-    const next = applyPregameEventLocal(state, { type: SyncedPreGameClientActionTypes.CHANGE_SETTING, payload: { speed: 3 } } as any);
+    const next = applyPregameEventLocal(
+      state,
+      {
+        type: SyncedPreGameClientActionTypes.CHANGE_SETTING,
+        payload: { speed: 3 },
+        optimisticId: 10,
+      } satisfies SyncedPreGameClientActions,
+    );
     expect(next.room.gameSetting.speed).toBe(3);
     expect(next.room.gameSetting.afkThreshold).toBe(3);
   });
 
   it("CHANGE_MAP replaces map setting", () => {
     const state = mockPregameState();
-    const next = applyPregameEventLocal(state, {
-      type: SyncedPreGameClientActionTypes.CHANGE_MAP,
-      payload: { type: PreGameMapType.Random, width: 30, height: 30, tileFrequency: {}, sizeLabel: "large" },
-    } as any);
+    const next = applyPregameEventLocal(
+      state,
+      {
+        type: SyncedPreGameClientActionTypes.CHANGE_MAP,
+        payload: { type: PreGameMapType.Random, width: 30, height: 30, tileFrequency: {}, sizeLabel: "large" },
+        optimisticId: 11,
+      } satisfies SyncedPreGameClientActions,
+    );
     expect(next.room.mapSetting).toMatchObject({ width: 30, height: 30 });
   });
 
   it("CHANGE_ROOM_TYPE switches to custom", () => {
     const state = mockPregameState();
-    const next = applyPregameEventLocal(state, { type: SyncedPreGameClientActionTypes.CHANGE_ROOM_TYPE, payload: { roomType: "custom" } } as any);
+    const next = applyPregameEventLocal(
+      state,
+      {
+        type: SyncedPreGameClientActionTypes.CHANGE_ROOM_TYPE,
+        payload: { roomType: "custom" },
+        optimisticId: 12,
+      } satisfies SyncedPreGameClientActions,
+    );
     expect(next.room.roomType).toBe("custom");
     expect(next.room.mapSetting).toMatchObject({ type: PreGameMapType.Custom });
   });
 
   it("CHANGE_ROOM_TYPE switches back to standard", () => {
     const state = mockPregameState();
-    const next = applyPregameEventLocal(state, { type: SyncedPreGameClientActionTypes.CHANGE_ROOM_TYPE, payload: { roomType: "custom" } } as any);
-    const back = applyPregameEventLocal(next, { type: SyncedPreGameClientActionTypes.CHANGE_ROOM_TYPE, payload: { roomType: "standard" } } as any);
+    const next = applyPregameEventLocal(
+      state,
+      {
+        type: SyncedPreGameClientActionTypes.CHANGE_ROOM_TYPE,
+        payload: { roomType: "custom" },
+        optimisticId: 13,
+      } satisfies SyncedPreGameClientActions,
+    );
+    const back = applyPregameEventLocal(
+      next,
+      {
+        type: SyncedPreGameClientActionTypes.CHANGE_ROOM_TYPE,
+        payload: { roomType: "standard" },
+        optimisticId: 14,
+      } satisfies SyncedPreGameClientActions,
+    );
     expect(back.room.roomType).toBe("standard");
     expect(back.room.mapSetting).toMatchObject({ type: PreGameMapType.Random, sizeLabel: "medium" });
   });
 
   it("RENAME_TEAM updates team name", () => {
     const state = mockPregameState();
-    const next = applyPregameEventLocal(state, { type: SyncedPreGameClientActionTypes.RENAME_TEAM, payload: { teamId: "team1", name: "Alpha" } } as any);
+    const next = applyPregameEventLocal(
+      state,
+      {
+        type: SyncedPreGameClientActionTypes.RENAME_TEAM,
+        payload: { teamId: "team1", name: "Alpha" },
+        optimisticId: 15,
+      } satisfies SyncedPreGameClientActions,
+    );
     const team = next.room.teams.find((t) => t.id === "team1");
     expect(team?.name).toBe("Alpha");
   });
@@ -189,13 +285,23 @@ describe("applyPregameEventLocal", () => {
     const state = mockPregameState();
     state.room.teams.push({ id: "team2", name: "Empty Team" });
     state.room.teamCount = 2;
-    const next = applyPregameEventLocal(state, { type: SyncedPreGameClientActionTypes.DELETE_TEAM, payload: { teamId: "team2" } } as any);
+    const next = applyPregameEventLocal(
+      state,
+      {
+        type: SyncedPreGameClientActionTypes.DELETE_TEAM,
+        payload: { teamId: "team2" },
+        optimisticId: 16,
+      } satisfies SyncedPreGameClientActions,
+    );
     expect(next.room.teams.length).toBe(1);
     expect(next.room.teamCount).toBe(1);
   });
 
   it("handles null initial state gracefully", () => {
-    const next = applyPregameEventLocal(null, { type: SyncedPreGameClientActionTypes.READY } as any);
+    const next = applyPregameEventLocal(
+      null,
+      { type: SyncedPreGameClientActionTypes.READY, optimisticId: 17 } satisfies SyncedPreGameClientActions,
+    );
     expect(next.room.gameId).toBe("");
     expect(next.room.players).toEqual([]);
   });

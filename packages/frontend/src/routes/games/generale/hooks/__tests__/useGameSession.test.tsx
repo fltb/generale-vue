@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { createRoot } from "solid-js";
 import { useGameSession } from "~/routes/games/generale/hooks/useGameSession";
-import { SyncedGameClientActionTypes } from "@generale/types";
+import { SyncedGameClientActionTypes, PlayerOperationType, type PlayerOperation } from "@generale/types";
 
 const mockDispatch = vi.hoisted(() => vi.fn(() => 1));
 const mockConnect = vi.hoisted(() => vi.fn());
@@ -35,7 +35,7 @@ vi.mock("~/routes/games/generale/hooks/selectors", () => ({
   computeEndgameResult: () => null,
 }));
 
-vi.mock("~/testBridge", () => ({ default: { gameState: null, onOperationQueued: null, onClearQueue: null } }));
+vi.mock("~/testBridge", () => ({ default: { gameState: null } }));
 
 describe("useGameSession", () => {
   beforeEach(() => {
@@ -75,8 +75,11 @@ describe("useGameSession", () => {
       });
     });
 
-    const op = { type: "MOVE", payload: { from: { x: 0, y: 0 }, to: { x: 1, y: 1 }, percentage: 100 } };
-    result!.handleOperationQueued(op as any);
+    const op = {
+      type: PlayerOperationType.Move,
+      payload: { from: { x: 0, y: 0 }, to: { x: 1, y: 1 }, percentage: 100 },
+    } satisfies PlayerOperation;
+    result!.handleOperationQueued(op);
 
     expect(mockDispatch).toHaveBeenCalledWith(
       expect.objectContaining({ type: SyncedGameClientActionTypes.PUSH, payload: [op] }),
@@ -139,8 +142,11 @@ describe("useGameSession", () => {
       });
     });
 
-    const op = { type: "MOVE", payload: { from: { x: 0, y: 0 }, to: { x: 1, y: 1 }, percentage: 100 } };
-    result!.handleOperationQueued(op as any);
+    const op = {
+      type: PlayerOperationType.Move,
+      payload: { from: { x: 0, y: 0 }, to: { x: 1, y: 1 }, percentage: 100 },
+    } satisfies PlayerOperation;
+    result!.handleOperationQueued(op);
 
     expect(mockDispatch).not.toHaveBeenCalled();
   });

@@ -1,7 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { createRoot } from "solid-js";
 import { useRoomSession } from "~/routes/games/generale/hooks/useRoomSession";
-import { GamePhase, PreGamePlayerStatus, SyncedPreGameServerEventPayloadType } from "@generale/types";
+import {
+  GamePhase,
+  PreGamePlayerStatus,
+  SyncedPreGameServerEventPayloadType,
+  type SyncedPreGameServerEventPayload,
+} from "@generale/types";
 
 const mockPrepareConnectApi = vi.hoisted(() => vi.fn());
 
@@ -105,9 +110,11 @@ describe("useRoomSession", () => {
       result = useRoomSession(() => undefined);
     });
 
-    result!.handleStateUpdate({
-      event: { type: SyncedPreGameServerEventPayloadType.KICKED, reason: "bye" },
-    } as any);
+    const event: SyncedPreGameServerEventPayload = {
+      type: SyncedPreGameServerEventPayloadType.KICKED,
+      reason: "bye",
+    };
+    result!.handleStateUpdate({ event });
 
     expect(result!.error()).toBe("bye");
     expect(result!.phase()).toBe(GamePhase.ENDED);
@@ -119,9 +126,11 @@ describe("useRoomSession", () => {
       result = useRoomSession(() => undefined);
     });
 
-    result!.handleStateUpdate({
-      event: { type: SyncedPreGameServerEventPayloadType.DISBANDED, reason: "解散" },
-    } as any);
+    const event: SyncedPreGameServerEventPayload = {
+      type: SyncedPreGameServerEventPayloadType.DISBANDED,
+      reason: "解散",
+    };
+    result!.handleStateUpdate({ event });
 
     expect(result!.error()).toBe("房间已解散");
     expect(result!.phase()).toBe(GamePhase.ENDED);

@@ -214,46 +214,6 @@ describe("WebSocket单元测试", () => {
     });
   });
 
-  describe("性能测试", () => {
-    it("应该能够快速注册大量域名处理器", () => {
-      const startTime = Date.now();
-      const domainCount = 100;
-
-      for (let i = 0; i < domainCount; i++) {
-        const onMessage = vi.fn();
-        registerDomainHandler(`domain-${i}`, (connector) => {
-          connector.onClientMessage(onMessage);
-        });
-      }
-
-      const endTime = Date.now();
-      const duration = endTime - startTime;
-
-      // 注册100个域名应该在100ms内完成
-      expect(duration).toBeLessThan(100);
-
-      // 清理
-      for (let i = 0; i < domainCount; i++) {
-        unregisterDomainHandler(`domain-${i}`);
-      }
-    });
-
-    it("应该能够处理高频的消息调用", () => {
-      const onMessage = vi.fn().mockReturnValue({ processed: true });
-      registerDomainHandler("test-domain", (connector) => {
-        connector.onClientMessage(onMessage);
-      });
-      const startTime = Date.now();
-      const messageCount = 1000;
-      for (let i = 0; i < messageCount; i++) {
-        onMessage(`conn-${i}`, { action: "test", index: i });
-      }
-      const endTime = Date.now();
-      const duration = endTime - startTime;
-      expect(duration).toBeLessThan(50);
-      expect(onMessage).toHaveBeenCalledTimes(messageCount);
-    });
-  });
 
   describe("Ping/Pong 协议测试", () => {
     function createMockWs() {

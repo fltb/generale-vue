@@ -224,12 +224,17 @@ export function useSyncedState<
   });
 
   onCleanup(() => {
-    // reject outstanding pending commit promises
     for (const [, rec] of pendingRequests.entries()) {
       clearTimeout(rec.timeoutId);
       rec.reject(new Error("unmounted"));
     }
     pendingRequests.clear();
+    pendingOut.length = 0;
+    connectRequested = false;
+    if (sub) {
+      sub.close();
+      sub = null;
+    }
   });
 
   // public APIs

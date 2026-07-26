@@ -8,12 +8,10 @@ vi.mock("../sound", () => ({
 }));
 
 describe("MuteToggle", () => {
-  it("renders speaker button", () => {
-    render(() => <MuteToggle />);
-    expect(screen.getByRole("button")).toBeInTheDocument();
-  });
-  it("applies custom class", () => {
+  it("renders speaker button and merges custom class", () => {
     render(() => <MuteToggle class="my-btn" />);
-    expect(screen.getByRole("button").className).toContain("my-btn");
+    const button = screen.getByRole("button");
+    expect(button).toBeInTheDocument();
+    expect(button).toHaveClass("my-btn");
   });
 });

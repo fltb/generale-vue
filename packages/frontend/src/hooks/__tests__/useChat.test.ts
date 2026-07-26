@@ -1,5 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { createRoot } from "solid-js";
+import { waitFor } from "@solidjs/testing-library";
+import type { ChatClientToServer, ChatServerToClient } from "@generale/types";
+import type { ClientConnectionManager } from "~/ws/manager";
 
 vi.mock("~/hooks/useWebsocket", () => ({
   useWS: vi.fn(),
@@ -8,29 +11,36 @@ vi.mock("~/hooks/useWebsocket", () => ({
 import { useWS } from "~/hooks/useWebsocket";
 import { useChat } from "../useChat";
 
+type ChatCallbacks = {
+  open?: () => void;
+  message?: (message: ChatServerToClient) => void;
+  disconnect?: (error?: Error) => void;
+  close?: (code?: number, reason?: string) => void;
+};
+
 function createMockChain() {
-  const cbs: Record<string, Function> = {};
+  const cbs: ChatCallbacks = {};
   let _ready = false;
   const sub = {
     get ready() {
       return _ready;
     },
-    set ready(v: boolean) {
-      _ready = v;
+    set ready(value: boolean) {
+      _ready = value;
     },
-    onOpen: vi.fn((cb: Function) => {
+    onOpen: vi.fn((cb: () => void) => {
       cbs.open = cb;
     }),
-    onMessage: vi.fn((cb: Function) => {
+    onMessage: vi.fn((cb: (message: ChatServerToClient) => void) => {
       cbs.message = cb;
     }),
-    onDisconnect: vi.fn((cb: Function) => {
+    onDisconnect: vi.fn((cb: (error?: Error) => void) => {
       cbs.disconnect = cb;
     }),
-    onClose: vi.fn((cb: Function) => {
+    onClose: vi.fn((cb: (code?: number, reason?: string) => void) => {
       cbs.close = cb;
     }),
-    send: vi.fn(),
+    send: vi.fn<(event: ChatClientToServer) => void>(),
     close: vi.fn(),
   };
   const manager = {
@@ -38,28 +48,26 @@ function createMockChain() {
     openDomain: vi.fn(),
     connect: vi.fn(),
     isConnected: false,
-  };
+  } as Partial<ClientConnectionManager>;
   return { sub, cbs, manager };
 }
 
 async function setupChat(options: { autoOpen?: boolean } = {}) {
   const { sub, cbs, manager } = createMockChain();
-  vi.mocked(useWS).mockReturnValue(manager as any);
+  vi.mocked(useWS).mockReturnValue(manager as ClientConnectionManager);
 
   let chat!: ReturnType<typeof useChat>;
   let dispose!: () => void;
 
-  await new Promise<void>((resolve) => {
-    createRoot((d) => {
-      dispose = d;
-      chat = useChat({
-        domain: "test-chat",
-        userId: "u1",
-        ...options,
-      });
-      setTimeout(resolve, 10);
+  createRoot((d) => {
+    dispose = d;
+    chat = useChat({
+      domain: "test-chat",
+      userId: "u1",
+      ...options,
     });
   });
+  await waitFor(() => expect(sub.onMessage).toHaveBeenCalledOnce());
 
   return { chat, cbs, sub, manager, dispose };
 }

@@ -3,27 +3,24 @@ import { render, screen, fireEvent } from "@solidjs/testing-library";
 import { Input } from "../Input";
 
 describe("Input", () => {
-  it("renders with placeholder", () => {
+  it("renders with placeholder and default pixel border", () => {
     render(() => <Input placeholder="Enter text" />);
-    expect(screen.getByPlaceholderText("Enter text")).toBeInTheDocument();
+    const input = screen.getByPlaceholderText("Enter text");
+    expect(input).toBeInTheDocument();
+    expect(input).toHaveClass("pixel-border");
   });
 
-  it("applies size class", () => {
-    render(() => <Input size="sm" />);
-    const input = screen.getByRole("textbox");
-    expect(input.className).toContain("input-sm");
-  });
-
-  it("applies bordered class", () => {
-    render(() => <Input bordered />);
-    const input = screen.getByRole("textbox");
-    expect(input.className).toContain("input-bordered");
+  it.each([
+    ["small", <Input size="sm" />, "input-sm"],
+    ["bordered", <Input bordered />, "input-bordered"],
+  ] as const)("%s variant renders its expected class", (_name, element, expectedClass) => {
+    render(() => element);
+    expect(screen.getByRole("textbox")).toHaveClass(expectedClass);
   });
 
   it("merges custom class", () => {
     render(() => <Input class="my-input" />);
-    const input = screen.getByRole("textbox");
-    expect(input.className).toContain("my-input");
+    expect(screen.getByRole("textbox")).toHaveClass("my-input");
   });
 
   it("forwards value and onInput", () => {
@@ -37,13 +34,6 @@ describe("Input", () => {
 
   it("renders disabled input", () => {
     render(() => <Input disabled />);
-    const input = screen.getByRole("textbox");
-    expect(input).toBeDisabled();
-  });
-
-  it("has pixel-border class by default", () => {
-    render(() => <Input />);
-    const input = screen.getByRole("textbox");
-    expect(input.className).toContain("pixel-border");
+    expect(screen.getByRole("textbox")).toBeDisabled();
   });
 });

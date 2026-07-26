@@ -1,20 +1,28 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import type { JSX } from "solid-js";
 import { render, screen } from "@solidjs/testing-library";
-import type { BombermanState, BombermanOperation } from "@generale/types";
+import type { BombermanState, BombermanOperation, BombermanTile } from "@generale/types";
 import { bombermanSettingsSchema } from "@generale/types";
 import { BombermanGame } from "../game";
 import type { SyncedState } from "../hooks/useBombermanRoomSession";
 
-// ─── Mocks ───
+type MockProps = { children?: JSX.Element; [key: string]: unknown };
+type ApplicationProps = MockProps & { width?: unknown; height?: unknown; resizeTo?: unknown };
+type VirtualControlsProps = MockProps & {
+  onAction: (operation: BombermanOperation) => void;
+};
+type ScoreboardProps = MockProps & { onBackToRoom: () => void };
+type CountdownProps = MockProps & { from?: number; onDone?: () => void };
 
+// ─── Mocks ───
 vi.mock("solid-pixi", () => ({
-  Application: (props: any) => {
+  Application: (props: ApplicationProps) => {
     // Verify no resizeTo prop (black screen fix)
-    if ("resizeTo" in (props as Record<string, unknown>)) {
+    if ("resizeTo" in props) {
       throw new Error("resizeTo prop should not be used — use explicit width/height");
     }
-    const w = (props as Record<string, number>).width ?? 0;
-    const h = (props as Record<string, number>).height ?? 0;
+    const w = typeof props.width === "number" ? props.width : 0;
+    const h = typeof props.height === "number" ? props.height : 0;
     return (
       <>
         <canvas
@@ -27,7 +35,7 @@ vi.mock("solid-pixi", () => ({
       </>
     );
   },
-  Container: (props: any) => <div data-testid="pixi-container">{props.children}</div>,
+  Container: (props: MockProps) => <div data-testid="pixi-container">{props.children}</div>,
   Sprite: () => <div data-testid="pixi-sprite" />,
   Graphics: () => <div data-testid="pixi-graphics" />,
 }));
@@ -72,26 +80,23 @@ vi.mock("../hooks/useBombermanInput", () => ({
     showVirtualControls: () => true,
   }),
 }));
-
 let capturedOnAction: ((op: BombermanOperation) => void) | null = null;
 vi.mock("../components/VirtualControls", () => ({
-  VirtualControls: (props: any) => {
+  VirtualControls: (props: VirtualControlsProps) => {
     capturedOnAction = props.onAction;
     return <div data-testid="virtual-controls" />;
   },
 }));
-
 vi.mock("../components/Scoreboard", () => ({
-  Scoreboard: (props: any) => (
+  Scoreboard: (props: ScoreboardProps) => (
     <div data-testid="scoreboard">
       <button onClick={props.onBackToRoom}>Back</button>
     </div>
   ),
 }));
-
 vi.mock("~/ui/Countdown", () => ({
-  Countdown: (props: any) => {
-    // Immediately call onDone for testing post-countdown state
+  Countdown: (props: CountdownProps) => {
+    // Complete on the next timer tick so tests can control the transition exactly.
     setTimeout(() => props.onDone?.(), 0);
     return <div data-testid="countdown">{props.from}</div>;
   },
@@ -106,6 +111,9 @@ vi.mock("../components/EntityLayer", () => ({
 }));
 
 // ─── Helpers ───
+function emptyTile(): BombermanTile {
+  return { type: "empty" };
+}
 
 function makeState(overrides: Partial<BombermanState> = {}): BombermanState {
   return {
@@ -126,7 +134,7 @@ function makeState(overrides: Partial<BombermanState> = {}): BombermanState {
     },
     map: {
       tiles: Array.from({ length: 11 }, () =>
-        Array.from({ length: 11 }, () => ({ type: "empty" as const })),
+        Array.from({ length: 11 }, emptyTile),
       ),
     },
     players: {
@@ -154,9 +162,9 @@ function makeState(overrides: Partial<BombermanState> = {}): BombermanState {
 function makeGameSync(state: BombermanState): SyncedState<BombermanState, BombermanOperation> {
   return {
     state: () => state,
-    dispatch: vi.fn() as any,
-    connect: vi.fn() as any,
-    disconnect: vi.fn() as any,
+    dispatch: vi.fn<(action: BombermanOperation) => number>(() => 0),
+    connect: vi.fn<() => Promise<void>>(() => Promise.resolve()),
+    disconnect: vi.fn<() => void>(),
     isReady: () => true,
   };
 }
@@ -165,6 +173,7 @@ function makeGameSync(state: BombermanState): SyncedState<BombermanState, Bomber
 
 describe("BombermanGame", () => {
   beforeEach(() => {
+    capturedOnAction = null;
     vi.useFakeTimers();
   });
 
@@ -184,15 +193,12 @@ describe("BombermanGame", () => {
       />
     ));
 
-    vi.advanceTimersByTime(100);
+    vi.advanceTimersByTime(0);
 
     // Canvas should exist with non-zero dimensions matching map grid
-    const canvas = screen.getByTestId("pixi-canvas") as HTMLCanvasElement;
-    expect(canvas.width).toBeGreaterThan(0);
-    expect(canvas.height).toBeGreaterThan(0);
-    // 11×11 map × 36px tiles
-    expect(canvas.width).toBe(396);
-    expect(canvas.height).toBe(396);
+    const canvas = screen.getByTestId("pixi-canvas");
+    expect(canvas).toHaveAttribute("width", "396");
+    expect(canvas).toHaveAttribute("height", "396");
   });
 
   // ── Surrender fix verification (Bug C: Show only renders first child) ──
@@ -207,7 +213,7 @@ describe("BombermanGame", () => {
     ));
 
     // Countdown completes → game UI appears
-    vi.advanceTimersByTime(100);
+    vi.advanceTimersByTime(0);
 
     expect(
       screen.getByRole("button", { name: /bomberman\.surrender/ }),
@@ -222,7 +228,7 @@ describe("BombermanGame", () => {
       />
     ));
 
-    vi.advanceTimersByTime(100);
+    vi.advanceTimersByTime(0);
 
     expect(
       screen.queryByRole("button", { name: /bomberman\.surrender/ }),
@@ -241,7 +247,7 @@ describe("BombermanGame", () => {
     ));
 
     // Countdown done, monitor starts, tick=0 → grace period
-    vi.advanceTimersByTime(100);
+    vi.advanceTimersByTime(0);
     vi.advanceTimersByTime(500); // one monitor tick
     vi.advanceTimersByTime(3000); // beyond threshold
 
@@ -261,11 +267,11 @@ describe("BombermanGame", () => {
     ));
 
     // Countdown done, monitor starts, tick=5 → monitoring active immediately
-    vi.advanceTimersByTime(100);
+    vi.advanceTimersByTime(0);
     vi.advanceTimersByTime(500); // first monitor tick, sees tick=5
 
     // Advance past 3s with no tick change
-    vi.advanceTimersByTime(3500);
+    vi.advanceTimersByTime(3001);
 
     expect(
       screen.queryByText(/bomberman\.connectionLost/),
@@ -283,7 +289,7 @@ describe("BombermanGame", () => {
       />
     ));
 
-    vi.advanceTimersByTime(100);
+    vi.advanceTimersByTime(0);
 
     // Controls help should be visible after countdown
     expect(screen.getByText(/bomberman\.controls/)).toBeInTheDocument();
@@ -300,7 +306,7 @@ describe("BombermanGame", () => {
       />
     ));
 
-    vi.advanceTimersByTime(100);
+    vi.advanceTimersByTime(0);
     expect(screen.getByText("2:00")).toBeInTheDocument();
   });
 
@@ -323,18 +329,18 @@ describe("BombermanGame", () => {
     expect(capturedOnAction).toBeTruthy();
 
     // Before countdown completes — gate should block
-    capturedOnAction!({ type: "ACTION" });
-    capturedOnAction!({ type: "DETONATE" });
+    capturedOnAction?.({ type: "ACTION" });
+    capturedOnAction?.({ type: "DETONATE" });
     expect(gameSync.dispatch).not.toHaveBeenCalled();
 
     // Complete countdown
-    vi.advanceTimersByTime(100);
+    vi.advanceTimersByTime(0);
 
     // After countdown completes — gate should forward
-    capturedOnAction!({ type: "ACTION" });
+    capturedOnAction?.({ type: "ACTION" });
     expect(gameSync.dispatch).toHaveBeenCalledWith({ type: "ACTION" });
 
-    capturedOnAction!({ type: "DETONATE" });
+    capturedOnAction?.({ type: "DETONATE" });
     expect(gameSync.dispatch).toHaveBeenCalledWith({ type: "DETONATE" });
   });
 });

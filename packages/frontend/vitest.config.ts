@@ -5,9 +5,11 @@ import path from "path";
 export default defineConfig({
   plugins: [solidPlugin()],
   resolve: {
-    alias: {
-      "~": path.resolve(__dirname, "src"),
-    },
+    alias: [
+      { find: "@generale/i18n/locales", replacement: path.resolve(__dirname, "../i18n/locales") },
+      { find: "@generale/i18n", replacement: path.resolve(__dirname, "../i18n/src/index.ts") },
+      { find: "~", replacement: path.resolve(__dirname, "src") },
+    ],
   },
   test: {
     environment: "happy-dom",
@@ -23,7 +25,8 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       reporter: ["text", "json", "html"],
-      include: ["src/routes/games/bomberman/**/*.tsx", "src/routes/games/bomberman/**/*.ts"],
+      include: ["src/**/*.{ts,tsx}"],
+      exclude: ["src/**/*.test.{ts,tsx}", "src/**/__tests__/**", "src/**/*.d.ts"],
       thresholds: {
         "src/routes/games/bomberman/**/*.{ts,tsx}": {
           lines: 20,

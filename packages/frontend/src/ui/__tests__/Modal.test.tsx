@@ -3,26 +3,16 @@ import { render, screen } from "@solidjs/testing-library";
 import { Modal } from "../Modal";
 
 describe("Modal", () => {
-  it("renders children", () => {
-    render(() => <Modal><div>Hello Modal</div></Modal>);
-    expect(screen.getByText("Hello Modal")).toBeInTheDocument();
-  });
-
-  it("renders with modal-open class", () => {
+  it("renders children with open and pixel-border states", () => {
     render(() => <Modal>Content</Modal>);
-    const modalBox = screen.getByText("Content");
-    expect(modalBox.parentElement?.className).toContain("modal-open");
+    const content = screen.getByText("Content");
+    expect(content).toBeInTheDocument();
+    expect(content.parentElement).toHaveClass("modal-open");
+    expect(content).toHaveClass("pixel-border");
   });
 
-  it("applies boxClass to the modal-box", () => {
+  it("applies boxClass to the modal box", () => {
     render(() => <Modal boxClass="max-w-2xl">Content</Modal>);
-    const modalBox = screen.getByText("Content");
-    expect(modalBox.className).toContain("max-w-2xl");
-  });
-
-  it("renders pixel-border on modal-box", () => {
-    render(() => <Modal>Content</Modal>);
-    const modalBox = screen.getByText("Content");
-    expect(modalBox.className).toContain("pixel-border");
+    expect(screen.getByText("Content")).toHaveClass("max-w-2xl");
   });
 });

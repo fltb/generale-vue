@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@solidjs/testing-library";
-
+import type { JSX } from "solid-js";
 vi.mock("~/hooks/useAuth", () => ({
   useAuth: () => ({
     user: null,
@@ -11,7 +11,7 @@ vi.mock("~/hooks/useAuth", () => ({
 }));
 
 vi.mock("@solidjs/router", () => ({
-  A: (p: any) => p.children,
+  A: (p: { children?: JSX.Element }) => p.children,
   useNavigate: () => vi.fn(),
   useSearchParams: () => [() => ({}), vi.fn()],
 }));

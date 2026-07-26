@@ -6,37 +6,18 @@ vi.mock("@solidjs/meta", () => ({ Title: () => null, Meta: () => null }));
 vi.mock("~/hooks/useAuth", () => ({ useAuth: () => ({ user: { id: "1" }, isLoading: false }) }));
 
 vi.mock("@solidjs/router", () => ({
-  A: (props: any) => <a href={props.href}>{props.children}</a>,
-  useLocation: () => ({ pathname: "/maps/preview" }),
+  A: (props: { href: string; children: unknown }) => <a href={props.href}>{props.children}</a>,
   useParams: () => ({ id: "preview-456" }),
   useNavigate: () => vi.fn(),
 }));
 
-vi.mock("@tanstack/solid-query", () => ({
-  useQueryClient: () => ({ invalidateQueries: vi.fn() }),
-  useMutation: () => ({
-    mutate: vi.fn(),
-    isPending: false,
-    isError: false,
-    error: null,
-  }),
-}));
-
-vi.mock("~/routes/games/generale/api/gameApi", () => ({
-  createGameApi: vi.fn(),
-}));
-
-vi.mock("~/components/map-editor/MapSelector", () => ({
-  MapSelector: (p: any) => (
-    <select data-testid="map-selector" value={p.value} onChange={(e) => p.onChange(e.currentTarget.value)}>
-      <option value="">{p.placeholder}</option>
-    </select>
-  ),
-}));
-
 vi.mock("~/components/map-editor/MapPreview", () => ({
-  default: (p: any) => <div data-testid="map-preview">MapPreview mapId={p.mapId}</div>,
+  default: (props: { mapId: string }) => <div data-testid="map-preview">MapPreview mapId={props.mapId}</div>,
 }));
+vi.mock("~/routes/games/generale/components/roomlist/CreateRoomModal", () => ({
+  default: () => null,
+}));
+
 
 import MapPreviewPage from "../map-preview";
 

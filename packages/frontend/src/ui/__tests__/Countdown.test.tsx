@@ -17,12 +17,12 @@ describe("Countdown", () => {
   it("calls onDone after countdown completes", () => {
     const onDone = vi.fn();
     render(() => <Countdown from={2} onDone={onDone} />);
-    vi.advanceTimersByTime(3000);
-    expect(onDone).toHaveBeenCalled();
+    vi.advanceTimersByTime(2800);
+    expect(onDone).toHaveBeenCalledTimes(1);
   });
   it("shows 开战 after countdown", () => {
     render(() => <Countdown from={1} />);
-    vi.advanceTimersByTime(1500);
+    vi.advanceTimersByTime(1000);
     expect(screen.getByText("Go!")).toBeInTheDocument();
   });
 });

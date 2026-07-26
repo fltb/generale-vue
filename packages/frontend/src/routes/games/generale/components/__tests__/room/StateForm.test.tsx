@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@solidjs/testing-library";
 import { TileType } from "@generale/types";
-import type { PreGameGameSetting } from "@generale/types";
+import type { PreGameGameSetting, PreGameMapSetting } from "@generale/types";
 import { PreGameRoomStateFrom } from "~/routes/games/generale/components/room/StateForm";
 
 const defaultState: PreGameGameSetting = {
@@ -17,12 +17,12 @@ const defaultState: PreGameGameSetting = {
   },
 };
 
-const defaultMap = {
-  type: "custom" as const,
+const defaultMap: PreGameMapSetting = {
+  type: "custom",
   width: 10,
   height: 10,
   tileFrequency: {},
-} as any;
+};
 
 describe("PreGameRoomStateFrom", () => {
   it("renders speed label with current value", () => {

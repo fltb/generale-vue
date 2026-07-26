@@ -125,17 +125,13 @@ export function useGameSession(params: UseGameSessionParams) {
     }
   });
 
-  // 测试桥：同步游戏状态和操作函数到全局 bridge
+  // 测试桥：同步游戏状态到全局 bridge
   createEffect(() => {
     const s = mergedState();
     if (s?.map && s.map.width > 0) {
       bridge.gameState = s;
     }
   });
-  createEffect(() => {
-    bridge.onOperationQueued = params.spectate ? null : handleOperationQueued;
-  });
-  bridge.onClearQueue = params.spectate ? null : handleClearQueue;
 
   // MapRender -> onOperationQueued => dispatch PUSH action
   // 观战者点格子也不发；服务端会丢弃，但客户端层面提前阻断更省事

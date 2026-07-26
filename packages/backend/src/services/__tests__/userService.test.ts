@@ -45,7 +45,16 @@ describe("UserService", () => {
 
   beforeEach(() => {
     userService = new UserService();
-    vi.clearAllMocks(); // Reset mocks before each test
+    vi.clearAllMocks();
+    mockDb.select.mockReturnThis();
+    mockDb.from.mockReturnThis();
+    mockDb.where.mockReturnThis();
+    mockDb.get.mockReset();
+    mockDb.insert.mockReturnThis();
+    mockDb.values.mockReturnThis();
+    mockDb.run.mockReset();
+    mockDb.update.mockReturnThis();
+    mockDb.set.mockReturnThis();
   });
 
   describe("Password Hashing and Verification", () => {

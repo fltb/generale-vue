@@ -3,23 +3,18 @@ import { render, screen } from "@solidjs/testing-library";
 import { Badge } from "../Badge";
 
 describe("Badge", () => {
-  it("renders children", () => {
-    render(() => <Badge>New</Badge>);
-    expect(screen.getByText("New")).toBeInTheDocument();
+  it.each([
+    ["success", "success", "badge-success"],
+    ["outline", "outline", "badge-outline"],
+  ] as const)("%s variant renders its expected class", (_name, variant, expectedClass) => {
+    render(() => <Badge variant={variant}>Badge</Badge>);
+    expect(screen.getByText("Badge")).toHaveClass(expectedClass);
   });
 
-  it("applies variant class", () => {
-    render(() => <Badge variant="success">OK</Badge>);
-    expect(screen.getByText("OK").className).toContain("badge-success");
-  });
-
-  it("has pixel-border by default", () => {
-    render(() => <Badge>Border</Badge>);
-    expect(screen.getByText("Border").className).toContain("pixel-border");
-  });
-
-  it("applies outline variant", () => {
-    render(() => <Badge variant="outline">Outline</Badge>);
-    expect(screen.getByText("Outline").className).toContain("badge-outline");
+  it("renders children, pixel border, and custom class", () => {
+    render(() => <Badge class="my-badge">Content</Badge>);
+    const badge = screen.getByText("Content");
+    expect(badge).toBeInTheDocument();
+    expect(badge).toHaveClass("pixel-border", "my-badge");
   });
 });

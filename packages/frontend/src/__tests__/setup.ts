@@ -20,4 +20,10 @@ vi.mock("@solid-primitives/i18n", () => {
 
 afterEach(() => {
   cleanup();
+  if (vi.isFakeTimers()) vi.runOnlyPendingTimers();
+  vi.useRealTimers();
+  vi.unstubAllGlobals();
+  vi.unstubAllEnvs();
+  vi.clearAllMocks();
+  vi.restoreAllMocks();
 });

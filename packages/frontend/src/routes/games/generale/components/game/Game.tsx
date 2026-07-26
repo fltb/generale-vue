@@ -4,7 +4,6 @@ import { type Component, createEffect, createSignal, Show } from "solid-js";
 import { Application } from "solid-pixi";
 import { DEFAULT_TILE_THEME } from "~/routes/games/generale/hooks/render/tileTheme";
 import { useGameSession } from "~/routes/games/generale/hooks/useGameSession";
-import bridge from "~/testBridge";
 import { Badge, Button, Confetti, Countdown, Overlay, sfx, TakeoverOverlay, uiTheme } from "~/ui";
 import { useT } from "~/i18n/useT";
 import { MapRender, type ViewportApi } from "../MapRender";
@@ -53,19 +52,6 @@ export const GameWithSync: Component<GameWithSyncProps> = (props) => {
   const [celebrate, setCelebrate] = createSignal(false);
   const [viewportApi, setViewportApi] = createSignal<ViewportApi | null>(null);
 
-  createEffect(() => {
-    const api = viewportApi();
-    if (api) {
-      bridge.viewportApi = {
-        panMap: (_dx, _dy) => {},
-        zoomMap: (_scale) => {},
-        zoomIn: () => api.zoomIn(),
-        zoomOut: () => api.zoomOut(),
-        zoomReset: () => api.zoomReset(),
-        getViewport: () => null,
-      };
-    }
-  });
   const [playerPanelOpen, setPlayerPanelOpen] = createSignal(true);
   let outcomePlayed = false;
   createEffect(() => {

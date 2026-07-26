@@ -1,9 +1,11 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import type { MapDetailRespBody } from "@generale/types";
+import type { JSX } from "solid-js";
 import { render, screen, waitFor } from "@solidjs/testing-library";
-
+type MockProps = { children?: JSX.Element; [key: string]: unknown };
 vi.mock("solid-pixi", () => ({
-  Application: (p: any) => p.children ?? null,
-  Container: (p: any) => p.children ?? null,
+  Application: (p: MockProps) => p.children ?? null,
+  Container: (p: MockProps) => p.children ?? null,
   Graphics: () => null,
   Text: () => null,
 }));
@@ -28,18 +30,8 @@ vi.mock("~/utils/faIconGraphic", () => ({
 }));
 
 vi.mock("~/api/mapApi", () => ({
-  mapDetailApi: vi.fn().mockResolvedValue({
-    data: {
-      id: "map1",
-      name: "Test Map",
-      width: 10,
-      height: 10,
-      tiles: Array.from({ length: 10 }, () =>
-        Array.from({ length: 10 }, () => ({ type: "PLAIN", army: 0 })),
-      ),
-    },
-  }),
-  mapThumbnailUrl: vi.fn(() => ""),
+  mapDetailApi: vi.fn(),
+  mapThumbnailUrl: vi.fn(),
 }));
 
 vi.mock("~/components/MapTile", () => ({
@@ -47,28 +39,37 @@ vi.mock("~/components/MapTile", () => ({
 }));
 
 vi.mock("@solidjs/router", () => ({
-  A: (p: any) => <a {...p}>{p.children}</a>,
+  A: (p: MockProps) => <a {...p}>{p.children}</a>,
   useNavigate: () => vi.fn(),
   useSearchParams: () => [() => ({}), vi.fn()],
 }));
 
-vi.mock("solid-js", async () => {
-  const actual = await vi.importActual("solid-js");
-  return {
-    ...actual as any,
-    onMount: (fn: () => any) => {
-      if (typeof fn === "function") {
-        const r = fn();
-        if (r && typeof r.then === "function") {
-          return r;
-        }
-      }
-    },
-  };
-});
 
+import { mapDetailApi } from "~/api/mapApi";
 import MapPreview from "~/components/map-editor/MapPreview";
 
+const detail: MapDetailRespBody = {
+  id: "map1",
+  gameType: "generale",
+  name: "Test Map",
+  authorId: "author1",
+  authorName: "Author",
+  width: 10,
+  height: 10,
+  minPlayers: 2,
+  maxPlayers: 4,
+  isPublic: true,
+  isDraft: false,
+  usageCount: 0,
+  tags: [],
+  data: Array.from({ length: 10 }, () =>
+    Array.from({ length: 10 }, () => ({ type: "PLAIN", army: 0 })),
+  ),
+};
+
+beforeEach(() => {
+  vi.mocked(mapDetailApi).mockResolvedValue({ success: true, data: detail });
+});
 describe("MapPreview", () => {
   it("shows loading state initially", () => {
     render(() => <MapPreview mapId="map1" />);

@@ -3,40 +3,28 @@ import { render, screen } from "@solidjs/testing-library";
 import { Overlay, TakeoverOverlay } from "../Overlay";
 
 describe("Overlay", () => {
-  it("renders children", () => {
-    render(() => <Overlay><div>content</div></Overlay>);
-    expect(screen.getByText("content")).toBeInTheDocument();
+  it.each([
+    ["default", undefined, "bg-black/70"],
+    ["dimmed", 60, "bg-black/60"],
+  ] as const)("%s state renders children and its expected classes", (_name, dim, expectedClass) => {
+    render(() => <Overlay dim={dim}>content</Overlay>);
+    const content = screen.getByText("content");
+    expect(content).toBeInTheDocument();
+    expect(content).toHaveClass("fixed", "inset-0", expectedClass);
   });
-  it("has fixed positioning classes", () => {
-    render(() => <Overlay>X</Overlay>);
-    const el = screen.getByText("X");
-    expect(el.className).toContain("fixed");
-    expect(el.className).toContain("inset-0");
-  });
-  it("applies dim=60 class", () => {
-    render(() => <Overlay dim={60}>X</Overlay>);
-    const el = screen.getByText("X");
-    expect(el.className).toContain("bg-black/60");
-  });
-  it("defaults to dim=70", () => {
-    render(() => <Overlay>X</Overlay>);
-    const el = screen.getByText("X");
-    expect(el.className).toContain("bg-black/70");
-  });
+
   it("merges custom class", () => {
-    render(() => <Overlay class="z-50">X</Overlay>);
-    const el = screen.getByText("X");
-    expect(el.className).toContain("z-50");
+    render(() => <Overlay class="z-50">content</Overlay>);
+    expect(screen.getByText("content")).toHaveClass("z-50");
   });
 });
 
 describe("TakeoverOverlay", () => {
-  it("renders takeover message with default scope", () => {
-    render(() => <TakeoverOverlay />);
-    expect(screen.getByText(/This page has been taken over/)).toBeInTheDocument();
-  });
-  it("renders with custom scope", () => {
-    render(() => <TakeoverOverlay scope="game" />);
-    expect(screen.getByText("Takeover description")).toBeInTheDocument();
+  it.each([
+    ["default", undefined, /This page has been taken over/],
+    ["game", "game", "Takeover description"],
+  ] as const)("%s scope renders takeover content", (_name, scope, expectedText) => {
+    render(() => <TakeoverOverlay scope={scope} />);
+    expect(screen.getByText(expectedText)).toBeInTheDocument();
   });
 });

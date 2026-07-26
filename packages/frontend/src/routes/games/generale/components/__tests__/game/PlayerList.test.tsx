@@ -1,10 +1,24 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@solidjs/testing-library";
-import { PlayerStatus, TileType } from "@generale/types";
+import { GameStatus, PlayerStatus, TileType } from "@generale/types";
 import type { SyncedGameState } from "@generale/types";
+import type { JSX } from "solid-js";
 
+type AnchorProps = { children?: JSX.Element };
+
+const settings: SyncedGameState["settings"] = {
+  afkThreshold: 100,
+  tileGrow: {
+    [TileType.Plain]: { duration: 10, growth: 1 },
+    [TileType.Throne]: { duration: 0, growth: 0 },
+    [TileType.Barracks]: { duration: 0, growth: 0 },
+    [TileType.Mountain]: { duration: 20, growth: 1 },
+    [TileType.Swamp]: { duration: 0, growth: 0 },
+    [TileType.Fog]: { duration: 0, growth: 0 },
+  },
+};
 vi.mock("@solidjs/router", () => ({
-  A: (p: any) => p.children,
+  A: (p: AnchorProps) => p.children,
   useNavigate: () => vi.fn(),
   useSearchParams: () => [() => ({}), vi.fn()],
 }));
@@ -17,7 +31,7 @@ import { PlayerList } from "~/routes/games/generale/components/game/PlayerList";
 
 function makeState(overrides?: Partial<SyncedGameState>): () => SyncedGameState {
   return () => ({
-    status: 0 as any,
+    status: GameStatus.Playing,
     tick: 1,
     map: {
       width: 3,
@@ -41,11 +55,11 @@ function makeState(overrides?: Partial<SyncedGameState>): () => SyncedGameState 
       ],
     },
     players: {
-      p1: { id: "p1", army: 10, status: PlayerStatus.Playing, land: 0, lastActiveTick: 0, teamId: "" } as any,
-      p2: { id: "p2", army: 5, status: PlayerStatus.Playing, land: 0, lastActiveTick: 0, teamId: "" } as any,
+      p1: { id: "p1", army: 10, status: PlayerStatus.Playing, land: 0, lastActiveTick: 0, teamId: "team1" },
+      p2: { id: "p2", army: 5, status: PlayerStatus.Playing, land: 0, lastActiveTick: 0, teamId: "team2" },
     },
     teams: {},
-    settings: {} as any,
+    settings,
     playerDisplay: {
       p1: { name: "Player1", displayName: "Player 1", tileColor: 0xff0000, avatarThumbUrl: "" },
       p2: { name: "Player2", displayName: "Player 2", tileColor: 0x0000ff, avatarThumbUrl: "" },

@@ -32,6 +32,14 @@ describe("ProfileService", () => {
   beforeEach(() => {
     profileService = new ProfileService();
     vi.clearAllMocks();
+    mockDb.select.mockReturnThis();
+    mockDb.from.mockReturnThis();
+    mockDb.where.mockReturnThis();
+    mockDb.get.mockReset();
+    mockDb.insert.mockReturnThis();
+    mockDb.values.mockReturnThis();
+    mockDb.onConflictDoUpdate.mockReturnThis();
+    mockDb.run.mockReset();
 
     // Reset the fluent API mock chain for insert/update
     const mockRun = vi.fn();

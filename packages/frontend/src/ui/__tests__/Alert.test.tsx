@@ -3,23 +3,16 @@ import { render, screen } from "@solidjs/testing-library";
 import { Alert } from "../Alert";
 
 describe("Alert", () => {
-  it("renders children", () => {
-    render(() => <Alert>Hello</Alert>);
-    expect(screen.getByText("Hello")).toBeInTheDocument();
+  it.each([
+    ["default", undefined, "pixel-border"],
+    ["error", "error", "alert-error"],
+  ] as const)("%s variant renders its expected classes", (_name, variant, expectedClass) => {
+    render(() => <Alert variant={variant}>Alert</Alert>);
+    expect(screen.getByText("Alert")).toHaveClass(expectedClass);
   });
 
-  it("applies variant class", () => {
-    render(() => <Alert variant="error">Error</Alert>);
-    expect(screen.getByText("Error").className).toContain("alert-error");
-  });
-
-  it("has pixel-border by default", () => {
-    render(() => <Alert>Border</Alert>);
-    expect(screen.getByText("Border").className).toContain("pixel-border");
-  });
-
-  it("merges custom class", () => {
-    render(() => <Alert class="my-alert">Custom</Alert>);
-    expect(screen.getByText("Custom").className).toContain("my-alert");
+  it("renders children and merges custom class", () => {
+    render(() => <Alert class="my-alert">Hello</Alert>);
+    expect(screen.getByText("Hello")).toHaveClass("my-alert");
   });
 });

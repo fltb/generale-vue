@@ -75,39 +75,12 @@ function exposeTestBridge() {
         return bridge.roomId;
       },
 
-      clickTile(x: number, y: number) {
-        bridge.onOperationQueued?.({
-          type: "MOVE" as never,
-          payload: { from: { x, y }, to: { x, y }, percentage: 100 },
-        });
-      },
-
-      panMap(dx: number, dy: number) {
-        bridge.viewportApi?.panMap(dx, dy);
-      },
-
-      zoomMap(scale: number) {
-        bridge.viewportApi?.zoomMap(scale);
-      },
-
-      getViewport() {
-        return bridge.viewportApi?.getViewport() ?? null;
-      },
-
       getGameState() {
         return bridge.gameState ? structuredClone(bridge.gameState) : null;
       },
 
-      getTileOwner(x: number, y: number) {
-        const state = bridge.gameState;
-        if (!state?.map?.tiles) return null;
-        return state.map.tiles[x]?.[y]?.ownerId ?? null;
-      },
-
-      getPlayerArmies() {
-        const state = bridge.gameState;
-        if (!state?.players) return [];
-        return Object.values(state.players).map((p) => ({ id: p.id, army: p.army }));
+      getConnectionState() {
+        return bridge.wsManager?.connectionStateSignal[0]() ?? null;
       },
 
       waitForStatus(status: string, timeout = 30000) {
@@ -119,13 +92,6 @@ function exposeTestBridge() {
 
       waitForWSConnected(timeout = 15000) {
         return waitFor(() => bridge.wsManager?.isConnected === true, timeout);
-      },
-
-      waitForTileOwner(x: number, y: number, owner: string, timeout = 10000) {
-        return waitFor(() => {
-          const state = bridge.gameState;
-          return state?.map?.tiles[x]?.[y]?.ownerId === owner;
-        }, timeout);
       },
     },
     writable: false,

@@ -1,9 +1,11 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { BombermanService, decodeBombermanOperation } from "../service/BombermanService";
 import { BombermanRoom } from "../instance/BombermanRoom";
+import { generateBombermanMap, Mulberry32 } from "@generale/bomberman-engine";
 import { BombermanGame } from "../instance/BombermanGame";
 import { defaultBombermanConfig } from "../settings";
 import { domainHandlers } from "../../../plugins/websocket";
+import { mapService } from "../../../services/mapService";
 import { GameStatus, BombermanPreGameServerEventType } from "@generale/types";
 vi.mock("../../../services/bombermanReplayService", () => ({
   bombermanReplayService: {
@@ -73,6 +75,46 @@ describe("BombermanService — startGame", () => {
     const game = (service as any).game as BombermanGame;
     expect(game).not.toBeNull();
     expect(game.getState().status).toBe(GameStatus.Playing);
+  });
+
+  it("loads a valid workshop map and enters playing with the map in state", async () => {
+    const config = makeConfig();
+    config.mapSource = { type: "workshop", id: "workshop-map" };
+    const map = generateBombermanMap({
+      width: 15,
+      height: 13,
+      themeId: "classic",
+      softWallDensity: 0.4,
+      random: new Mulberry32(6350),
+    });
+    vi.spyOn(mapService, "loadMapData").mockResolvedValue(map);
+    const workshopService = new BombermanService("workshop-game", "Workshop", config, "host-1", "Host");
+    const room = getRoom(workshopService);
+    room.addPlayer({ id: "host-1", name: "Host" }, mockConnector("host-1", "Host"));
+    workshopService.registerHandlers();
+    room.addPlayer({ id: "p2", name: "P2" }, mockConnector("p2", "P2"));
+    try {
+      await workshopService.startGame();
+      const gameHandler = domainHandlers.get(`game-${workshopService.gameId}`);
+      expect(gameHandler).toBeDefined();
+      const snapshotConnector = mockConnector("host-1", "Host");
+      gameHandler?.(snapshotConnector);
+      const onOpen = snapshotConnector.onOpen.mock.calls[0]?.[0];
+      if (typeof onOpen !== "function") throw new Error("Expected game connector open callback");
+      onOpen();
+      expect(snapshotConnector.send).toHaveBeenCalledWith(expect.objectContaining({
+        type: "state-update",
+        payload: expect.objectContaining({
+          type: "snapshot",
+          payload: expect.objectContaining({
+            status: GameStatus.Playing,
+            map: expect.objectContaining({ width: map.width, height: map.height, tiles: expect.any(Array) }),
+          }),
+        }),
+      }));
+    } finally {
+      workshopService.destroy();
+    }
   });
 
   it("does not inject an implicit bot for a solo room", async () => {

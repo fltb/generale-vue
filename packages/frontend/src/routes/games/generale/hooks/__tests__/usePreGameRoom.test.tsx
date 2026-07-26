@@ -3,7 +3,9 @@ import { createRoot } from "solid-js";
 import { usePreGameRoom } from "~/routes/games/generale/hooks/usePreGameRoom";
 import {
   SyncedPreGameClientActionTypes,
+  PlayerColor,
   PreGameMapType,
+  type PreGameRoomState,
 } from "@generale/types";
 
 const mockDispatch = vi.hoisted(() => vi.fn(() => 1));
@@ -177,7 +179,13 @@ describe("usePreGameRoom", () => {
       });
     });
 
-    const mapSetting = { type: PreGameMapType.Random, width: 30, height: 30, tileFrequency: {}, sizeLabel: "large" } as any;
+    const mapSetting = {
+      type: PreGameMapType.Random,
+      width: 30,
+      height: 30,
+      tileFrequency: {},
+      sizeLabel: "large",
+    } satisfies PreGameRoomState["mapSetting"];
     result!.onMapChange(mapSetting);
     expect(mockDispatch).toHaveBeenCalledWith(
       expect.objectContaining({ type: SyncedPreGameClientActionTypes.CHANGE_MAP, payload: mapSetting }),
@@ -298,7 +306,7 @@ describe("usePreGameRoom", () => {
       });
     });
 
-    result!.onChangeColor(0xff0000 as any);
+    result!.onChangeColor(PlayerColor.Red);
     expect(mockDispatch).toHaveBeenCalledWith(
       expect.objectContaining({
         type: SyncedPreGameClientActionTypes.CHANGE_COLOR,

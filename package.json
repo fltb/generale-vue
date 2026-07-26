@@ -17,7 +17,7 @@
     "dev": "bun run --filter=./packages/* dev",
     "test": "bun run --filter=./packages/* test",
     "test:e2e": "bun run --cwd e2e test",
-    "typecheck": "bun run --filter=./packages/* typecheck",
+    "typecheck": "bun run --filter=./packages/* typecheck && bun run --cwd e2e typecheck",
     "lint": "bunx biome lint",
     "format": "bunx biome format --write",
     "check": "bunx biome check",

@@ -3,17 +3,12 @@ import { render } from "@solidjs/testing-library";
 import Confetti from "../Confetti";
 
 describe("Confetti", () => {
-  it("renders with default count", () => {
-    const { container } = render(() => <Confetti />);
-    expect(container.querySelector(".fixed")).toBeInTheDocument();
-  });
-  it("accepts custom count prop", () => {
-    const { container } = render(() => <Confetti count={20} />);
-    expect(container.querySelector(".fixed")).toBeInTheDocument();
-  });
-  it("renders confetti pieces as divs", () => {
-    const { container } = render(() => <Confetti count={5} />);
-    const pieces = container.querySelectorAll("div > div");
-    expect(pieces.length).toBeGreaterThanOrEqual(5);
+  it.each([
+    ["default", undefined, 80],
+    ["custom", 20, 20],
+  ] as const)("%s count renders the requested pieces", (_name, count, expectedCount) => {
+    const { container } = render(() => <Confetti count={count} />);
+    expect(container.firstElementChild).toBeInTheDocument();
+    expect(container.firstElementChild?.children).toHaveLength(expectedCount);
   });
 });

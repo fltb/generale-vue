@@ -1,6 +1,6 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@solidjs/testing-library";
-import { GamePhase, PreGamePlayerStatus } from "@generale/types";
+import { GamePhase, PreGamePlayerStatus, type ChatMessage } from "@generale/types";
 import en from "@generale/i18n/locales/en.json";
 
 const mockChat = vi.hoisted(() => ({
@@ -14,7 +14,7 @@ const mockChat = vi.hoisted(() => ({
   send: vi.fn().mockReturnValue(true),
   sendQuickMessage: vi.fn(),
   canTeamChat: vi.fn().mockReturnValue(false),
-  messageDisplayName: vi.fn().mockImplementation((m: any) => m.playerId),
+  messageDisplayName: vi.fn().mockImplementation((m: ChatMessage) => m.playerId),
   selfMeta: vi.fn(),
   presenceLabel: vi.fn(),
   teamLabel: vi.fn(),
@@ -42,6 +42,20 @@ vi.mock("~/i18n/useT", () => ({
 
 import { ChatPanel } from "~/components/ChatPanel";
 
+
+beforeEach(() => {
+  mockChat.messages.mockReturnValue([]);
+  mockChat.connected.mockReturnValue(true);
+  mockChat.loadingHistory.mockReturnValue(false);
+  mockChat.hasMoreHistory.mockReturnValue(false);
+  mockChat.send.mockReturnValue(true);
+  mockChat.canTeamChat.mockReturnValue(false);
+  mockChat.messageDisplayName.mockImplementation((m: ChatMessage) => m.playerName);
+  mockChat.selfMeta.mockReturnValue(undefined);
+  mockChat.presenceLabel.mockReturnValue(undefined);
+  mockChat.teamLabel.mockReturnValue(undefined);
+  mockChat.colorHex.mockReturnValue(undefined);
+});
 describe("ChatPanel", () => {
   it("renders title", () => {
     render(() => <ChatPanel domain="test" userId="u1" />);

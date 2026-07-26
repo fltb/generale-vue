@@ -1,5 +1,14 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, type Mock } from "vitest";
 import { render, screen, fireEvent } from "@solidjs/testing-library";
+import type { JSX } from "solid-js";
+
+type AnchorProps = { children?: JSX.Element };
+type MapSelectorProps = {
+  value?: string;
+  placeholder?: string;
+  onChange?: (value: string) => void;
+  [key: string]: unknown;
+};
 
 const mockMutate = vi.fn();
 const mockInvalidateQueries = vi.fn();
@@ -19,7 +28,7 @@ vi.mock("@tanstack/solid-query", () => ({
 
 vi.mock("@solidjs/router", () => ({
   useNavigate: () => mockNavigate,
-  A: (p: any) => p.children,
+  A: (p: AnchorProps) => p.children,
   useSearchParams: () => [() => ({}), vi.fn()],
 }));
 
@@ -28,11 +37,11 @@ vi.mock("~/routes/games/generale/api/gameApi", () => ({
 }));
 
 vi.mock("~/components/map-editor/MapSelector", () => ({
-  MapSelector: (p: any) => (
+  MapSelector: (p: MapSelectorProps) => (
     <select
       data-testid="map-selector"
       value={p.value}
-      onChange={(e) => p.onChange(e.target.value)}
+      onChange={(e) => p.onChange?.(e.currentTarget.value)}
     >
       <option value="">{p.placeholder}</option>
       <option value="map1">Map 1</option>
@@ -40,13 +49,14 @@ vi.mock("~/components/map-editor/MapSelector", () => ({
   ),
 }));
 
-const alertSpy = vi.spyOn(window, "alert").mockImplementation(() => {});
+let alertSpy: Mock;
 
 import CreateRoomModal from "~/routes/games/generale/components/roomlist/CreateRoomModal";
 
 describe("CreateRoomModal", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    alertSpy = vi.spyOn(window, "alert").mockImplementation(() => {});
   });
 
   it("renders modal when open", () => {

@@ -4,7 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "vitest && bun test src/__tests__/helpers/ src/__tests__/routes/",
+    "test:unit": "vitest run",
+    "test:integration": "bun test --isolate --max-concurrency=1 src/__tests__/helpers/integration.test.ts src/__tests__/routes/auth.integration.test.ts src/__tests__/routes/game.integration.test.ts src/__tests__/routes/map.integration.test.ts src/__tests__/routes/settings.integration.test.ts",
+    "test": "bun run test:unit && bun run test:integration",
     "test:watch": "vitest --watch",
     "dev": "bun run --watch src/index.ts",
     "start": "bun run src/index.ts",
@@ -15,6 +17,7 @@
     "@elysiajs/static": "^1.4.10",
     "@elysiajs/swagger": "latest",
     "@generale/types": "workspace:*",
+    "@generale/i18n": "workspace:*",
     "@generale/bomberman-engine": "workspace:*",
     "@libsql/client": "^0.15.15",
     "dotenv": "^17.2.3",
@@ -31,6 +34,7 @@
     "bun-types": "latest",
     "drizzle-kit": "^0.31.7",
     "tsx": "^4.20.6",
+    "@vitest/coverage-v8": "^3.2.4",
     "vitest": "^3.2.4",
     "ws": "^8.14.0"
   },

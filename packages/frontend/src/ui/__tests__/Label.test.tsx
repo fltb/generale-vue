@@ -3,34 +3,29 @@ import { render, screen } from "@solidjs/testing-library";
 import { Label, LabelText, LabelTextAlt } from "../Label";
 
 describe("Label", () => {
-  it("renders children via spread", () => {
-    render(() => <Label><span>child</span></Label>);
+  it("renders children, text, and alt text", () => {
+    render(() => <Label text="Email" alt="Optional"><span>child</span></Label>);
     expect(screen.getByText("child")).toBeInTheDocument();
-  });
-  it("renders text via text prop", () => {
-    render(() => <Label text="Email" />);
     expect(screen.getByText("Email")).toBeInTheDocument();
-  });
-  it("renders alt text via alt prop", () => {
-    render(() => <Label alt="Optional" />);
     expect(screen.getByText("Optional")).toBeInTheDocument();
   });
-  it("has label class", () => {
+
+  it("renders label class", () => {
     render(() => <Label text="X" />);
-    expect(screen.getByText("X").parentElement!.className).toContain("label");
+    expect(screen.getByText("X").parentElement).toHaveClass("label");
   });
 });
 
 describe("LabelText", () => {
-  it("renders with label-text class", () => {
+  it("renders label-text class", () => {
     render(() => <LabelText>Text</LabelText>);
-    expect(screen.getByText("Text").className).toContain("label-text");
+    expect(screen.getByText("Text")).toHaveClass("label-text");
   });
 });
 
 describe("LabelTextAlt", () => {
-  it("renders with label-text-alt class", () => {
+  it("renders label-text-alt class", () => {
     render(() => <LabelTextAlt>Alt</LabelTextAlt>);
-    expect(screen.getByText("Alt").className).toContain("label-text-alt");
+    expect(screen.getByText("Alt")).toHaveClass("label-text-alt");
   });
 });

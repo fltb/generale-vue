@@ -3,36 +3,28 @@ import { render, screen, fireEvent } from "@solidjs/testing-library";
 import { Tabs, Tab } from "../Tabs";
 
 describe("Tabs", () => {
-  it("renders children tabs", () => {
-    render(() => <Tabs><Tab>One</Tab><Tab>Two</Tab></Tabs>);
-    expect(screen.getByText("One")).toBeInTheDocument();
-    expect(screen.getByText("Two")).toBeInTheDocument();
-  });
-  it("applies bordered class", () => {
-    render(() => <Tabs bordered><Tab>X</Tab></Tabs>);
-    const container = screen.getByText("X").parentElement!;
-    expect(container.className).toContain("tabs-bordered");
-  });
-  it("has tabs class", () => {
-    render(() => <Tabs><Tab>X</Tab></Tabs>);
-    const container = screen.getByText("X").parentElement!;
-    expect(container.className).toContain("tabs");
+  it.each([
+    ["default", false, "tabs"],
+    ["bordered", true, "tabs-bordered"],
+  ] as const)("%s state renders children and its expected class", (_name, bordered, expectedClass) => {
+    render(() => <Tabs bordered={bordered}><Tab>Tab</Tab></Tabs>);
+    expect(screen.getByText("Tab").parentElement).toHaveClass(expectedClass);
   });
 });
 
 describe("Tab", () => {
-  it("renders with tab class", () => {
-    render(() => <Tab href="/test">Link</Tab>);
-    expect(screen.getByText("Link").className).toContain("tab");
+  it.each([
+    ["default", false, "tab"],
+    ["active", true, "tab-active"],
+  ] as const)("%s state renders its expected class", (_name, active, expectedClass) => {
+    render(() => <Tab active={active} href="/">Tab</Tab>);
+    expect(screen.getByRole("link", { name: "Tab" })).toHaveClass(expectedClass);
   });
-  it("applies active class", () => {
-    render(() => <Tab active href="/">Active</Tab>);
-    expect(screen.getByText("Active").className).toContain("tab-active");
-  });
+
   it("calls onClick", () => {
-    const handle = vi.fn((e) => e.preventDefault());
+    const handle = vi.fn((event: MouseEvent) => event.preventDefault());
     render(() => <Tab href="#" onClick={handle}>Click</Tab>);
-    fireEvent.click(screen.getByText("Click"));
+    fireEvent.click(screen.getByRole("link", { name: "Click" }));
     expect(handle).toHaveBeenCalled();
   });
 });

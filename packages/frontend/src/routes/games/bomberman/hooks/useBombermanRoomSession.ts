@@ -370,7 +370,6 @@ export function useBombermanRoomSession(params: {
 
   // ─── Bridge: expose state for E2E testing & console debugging ───
   bridge.roomId = params.id;
-  bridge.onOperationQueued = (op) => gameSync.dispatch(op as never);
 
   return {
     phase,

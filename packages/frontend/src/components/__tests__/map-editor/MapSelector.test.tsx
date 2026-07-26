@@ -1,27 +1,64 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import type { MapSumaryRespBody } from "@generale/types";
+import type { JSX } from "solid-js";
 import { render, screen } from "@solidjs/testing-library";
+type MockProps = { children?: JSX.Element; [key: string]: unknown };
 
 vi.mock("~/api/mapApi", () => ({
-  listMapsApi: vi.fn().mockResolvedValue({
-    data: [
-      { id: "m1", name: "Alpha", authorName: "User1", width: 20, height: 20, minPlayers: 2, maxPlayers: 4 },
-      { id: "m2", name: "Beta", authorName: "User2", width: 30, height: 30, minPlayers: 2, maxPlayers: 6 },
-    ],
-  }),
-  mapThumbnailUrl: vi.fn((id: string) => `/api/maps/thumbnail/${id}`),
+  listMapsApi: vi.fn(),
+  mapThumbnailUrl: vi.fn(),
 }));
 
 vi.mock("~/ui", () => ({
-  Collapse: (p: any) => <div {...p} />,
-  CollapseContent: (p: any) => <div {...p} />,
-  CollapseTitle: (p: any) => <div {...p} />,
+  Collapse: (p: MockProps) => <div {...p} />,
+  CollapseContent: (p: MockProps) => <div {...p} />,
+  CollapseTitle: (p: MockProps) => <div {...p} />,
   Checkbox: () => null,
-  Input: (p: any) => <input {...p} />,
-  Button: (p: any) => <button {...p}>{p.children}</button>,
+  Input: (p: MockProps) => <input {...p} />,
+  Button: (p: MockProps) => <button {...p}>{p.children}</button>,
   Spinner: () => <div>Loading...</div>,
 }));
 
+import { listMapsApi, mapThumbnailUrl } from "~/api/mapApi";
 import { MapSelector } from "~/components/map-editor/MapSelector";
+
+const maps: MapSumaryRespBody[] = [
+  {
+    id: "m1",
+    gameType: "generale",
+    name: "Alpha",
+    authorId: "u1",
+    authorName: "User1",
+    width: 20,
+    height: 20,
+    minPlayers: 2,
+    maxPlayers: 4,
+    isPublic: true,
+    isDraft: false,
+    usageCount: 0,
+    tags: [],
+  },
+  {
+    id: "m2",
+    gameType: "generale",
+    name: "Beta",
+    authorId: "u2",
+    authorName: "User2",
+    width: 30,
+    height: 30,
+    minPlayers: 2,
+    maxPlayers: 6,
+    isPublic: true,
+    isDraft: false,
+    usageCount: 0,
+    tags: [],
+  },
+];
+
+beforeEach(() => {
+  vi.mocked(listMapsApi).mockResolvedValue({ success: true, data: maps });
+  vi.mocked(mapThumbnailUrl).mockImplementation((id) => `/api/maps/thumbnail/${id}`);
+});
 
 describe("MapSelector", () => {
   it("renders placeholder when no map selected", () => {

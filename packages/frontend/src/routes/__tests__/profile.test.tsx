@@ -1,4 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
+import type { AvatarProps } from "~/components/Avatar";
+import type { UserProfileRespBody } from "@generale/types/dist/api";
 import { render, screen } from "@solidjs/testing-library";
 
 vi.mock("@solidjs/meta", () => ({ Title: () => null, Meta: () => null }));
@@ -12,9 +14,8 @@ vi.mock("~/hooks/useAuth", () => ({
       username: "testuser",
       displayName: "Test User",
       email: "test@example.com",
-      avatarUrl: null,
       bio: "Hello world",
-    },
+    } satisfies UserProfileRespBody,
     isLoading: false,
     refresh: mockRefresh,
     logout: vi.fn(),
@@ -57,7 +58,7 @@ vi.mock("~/hooks/useGlobalSettings", () => ({
 }));
 
 vi.mock("~/components/Avatar", () => ({
-  default: (p: any) => <div data-testid="avatar">Avatar</div>,
+  default: (_props: AvatarProps) => <div data-testid="avatar">Avatar</div>,
 }));
 
 import ProfilePage from "../profile";

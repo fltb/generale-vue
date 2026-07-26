@@ -1,19 +1,37 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@solidjs/testing-library";
+import { PreGamePlayerStatus, TileType } from "@generale/types";
+import type { PreGameRoomState } from "@generale/types";
 import type { PregameController } from "~/routes/games/generale/hooks/usePreGameRoom";
+import type { JSX } from "solid-js";
+
+type MockProps = { children?: JSX.Element; [key: string]: unknown };
+
+const gameSetting: PreGameRoomState["gameSetting"] = {
+  speed: 1,
+  afkThreshold: 30,
+  tileGrow: {
+    [TileType.Plain]: { duration: 10, growth: 1 },
+    [TileType.Throne]: { duration: 0, growth: 0 },
+    [TileType.Barracks]: { duration: 0, growth: 0 },
+    [TileType.Mountain]: { duration: 20, growth: 1 },
+    [TileType.Swamp]: { duration: 0, growth: 0 },
+    [TileType.Fog]: { duration: 0, growth: 0 },
+  },
+};
 
 vi.mock("@solidjs/router", () => ({
-  A: (p: any) => p.children,
+  A: (p: MockProps) => p.children,
   useNavigate: () => vi.fn(),
   useSearchParams: () => [() => ({}), vi.fn()],
 }));
 
 vi.mock("~/ui", () => ({
-  Alert: (p: any) => <div {...p} />,
-  Button: (p: any) => <button {...p}>{p.children}</button>,
-  Card: (p: any) => <div {...p} />,
-  Panel: (p: any) => <div {...p} />,
-  Range: (p: any) => <div {...p} />,
+  Alert: (p: MockProps) => <div {...p} />,
+  Button: (p: MockProps) => <button {...p}>{p.children}</button>,
+  Card: (p: MockProps) => <div {...p} />,
+  Panel: (p: MockProps) => <div {...p} />,
+  Range: (p: MockProps) => <div {...p} />,
   TakeoverOverlay: () => null,
 }));
 
@@ -47,8 +65,8 @@ function makeCtrl(overrides?: Partial<PregameController>): PregameController {
       teamMode: "ffa",
       players: [],
       teams: [],
-      gameSetting: { speed: 1, tileGrow: {} as any, afkThreshold: 30 },
-      mapSetting: { type: "random" as const, width: 20, height: 20, tileFrequency: {} as any, sizeLabel: "medium" },
+      gameSetting,
+      mapSetting: { type: "random", width: 20, height: 20, tileFrequency: {}, sizeLabel: "medium" },
       teamCount: 0,
       playerLimit: 8,
       started: false,
@@ -56,7 +74,7 @@ function makeCtrl(overrides?: Partial<PregameController>): PregameController {
     selfId: () => "p1",
     isHost: () => true,
     selfReady: () => false,
-    selfStatus: () => "LOBBY" as any,
+    selfStatus: () => PreGamePlayerStatus.Lobby,
     gameInProgress: () => false,
     isLobby: () => true,
     isSpectating: () => false,
@@ -79,7 +97,7 @@ function makeCtrl(overrides?: Partial<PregameController>): PregameController {
     onDeleteTeam: vi.fn(),
     onChangeColor: vi.fn(),
     ...overrides,
-  } as PregameController;
+  };
 }
 
 describe("RoomWithSync", () => {

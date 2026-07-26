@@ -1,12 +1,14 @@
 import { describe, it, expect, vi } from "vitest";
+import type { JSX } from "solid-js";
 import { render, screen } from "@solidjs/testing-library";
+type MockProps = { children?: JSX.Element; when?: boolean; [key: string]: unknown };
 
 vi.mock("solid-pixi", () => ({
-  Application: (p: any) => p.children ?? null,
-  Container: (p: any) => p.children ?? null,
+  Application: (p: MockProps) => p.children ?? null,
+  Container: (p: MockProps) => p.children ?? null,
   Graphics: () => null,
   Text: () => null,
-  Show: (p: any) => (p.when ? p.children : null),
+  Show: (p: MockProps) => (p.when ? p.children : null),
 }));
 
 vi.mock("pixi.js", () => ({
@@ -53,30 +55,16 @@ vi.mock("~/components/MapTile", () => ({
 }));
 
 vi.mock("~/ui", () => ({
-  Button: (p: any) => <button {...p}>{p.children}</button>,
-  Input: (p: any) => <input {...p} />,
+  Button: (p: MockProps) => <button {...p}>{p.children}</button>,
+  Input: (p: MockProps) => <input {...p} />,
 }));
 
 vi.mock("@solidjs/router", () => ({
-  A: (p: any) => <a {...p}>{p.children}</a>,
+  A: (p: MockProps) => <a {...p}>{p.children}</a>,
   useNavigate: () => vi.fn(),
   useSearchParams: () => [() => ({}), vi.fn()],
 }));
 
-vi.mock("solid-js", async () => {
-  const actual = await vi.importActual("solid-js");
-  return {
-    ...actual as any,
-    onMount: (fn: () => any) => {
-      if (typeof fn === "function") {
-        const r = fn();
-        if (r && typeof r.then === "function") {
-          return r;
-        }
-      }
-    },
-  };
-});
 
 import MapEditor from "~/components/map-editor/MapEditor";
 

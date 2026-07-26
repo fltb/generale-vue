@@ -26,8 +26,8 @@ export function tileColorNumber(c: number | string | undefined, fallback = DEFAU
   return fallback;
 }
 
-/** 把颜色归一化为 css `#rrggbb` 字符串（玩家列表色块用） */
-export function playerColorCss(c: number | string | undefined, fallback = DEFAULT_PLAYER_COLOR_CSS): string {
+/** 把颜色归一化为 css `#rrggbb` 字符串（玩家列表色块用）；null / undefined 使用兜底 */
+export function playerColorCss(c: number | string | null | undefined, fallback = DEFAULT_PLAYER_COLOR_CSS): string {
   if (c == null) return fallback;
   if (typeof c === "number") return `#${c.toString(16).padStart(6, "0")}`;
   const num = (PlayerColor as unknown as Record<string, number>)[c];

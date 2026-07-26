@@ -1,10 +1,13 @@
 import { Database } from "bun:sqlite";
-import { Elysia } from "elysia";
 import { cors } from "@elysiajs/cors";
+import { Elysia } from "elysia";
+import { mkdtemp, rm } from "node:fs/promises";
+import path from "node:path";
 import { authPlugin } from "../../middleware/authPlugin";
 import { userRoutes } from "../../routes/user";
 import { profileRoutes } from "../../routes/profile";
 import { gameRoutes } from "../../games/generale/routes";
+import { db, resetDb } from "../../db/client";
 import { mapRoutes } from "../../routes/map";
 import { settingsRoutes } from "../../routes/settings";
 import { pbkdf2Sync, randomBytes } from "node:crypto";
@@ -21,48 +24,100 @@ export interface SeedUser {
   password: string;
 }
 
-const TABLE_DDL = `
-CREATE TABLE IF NOT EXISTS users (id TEXT PRIMARY KEY NOT NULL, username TEXT NOT NULL UNIQUE, email TEXT NOT NULL, password TEXT NOT NULL, verified INTEGER NOT NULL DEFAULT 0, username_changed_at INTEGER, created_at INTEGER NOT NULL DEFAULT (strftime('%s','now')), updated_at INTEGER NOT NULL DEFAULT (strftime('%s','now')));
-CREATE TABLE IF NOT EXISTS sessions (id TEXT PRIMARY KEY NOT NULL, user_id TEXT NOT NULL REFERENCES users(id), created_at INTEGER NOT NULL DEFAULT (strftime('%s','now')), expires_at INTEGER NOT NULL);
-CREATE TABLE IF NOT EXISTS verification_tokens (token TEXT PRIMARY KEY NOT NULL, user_id TEXT NOT NULL REFERENCES users(id), purpose TEXT NOT NULL DEFAULT 'register', new_email TEXT, expires_at INTEGER NOT NULL);
-CREATE TABLE IF NOT EXISTS profiles (user_id TEXT PRIMARY KEY NOT NULL REFERENCES users(id), display_name TEXT, avatar_url TEXT, avatar_thumb_url TEXT, bio TEXT, updated_at INTEGER DEFAULT (strftime('%s','now')));
-CREATE TABLE IF NOT EXISTS custom_maps (id TEXT PRIMARY KEY NOT NULL, name TEXT NOT NULL, description TEXT DEFAULT '', author_id TEXT NOT NULL REFERENCES users(id), author_name TEXT NOT NULL, game_type TEXT NOT NULL DEFAULT 'generale', width INTEGER NOT NULL, height INTEGER NOT NULL, tile_count INTEGER NOT NULL, min_players INTEGER DEFAULT 2 NOT NULL, max_players INTEGER DEFAULT 8 NOT NULL, is_public INTEGER DEFAULT 0 NOT NULL, is_draft INTEGER DEFAULT 1 NOT NULL, usage_count INTEGER DEFAULT 0 NOT NULL, tags TEXT, has_custom_thumbnail INTEGER DEFAULT 0 NOT NULL, created_at INTEGER NOT NULL DEFAULT (strftime('%s','now')), updated_at INTEGER NOT NULL DEFAULT (strftime('%s','now')));
-CREATE TABLE IF NOT EXISTS user_settings (user_id TEXT NOT NULL REFERENCES users(id), key TEXT NOT NULL, value TEXT NOT NULL, updated_at INTEGER NOT NULL DEFAULT (strftime('%s','now')), PRIMARY KEY (user_id, key));
-CREATE TABLE IF NOT EXISTS game_user_settings (user_id TEXT NOT NULL REFERENCES users(id), game_type TEXT NOT NULL, key TEXT NOT NULL, value TEXT NOT NULL, updated_at INTEGER, PRIMARY KEY (user_id, game_type, key));
-`;
+interface DrizzleSession {
+  client: Database;
+}
 
-export async function createTestApp() {
-  process.env["DB_FILE_NAME"] = ":memory:";
-  const { db, resetDb } = await import("../../db/client");
-  resetDb(); // Force fresh connection for test isolation
-  const rawDb = (db as any).session?.client as Database;
-  if (!rawDb) throw new Error("Cannot access underlying SQLite database");
-  for (const sql of TABLE_DDL.split(";").filter(Boolean)) {
-    const trimmed = sql.trim();
-    if (trimmed) rawDb.prepare(trimmed).run();
+interface DrizzleDatabase {
+  session?: DrizzleSession;
+}
+
+export interface TestAppContext {
+  app: Elysia;
+  rawDb: Database;
+  cleanup: () => Promise<void>;
+}
+
+let seedSequence = 0;
+
+export async function createTestApp(): Promise<TestAppContext> {
+  const previousDbFile = process.env["DB_FILE_NAME"];
+  const previousMigrationsFolder = process.env["MIGRATIONS_FOLDER"];
+  const tempDir = await mkdtemp(path.join("/tmp", "generale-backend-test-"));
+  const dbFile = path.join(tempDir, "test.sqlite");
+  const migrationsFolder = path.resolve(import.meta.dir, "../../../drizzle");
+  let rawDb: Database | undefined;
+  let cleaned = false;
+
+  const restoreEnv = (): void => {
+    if (previousDbFile === undefined) delete process.env["DB_FILE_NAME"];
+    else process.env["DB_FILE_NAME"] = previousDbFile;
+    if (previousMigrationsFolder === undefined) delete process.env["MIGRATIONS_FOLDER"];
+    else process.env["MIGRATIONS_FOLDER"] = previousMigrationsFolder;
+  };
+
+  const cleanup = async (): Promise<void> => {
+    if (cleaned) return;
+    cleaned = true;
+    const errors: unknown[] = [];
+    try {
+      rawDb?.close();
+    } catch (error) {
+      errors.push(error);
+    }
+    try {
+      resetDb();
+    } catch (error) {
+      errors.push(error);
+    }
+    restoreEnv();
+    try {
+      await rm(tempDir, { recursive: true, force: true });
+    } catch (error) {
+      errors.push(error);
+    }
+    if (errors.length > 0) throw new AggregateError(errors, "Failed to clean up integration test database");
+  };
+
+  try {
+    // The migration module captures MIGRATIONS_FOLDER at import time, so load it only after test env setup.
+    process.env["DB_FILE_NAME"] = dbFile;
+    process.env["MIGRATIONS_FOLDER"] = migrationsFolder;
+    const client = await import("../../db/client");
+    resetDb();
+    const { runMigrations } = await import("../../db/migrate");
+    runMigrations();
+    const drizzleDb = db as unknown as DrizzleDatabase;
+    rawDb = drizzleDb.session?.client;
+    if (!rawDb) throw new Error("Cannot access underlying SQLite database");
+
+    const app = new Elysia()
+      .use(cors())
+      .use(authPlugin)
+      .group("/api", (api) =>
+        api
+          .use(userRoutes)
+          .use(profileRoutes)
+          .use(gameRoutes)
+          .use(mapRoutes)
+          .group("/settings", (s) => s.use(settingsRoutes))
+          .get("/health", () => ({ status: "ok" })),
+      );
+    return { app, rawDb, cleanup };
+  } catch (error) {
+    await cleanup();
+    throw error;
   }
-  const app = new Elysia()
-    .use(cors())
-    .use(authPlugin)
-    .group("/api", (api) =>
-      api
-        .use(userRoutes)
-        .use(profileRoutes)
-        .use(gameRoutes)
-        .use(mapRoutes)
-        .group("/settings", (s) => s.use(settingsRoutes))
-        .get("/health", () => ({ status: "ok" })),
-    );
-  return { app, rawDb };
 }
 
 export function seedUser(rawDb: Database, overrides?: Partial<SeedUser>): SeedUser {
-  const userId = overrides?.userId ?? `user_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-  const username = overrides?.username ?? `tu_${Math.random().toString(36).slice(2, 8)}`;
+  seedSequence += 1;
+  const userId = overrides?.userId ?? `user_test_${seedSequence}`;
+  const username = overrides?.username ?? `tu_test_${seedSequence}`;
   const password = overrides?.password ?? "testpass123";
   const hashed = hashPassword(password);
-  rawDb.prepare(`INSERT INTO users (id, username, email, password, verified) VALUES (?, ?, ?, ?, 1)`).run(userId, username, `${username}@t.com`, hashed);
-  rawDb.prepare(`INSERT INTO profiles (user_id, display_name) VALUES (?, ?)`).run(userId, username);
+  rawDb.prepare("INSERT INTO users (id, username, email, password, verified) VALUES (?, ?, ?, ?, 1)").run(userId, username, `${username}@t.com`, hashed);
+  rawDb.prepare("INSERT INTO profiles (user_id, display_name, updated_at) VALUES (?, ?, ?)").run(userId, username, 1_700_000_000_000 + seedSequence);
   return { userId, username, password };
 }
 

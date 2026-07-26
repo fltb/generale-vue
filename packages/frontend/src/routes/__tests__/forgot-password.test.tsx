@@ -1,11 +1,12 @@
 import { describe, it, expect, vi } from "vitest";
+import type { JSX } from "solid-js";
 import { render, screen } from "@solidjs/testing-library";
 
 vi.mock("@solidjs/meta", () => ({ Title: () => null, Meta: () => null }));
 
 vi.mock("@solidjs/router", () => ({
   useNavigate: () => vi.fn(),
-  A: (p: any) => <a href={p.href}>{p.children}</a>,
+  A: (p: JSX.AnchorHTMLAttributes<HTMLAnchorElement>) => <a href={p.href}>{p.children}</a>,
 }));
 
 vi.mock("@tanstack/solid-query", () => ({

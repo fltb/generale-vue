@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import type { GeneraleServiceConfig } from "../GeneraleService";
+import type { GeneraleService, GeneraleServiceConfig } from "../GeneraleService";
 
 // Mock GeneraleService module so the manager can create mock instances
 const mockForceDispose = vi.fn();
@@ -30,6 +30,29 @@ vi.mock("../GeneraleService", () => {
 });
 
 const { GeneraleManager, generaleManager } = await import("../GeneraleManager");
+const { GeneraleService } = await import("../GeneraleService");
+
+function installMockService(): void {
+  vi.mocked(GeneraleService).mockImplementation((config) => ({
+    config,
+    gameId: config.gameId,
+    forceDispose: mockForceDispose,
+    getGameInfo: vi.fn().mockReturnValue({
+      id: config.gameId,
+      roomName: config.roomName,
+      hostId: config.creatorId ?? "",
+      hostName: "Host",
+      type: "standard",
+      map: "small",
+      status: "PREGAME",
+      playerCount: 1,
+      maxPlayers: config.maxPlayers ?? 4,
+      hasPassword: !!config.password,
+    }),
+    setRoomUpdateEmitter: vi.fn(),
+    onDisband: vi.fn(),
+  }) as unknown as GeneraleService);
+}
 
 function resetSingleton() {
   // Reset the singleton by re-setting the private static instance
@@ -39,8 +62,8 @@ function resetSingleton() {
 beforeEach(() => {
   resetSingleton();
   vi.clearAllMocks();
+  installMockService();
 });
-
 afterEach(() => {
   resetSingleton();
 });

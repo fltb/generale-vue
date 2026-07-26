@@ -1,24 +1,25 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { createRoot } from "solid-js";
 import { useMapInput } from "~/routes/games/generale/hooks/render/useMapInput";
-import { PlayerOperationType } from "@generale/types";
+import { PlayerOperationType, TileType, type GameMap } from "@generale/types";
 
-function makeMap(width = 10, height = 10) {
-  const tiles = Array.from({ length: height }, () =>
-    Array.from({ length: width }, () => ({ type: "PLAIN", ownerId: null, army: 0 } as any)),
+function makeMap(width = 10, height = 10): GameMap {
+  const tiles: GameMap["tiles"] = Array.from({ length: height }, () =>
+    Array.from({ length: width }, () => ({ type: TileType.Plain, ownerId: null, army: 0 })),
   );
-  return { width, height, tiles } as any;
+  return { width, height, tiles };
 }
 
-function makeMapWithThrone(throneX: number, throneY: number, ownerId: string, width = 10, height = 10) {
-  const tiles = Array.from({ length: height }, () =>
-    Array.from({ length: width }, () => ({ type: "PLAIN", ownerId: null, army: 0 } as any)),
+function makeMapWithThrone(throneX: number, throneY: number, ownerId: string, width = 10, height = 10): GameMap {
+  const tiles: GameMap["tiles"] = Array.from({ length: height }, () =>
+    Array.from({ length: width }, () => ({ type: TileType.Plain, ownerId: null, army: 0 })),
   );
   if (tiles[throneY] && tiles[throneY][throneX]) {
-    tiles[throneY][throneX] = { type: "THRONE", ownerId, army: 1 };
+    tiles[throneY][throneX] = { type: TileType.Throne, ownerId, army: 1 };
   }
-  return { width, height, tiles } as any;
+  return { width, height, tiles };
 }
+
 
 describe("useMapInput", () => {
   beforeEach(() => {

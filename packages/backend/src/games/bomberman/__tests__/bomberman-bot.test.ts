@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { decideBombermanBotOperation } from "../bot/decideBombermanBotOperation";
 import type { BombermanBotContext, BombermanBotDecision } from "../bot/decideBombermanBotOperation";
 import { defaultBombermanConfig } from "../settings";
@@ -321,16 +321,19 @@ describe("decideBombermanBotOperation", () => {
   });
 
   it("does not use Math.random or async operations", () => {
-    // Verify sync return type
-    const opts = makeGameOptions(defaultBombermanConfig(), 2);
-    const state = createInitialBombermanState(opts);
-    const ctx = createBotContext("p1", "hard", 8, 42);
-    const decision = decideBombermanBotOperation(state, ctx);
-
-    // The function returns synchronously — if it were async this wouldn't work
-    expect(decision).toHaveProperty("operation");
-    expect(decision).toHaveProperty("expandedNodes");
-    expect(decision).toHaveProperty("nextRandomState");
+    const randomSpy = vi.spyOn(Math, "random");
+    try {
+      const opts = makeGameOptions(defaultBombermanConfig(), 2);
+      const state = createInitialBombermanState(opts);
+      const ctx = createBotContext("p1", "hard", 8, 42);
+      const decision = decideBombermanBotOperation(state, ctx);
+      expect(decision).toHaveProperty("operation");
+      expect(decision).toHaveProperty("expandedNodes");
+      expect(decision).toHaveProperty("nextRandomState");
+      expect(randomSpy).not.toHaveBeenCalled();
+    } finally {
+      randomSpy.mockRestore();
+    }
   });
 });
 

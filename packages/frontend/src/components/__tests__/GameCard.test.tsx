@@ -1,8 +1,8 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@solidjs/testing-library";
-
+import type { JSX } from "solid-js";
 vi.mock("@solidjs/router", () => ({
-  A: (p: any) => <a href={p.href}>{p.children}</a>,
+  A: (p: { href?: string; children?: JSX.Element }) => <a href={p.href}>{p.children}</a>,
   useNavigate: () => vi.fn(),
   useSearchParams: () => [() => ({}), vi.fn()],
 }));

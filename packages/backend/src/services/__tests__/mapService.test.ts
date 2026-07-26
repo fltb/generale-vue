@@ -62,6 +62,10 @@ describe("mapService CRUD", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    mockDb.select.mockImplementation(() => undefined);
+    mockDb.insert.mockImplementation(() => undefined);
+    mockDb.update.mockImplementation(() => undefined);
+    mockDb.delete.mockImplementation(() => undefined);
   });
 
   describe("getMeta", () => {

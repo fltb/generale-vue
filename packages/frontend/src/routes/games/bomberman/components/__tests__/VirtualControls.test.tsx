@@ -16,6 +16,7 @@ describe("VirtualControls", () => {
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     vi.restoreAllMocks();
   });
 
@@ -235,15 +236,14 @@ describe("VirtualControls", () => {
     pressDirection.mockClear();
     releaseDirection.mockClear();
     onAction.mockClear();
-
-    // Advance timers — VirtualControls has no timers, so nothing should fire
-    vi.advanceTimersByTime(5000);
+    // VirtualControls owns no timers; flush any pending work to prove that remains true.
+    vi.runOnlyPendingTimers();
 
     expect(pressDirection).not.toHaveBeenCalled();
     expect(releaseDirection).not.toHaveBeenCalled();
     expect(onAction).not.toHaveBeenCalled();
 
-    vi.useRealTimers();
+    // The shared afterEach restores real timers even if assertions fail.
   });
 
   it("second simultaneous touch on same button does not leak source (regression)", () => {

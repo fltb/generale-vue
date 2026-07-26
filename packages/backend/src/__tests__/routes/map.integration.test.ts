@@ -1,136 +1,95 @@
-import { describe, it, expect, beforeAll, afterAll } from "bun:test";
-import { createTestApp, seedUser, loginAs } from "../helpers/integration";
-import type { SeedUser } from "../helpers/integration";
-import type { Database } from "bun:sqlite";
-import type { Elysia } from "elysia";
+import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { createTestApp, loginAs, seedUser, type SeedUser, type TestAppContext } from "../helpers/integration";
 
-function makeTiles(w: number, h: number) {
-  return Array.from({ length: h }, () =>
-    Array.from({ length: w }, () => ({ type: "0", army: 0 })),
-  );
+type Tile = { type: string; army: number };
+function makeTiles(width: number, height: number): Tile[][] {
+  return Array.from({ length: height }, () => Array.from({ length: width }, () => ({ type: "0", army: 0 })));
 }
 
-describe("Map Routes", () => {
-  let app: Elysia; let rawDb: Database; let user: SeedUser; let sid: string;
+const jsonHeaders = (sid: string): HeadersInit => ({ "Content-Type": "application/json", Cookie: `sid=${sid}` });
 
-  beforeAll(async () => {
-    const ctx = await createTestApp();
-    app = ctx.app; rawDb = ctx.rawDb;
-    user = seedUser(rawDb);
-    ({ sid } = await loginAs(app, user.username, "testpass123"));
+describe("Map Routes", () => {
+  let context: TestAppContext;
+  let user: SeedUser;
+  let sid: string;
+
+  beforeEach(async () => {
+    context = await createTestApp();
+    user = seedUser(context.rawDb);
+    ({ sid } = await loginAs(context.app, user.username, user.password));
   });
-  afterAll(() => rawDb.close());
+  afterEach(async () => context.cleanup());
 
   it("GET /maps/list — returns list", async () => {
-    const r = await app.handle(new Request("http://localhost/api/maps/list"));
+    const r = await context.app.handle(new Request("http://localhost/api/maps/list"));
     expect(r.status).toBe(200);
     const body = await r.json();
     expect(body.success).toBe(true);
     expect(Array.isArray(body.data)).toBe(true);
   });
-
   it("POST /maps/create — creates a map", async () => {
     const body = { name: "Test Map", width: 10, height: 10, gameType: "generale", data: makeTiles(10, 10) };
-    const r = await app.handle(new Request("http://localhost/api/maps/create", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Cookie: `sid=${sid}` },
-      body: JSON.stringify(body),
-    }));
+    const r = await context.app.handle(new Request("http://localhost/api/maps/create", { method: "POST", headers: jsonHeaders(sid), body: JSON.stringify(body) }));
     expect(r.status).toBe(200);
     const json = await r.json();
     expect(json.success).toBe(true);
     expect(json.data.id).toBeTruthy();
   });
-
-  it("POST /maps/create — 401 without auth", async () => {
-    const r = await app.handle(new Request("http://localhost/api/maps/create", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: "X", width: 10, height: 10, gameType: "generale", data: makeTiles(10, 10) }),
-    }));
+  it("POST /maps/create — returns unauthorized response without auth", async () => {
+    const r = await context.app.handle(new Request("http://localhost/api/maps/create", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: "X", width: 10, height: 10, gameType: "generale", data: makeTiles(10, 10) }) }));
     expect(r.status).toBe(401);
   });
-
-  it("GET /maps/detail/:id — returns map detail", async () => {
-    const body = { name: "Detail Map", width: 10, height: 10, gameType: "generale", data: makeTiles(10, 10) };
-    const createRes = await app.handle(new Request("http://localhost/api/maps/create", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Cookie: `sid=${sid}` },
-      body: JSON.stringify(body),
-    }));
-    const { data } = await createRes.json();
-    const mapId = data.id;
-
-    const r = await app.handle(new Request(`http://localhost/api/maps/detail/${mapId}`));
-    expect(r.status).toBe(200);
-    const json = await r.json();
-    expect(json.data.gameType).toBe("generale");
-    expect(Array.isArray(json.data.data)).toBe(true);
+  it("POST then GET /maps/detail/:id — preserves a Bomberman map", async () => {
+    const tiles = makeTiles(15, 13);
+    const body = { name: "Bomberman Map", width: 15, height: 13, gameType: "bomberman", data: tiles };
+    const createResponse = await context.app.handle(new Request("http://localhost/api/maps/create", { method: "POST", headers: jsonHeaders(sid), body: JSON.stringify(body) }));
+    expect(createResponse.status).toBe(200);
+    const created = await createResponse.json();
+    expect(created.success).toBe(true);
+    const mapId = created.data.id as string;
+    const detailResponse = await context.app.handle(new Request(`http://localhost/api/maps/detail/${mapId}`));
+    expect(detailResponse.status).toBe(200);
+    const detail = await detailResponse.json();
+    expect(detail.success).toBe(true);
+    expect(detail.data.id).toBe(mapId);
+    expect(detail.data.gameType).toBe("bomberman");
+    expect(detail.data.data).toEqual(tiles);
   });
-
   it("PATCH /maps/update/:id — updates map name", async () => {
-    const body = { name: "Update Test", width: 10, height: 10, gameType: "generale", data: makeTiles(10, 10) };
-    const createRes = await app.handle(new Request("http://localhost/api/maps/create", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Cookie: `sid=${sid}` },
-      body: JSON.stringify(body),
-    }));
-    const { data } = await createRes.json();
-
-    const r = await app.handle(new Request(`http://localhost/api/maps/update/${data.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json", Cookie: `sid=${sid}` },
-      body: JSON.stringify({ name: "Updated Name" }),
-    }));
+    const createResponse = await context.app.handle(new Request("http://localhost/api/maps/create", { method: "POST", headers: jsonHeaders(sid), body: JSON.stringify({ name: "Update Test", width: 10, height: 10, gameType: "generale", data: makeTiles(10, 10) }) }));
+    const { data } = await createResponse.json();
+    const r = await context.app.handle(new Request(`http://localhost/api/maps/update/${data.id}`, { method: "PATCH", headers: jsonHeaders(sid), body: JSON.stringify({ name: "Updated Name" }) }));
     expect(r.status).toBe(200);
     const json = await r.json();
     expect(json.data.message).toBeTruthy();
-    expect(json.data.id).toBeTruthy();
+    expect(json.data.id).toBe(data.id);
   });
-
-  it("PATCH /maps/update/:id — 401 without auth", async () => {
-    const r = await app.handle(new Request("http://localhost/api/maps/update/some-id", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: "X" }),
-    }));
+  it("PATCH /maps/update/:id — returns unauthorized response without auth", async () => {
+    const r = await context.app.handle(new Request("http://localhost/api/maps/update/some-id", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: "X" }) }));
     expect(r.status).toBe(401);
   });
-
-  it("DELETE /maps/delete/:id — 401 without auth", async () => {
-    const r = await app.handle(new Request("http://localhost/api/maps/delete/some-id", { method: "DELETE" }));
+  it("DELETE /maps/delete/:id — returns unauthorized response without auth", async () => {
+    const r = await context.app.handle(new Request("http://localhost/api/maps/delete/some-id", { method: "DELETE" }));
     expect(r.status).toBe(401);
   });
-
   it("DELETE /maps/delete/:id — deletes own map", async () => {
-    const body = { name: "Delete Me", width: 10, height: 10, gameType: "generale", data: makeTiles(10, 10) };
-    const createRes = await app.handle(new Request("http://localhost/api/maps/create", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Cookie: `sid=${sid}` },
-      body: JSON.stringify(body),
-    }));
-    const { data } = await createRes.json();
-
-    const r = await app.handle(new Request(`http://localhost/api/maps/delete/${data.id}`, {
-      method: "DELETE",
-      headers: { Cookie: `sid=${sid}` },
-    }));
+    const createResponse = await context.app.handle(new Request("http://localhost/api/maps/create", { method: "POST", headers: jsonHeaders(sid), body: JSON.stringify({ name: "Delete Me", width: 10, height: 10, gameType: "generale", data: makeTiles(10, 10) }) }));
+    const { data } = await createResponse.json();
+    const r = await context.app.handle(new Request(`http://localhost/api/maps/delete/${data.id}`, { method: "DELETE", headers: { Cookie: `sid=${sid}` } }));
     expect(r.status).toBe(200);
-    const json = await r.json();
-    expect(json.success).toBe(true);
+    expect((await r.json()).success).toBe(true);
   });
-
   it("GET /maps/my — returns own maps", async () => {
-    const r = await app.handle(new Request("http://localhost/api/maps/my", {
-      headers: { Cookie: `sid=${sid}` },
-    }));
+    const createResponse = await context.app.handle(new Request("http://localhost/api/maps/create", { method: "POST", headers: jsonHeaders(sid), body: JSON.stringify({ name: "Mine", width: 10, height: 10, gameType: "generale", data: makeTiles(10, 10) }) }));
+    expect(createResponse.status).toBe(200);
+    const r = await context.app.handle(new Request("http://localhost/api/maps/my", { headers: { Cookie: `sid=${sid}` } }));
     expect(r.status).toBe(200);
     const json = await r.json();
     expect(json.success).toBe(true);
+    expect(json.data.some((map: { name: string }) => map.name === "Mine")).toBe(true);
   });
-
-  it("GET /maps/my — 401 without auth", async () => {
-    const r = await app.handle(new Request("http://localhost/api/maps/my"));
+  it("GET /maps/my — returns unauthorized response without auth", async () => {
+    const r = await context.app.handle(new Request("http://localhost/api/maps/my"));
     expect(r.status).toBe(401);
   });
 });

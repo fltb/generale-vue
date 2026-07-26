@@ -1,25 +1,53 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@solidjs/testing-library";
+import { GameStatus, TileType } from "@generale/types";
+import type { SyncedGameState } from "@generale/types";
+import type { JSX } from "solid-js";
+import type * as SolidJS from "solid-js";
 
-const mockState = vi.hoisted(() => ({
-  status: 0 as any,
+type MockProps = {
+  children?: JSX.Element;
+  when?: unknown;
+  each?: ((fallback?: JSX.Element) => JSX.Element) | JSX.Element;
+  fallback?: JSX.Element;
+  [key: string]: unknown;
+};
+
+const settings: SyncedGameState["settings"] = {
+  afkThreshold: 100,
+  tileGrow: {
+    [TileType.Plain]: { duration: 10, growth: 1 },
+    [TileType.Throne]: { duration: 0, growth: 0 },
+    [TileType.Barracks]: { duration: 0, growth: 0 },
+    [TileType.Mountain]: { duration: 20, growth: 1 },
+    [TileType.Swamp]: { duration: 0, growth: 0 },
+    [TileType.Fog]: { duration: 0, growth: 0 },
+  },
+};
+
+const mockState: SyncedGameState = {
+  status: GameStatus.Playing,
   tick: 1,
-  map: { width: 3, height: 3, tiles: [[{ type: "PLAIN", ownerId: null, army: 0 }]] },
+  map: {
+    width: 3,
+    height: 3,
+    tiles: [[{ type: TileType.Plain, ownerId: null, army: 0 }]],
+  },
   players: {},
   teams: {},
-  settings: {} as any,
+  settings,
   playerDisplay: {},
   playerOperationQueue: [],
-}));
+};
 
 vi.mock("solid-pixi", () => ({
-  Application: (p: any) => p.children ?? null,
-  Container: (p: any) => p.children ?? null,
+  Application: (p: MockProps) => p.children ?? null,
+  Container: (p: MockProps) => p.children ?? null,
   Graphics: () => null,
   Text: () => null,
-  Show: (p: any) => (p.when ? p.children : null),
-  Index: (p: any) => p.each ?? null,
-  For: (p: any) => p.each ?? null,
+  Show: (p: MockProps) => (p.when ? p.children : null),
+  Index: (p: MockProps) => (typeof p.each === "function" ? p.each(p.fallback) : null),
+  For: (p: MockProps) => p.each ?? null,
 }));
 
 vi.mock("pixi.js", () => ({
@@ -68,19 +96,16 @@ vi.mock("~/routes/games/generale/hooks/useGameSession", () => ({
 
 vi.mock("@solidjs/router", () => ({
   useNavigate: () => vi.fn(),
-  A: (p: any) => p.children,
+  A: (p: MockProps) => p.children,
 }));
 
-vi.mock("~/testBridge", () => ({
-  default: { viewportApi: null },
-}));
 
 vi.mock("~/ui", () => ({
-  Badge: (p: any) => <span {...p} />,
-  Button: (p: any) => <button {...p} />,
+  Badge: (p: MockProps) => <span {...p} />,
+  Button: (p: MockProps) => <button {...p} />,
   Confetti: () => null,
   Countdown: () => null,
-  Overlay: (p: any) => <div data-testid="overlay" {...p} />,
+  Overlay: (p: MockProps) => <div data-testid="overlay" {...p} />,
   sfx: { victory: vi.fn(), defeat: vi.fn() },
   TakeoverOverlay: () => null,
   uiTheme: { outcome: { won: "text-green", lost: "text-red" } },
@@ -95,9 +120,9 @@ vi.mock("~/routes/games/generale/hooks/PlayerList", () => ({
 }));
 
 vi.mock("solid-js", async () => {
-  const actual = await vi.importActual("solid-js");
+  const actual = await vi.importActual<SolidJS>("solid-js");
   return {
-    ...actual as any,
+    ...actual,
     onMount: (fn: () => void) => fn(),
   };
 });

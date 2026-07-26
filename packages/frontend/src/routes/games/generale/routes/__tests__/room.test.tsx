@@ -1,12 +1,14 @@
 import { describe, it, expect, vi } from "vitest";
 import { render } from "@solidjs/testing-library";
+import type { JSX } from "solid-js";
 
+type AnchorProps = { href?: string; children?: JSX.Element };
 vi.mock("@solidjs/meta", () => ({ Title: () => null, Meta: () => null }));
 
 vi.mock("~/hooks/useAuth", () => ({ useAuth: () => ({ user: { id: "1" }, isLoading: false }) }));
 
 vi.mock("@solidjs/router", () => ({
-  A: (props: any) => <a href={props.href}>{props.children}</a>,
+  A: (props: AnchorProps) => <a href={props.href}>{props.children}</a>,
   useLocation: () => ({ pathname: "/game/room-123" }),
   useParams: () => ({ id: "room-123" }),
   useNavigate: () => vi.fn(),

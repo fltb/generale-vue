@@ -1,4 +1,5 @@
 import nodemailer from "nodemailer";
+import type { Transporter } from "nodemailer";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { initEmailService, sendVerificationEmail } from "../emailService";
 
@@ -28,6 +29,10 @@ const mockConfig = {
 describe("EmailService", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(nodemailer.createTransport).mockImplementation(() => ({
+      sendMail: mockSendMail,
+      verify: mockVerify,
+    }) as unknown as Transporter);
     // Stub environment variables
     vi.stubEnv("APP_URL", "http://localhost:3000");
     vi.stubEnv("EMAIL_FROM", "sender@app.com");

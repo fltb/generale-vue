@@ -1,12 +1,22 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { createRoot } from "solid-js";
 import { useChatSession } from "~/routes/games/generale/hooks/useChatSession";
-import { GamePhase } from "@generale/types";
+import { GamePhase, type ChatMessage } from "@generale/types";
 
 const mockSendMessage = vi.hoisted(() => vi.fn());
 const mockFetchMoreHistory = vi.hoisted(() => vi.fn());
 const mockConnect = vi.hoisted(() => vi.fn());
 const mockDisconnect = vi.hoisted(() => vi.fn());
+
+const makeMessage = (overrides: Partial<ChatMessage> = {}): ChatMessage => ({
+  id: "message-1",
+  playerId: "u1",
+  playerName: "Bob",
+  content: "",
+  timestamp: 0,
+  type: "user",
+  ...overrides,
+});
 
 vi.mock("~/hooks/useChat", () => ({
   useChat: vi.fn(() => ({
@@ -117,7 +127,7 @@ describe("useChatSession", () => {
       });
     });
 
-    const msg = { playerName: "Bob", meta: undefined } as any;
+    const msg = makeMessage({ meta: undefined });
     expect(result!.messageDisplayName(msg)).toBe("Bob");
   });
 
@@ -130,7 +140,7 @@ describe("useChatSession", () => {
       });
     });
 
-    const msg = { playerName: "Bob", meta: { displayName: "Alice" } } as any;
+    const msg = makeMessage({ meta: { displayName: "Alice" } });
     expect(result!.messageDisplayName(msg)).toBe("Alice");
   });
 
@@ -144,8 +154,8 @@ describe("useChatSession", () => {
       });
     });
 
-    expect(result!.presenceLabel({ meta: { presence: "spectator" } } as any)).toBe("旁观者");
-    expect(result!.presenceLabel({ meta: { presence: "room" }, playerId: "u1" } as any)).toBe("房间内");
+    expect(result!.presenceLabel(makeMessage({ meta: { presence: "spectator" } }))).toBe("旁观者");
+    expect(result!.presenceLabel(makeMessage({ meta: { presence: "room" }, playerId: "u1" }))).toBe("房间内");
   });
 
   it("presenceLabel returns undefined for game presence", () => {
@@ -157,7 +167,7 @@ describe("useChatSession", () => {
       });
     });
 
-    expect(result!.presenceLabel({ meta: { presence: "game" } } as any)).toBeUndefined();
+    expect(result!.presenceLabel(makeMessage({ meta: { presence: "game" } }))).toBeUndefined();
   });
 
   it("presenceLabel returns 系统 for system messages", () => {
@@ -169,7 +179,7 @@ describe("useChatSession", () => {
       });
     });
 
-    expect(result!.presenceLabel({ type: "system", playerId: "system" } as any)).toBe("系统");
+    expect(result!.presenceLabel(makeMessage({ type: "system", playerId: "system" }))).toBe("系统");
   });
 
   it("teamLabel returns undefined when teamMode is not team", () => {
@@ -181,7 +191,7 @@ describe("useChatSession", () => {
       });
     });
 
-    expect(result!.teamLabel({ meta: { teamMode: "ffa" } } as any)).toBeUndefined();
+    expect(result!.teamLabel(makeMessage({ meta: { teamMode: "ffa" } }))).toBeUndefined();
   });
 
   it("colorHex formats tileColor as hex string", () => {
@@ -193,8 +203,8 @@ describe("useChatSession", () => {
       });
     });
 
-    expect(result!.colorHex({ meta: { tileColor: 0xff0000 } } as any)).toBe("#ff0000");
-    expect(result!.colorHex({ meta: { tileColor: 0x00ff00 } } as any)).toBe("#00ff00");
+    expect(result!.colorHex(makeMessage({ meta: { tileColor: 0xff0000 } }))).toBe("#ff0000");
+    expect(result!.colorHex(makeMessage({ meta: { tileColor: 0x00ff00 } }))).toBe("#00ff00");
   });
 
   it("colorHex returns undefined when tileColor is not a number", () => {
@@ -206,7 +216,7 @@ describe("useChatSession", () => {
       });
     });
 
-    expect(result!.colorHex({ meta: {} } as any)).toBeUndefined();
+    expect(result!.colorHex(makeMessage({ meta: {} }))).toBeUndefined();
   });
 
   it("canTeamChat returns false without team room data", () => {
