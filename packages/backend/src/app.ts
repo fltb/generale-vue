@@ -2,10 +2,12 @@ import { cors } from "@elysiajs/cors";
 import { staticPlugin } from "@elysiajs/static";
 import { swagger } from "@elysiajs/swagger";
 import { Elysia } from "elysia";
+import { rateLimit } from "elysia-rate-limit";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { runMigrations } from "./db/migrate";
 import { authPlugin } from "./middleware/authPlugin";
+import { securityHeaders } from "./middleware/securityHeaders";
 import { registerDomainHandler, websocketPlugin } from "./plugins/websocket";
 import { gameRoutes } from "./games/generale/routes";
 import { mapRoutes } from "./routes/map";
@@ -16,6 +18,7 @@ import { bombermanRoutes } from "./games/bomberman/routes";
 import { initEmailServiceWithEnv } from "./services/emailService";
 import { ProfileService } from "./services/profileService";
 import { sessionService } from "./services/sessionService";
+import { bombermanReplayService } from "./services/bombermanReplayService";
 
 export interface CreateAppOptions {
   skipMigrations?: boolean;
@@ -53,9 +56,62 @@ export async function createApp(opts: CreateAppOptions = {}) {
       }
     }, SESSION_PRUNE_INTERVAL_MS);
   }
+  if (!opts.skipSessionPrune) {
+    try {
+      const removed = bombermanReplayService.cleanupExpired(Date.now());
+      if (removed > 0) console.info(`[replay] startup prune removed ${removed} expired replays`);
+    } catch (err) {
+      console.warn("[replay] startup prune failed", err);
+    }
+    const REPLAY_PRUNE_INTERVAL_MS = 6 * 60 * 60 * 1000; // 6h
+    setInterval(() => {
+      try {
+        const removed = bombermanReplayService.cleanupExpired(Date.now());
+        if (removed > 0) console.info(`[replay] periodic prune removed ${removed} expired replays`);
+      } catch (err) {
+        console.warn("[replay] periodic prune failed", err);
+      }
+    }, REPLAY_PRUNE_INTERVAL_MS);
+  }
 
   const app = new Elysia()
     .use(cors())
+    .onError(({ code, error, set }) => {
+      console.error(`[error] code=${code}`, error instanceof Error ? error.message : error);
+      const knownCodes: Record<string, true> = {
+        NOT_FOUND: true,
+        VALIDATION: true,
+        PARSE: true,
+        INVALID_COOKIE_SIGNATURE: true,
+        INVALID_FILE_TYPE: true,
+      };
+      if (knownCodes[code] || !Number.isNaN(Number(code))) return;
+      set.status = 500;
+      return { success: false, error: "Internal server error" };
+    })
+    .use(securityHeaders)
+    .use(
+      rateLimit({
+        max: 20,
+        duration: 60_000,
+        generator: (req, server) => server?.requestIP(req)?.address ?? "",
+        skip: (_, key) => process.env["E2E_TEST"] === "1" || !key,
+      }),
+    )
+    .use(
+      rateLimit({
+        max: 5,
+        duration: 60_000,
+        generator: (req, server) => server?.requestIP(req)?.address ?? "",
+        skip: (req, key) => {
+          if (process.env["E2E_TEST"] === "1") return true;
+          if (!key) return true;
+          const url = new URL(req.url);
+          const path = url.pathname;
+          return !["/api/register", "/api/login", "/api/forgot-password", "/api/reset-password"].includes(path);
+        },
+      }),
+    )
     // 静态托管头像：./public/avatars/<userId>.<ext> -> URL /api/avatars/<userId>.<ext>
     // 走 /api 前缀是为了和已有路由共用同一个 rsbuild 反向代理。
     // 头像 URL 由 ProfileService.saveAvatarBytes 生成，带 ?v=<ms> 缓存破。

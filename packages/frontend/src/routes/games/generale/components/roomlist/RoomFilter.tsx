@@ -41,7 +41,7 @@ export const RoomFilter: Component<Props> = (props) => {
   });
 
   function setField<K extends keyof ListGamesQuery>(key: K, value: string | undefined) {
-    setLocal((prev) => {
+    setLocal((prev: Partial<ListGamesQuery>) => {
       const next = {
         ...prev,
         [key]: value === "" || value === undefined ? undefined : value,

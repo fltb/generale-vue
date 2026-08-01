@@ -12,15 +12,20 @@ coverage
 
 # logs
 logs
-_.log
+*.log
 report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 
-# dotenv environment variable files
+# dotenv environment variable files (preserve templates)
 .env
-.env.development.local
-.env.test.local
-.env.production.local
-.env.local
+.env.*
+!.env.example
+
+# Local SQLite database files
+*.sqlite*
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
 
 # caches
 .eslintcache
@@ -39,7 +44,9 @@ AGENTS.md
 .DS_Store
 
 # Playwright test artifacts
-e2e/test-results/
+/e2e/test-results/
+/e2e/playwright-report/
+/e2e/blob-report/
 
 # git worktrees
 .worktrees
@@ -47,3 +54,9 @@ e2e/test-results/
 # Superpowers AI-generated design docs / plans / artifacts
 .superpowers/
 docs/superpowers/
+
+# Local deployment packages
+/deploy/
+
+# Local Claude settings
+/.claude/settings.local.json

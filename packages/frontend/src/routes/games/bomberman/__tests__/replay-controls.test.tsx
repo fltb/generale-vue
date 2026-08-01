@@ -10,6 +10,31 @@ import {
 } from "@generale/types";
 import { createInitialBombermanState } from "@generale/bomberman-engine";
 
+
+vi.mock("solid-pixi", () => ({
+  Application: (props: { children?: unknown; width?: unknown; height?: unknown; resizeTo?: unknown }) => {
+    // Verify no resizeTo prop (black screen fix)
+    if ("resizeTo" in props) {
+      throw new Error("resizeTo prop should not be used — use explicit width/height");
+    }
+    const w = typeof props.width === "number" ? props.width : 0;
+    const h = typeof props.height === "number" ? props.height : 0;
+    return (
+      <>
+        <canvas
+          width={w}
+          height={h}
+          data-testid="pixi-canvas"
+          style={{ width: `${w}px`, height: `${h}px` }}
+        />
+        {props.children}
+      </>
+    );
+  },
+  Container: (props: { children?: unknown }) => <div data-testid="pixi-container">{props.children}</div>,
+  Sprite: () => <div data-testid="pixi-sprite" />,
+  Graphics: () => <div data-testid="pixi-graphics" />,
+}));
 vi.mock("@solidjs/router", () => ({
   useNavigate: () => vi.fn(),
   useParams: () => ({ id: "replay-1" }),
@@ -158,5 +183,7 @@ describe("BombermanReplayPlayer controls", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "bomberman.replay.play" }));
     expect(screen.getByRole("button", { name: "bomberman.replay.pause" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "bomberman.replay.pause" }));
   });
 });

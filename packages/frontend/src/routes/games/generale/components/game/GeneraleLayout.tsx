@@ -15,7 +15,7 @@ export default function GeneraleLayout(props: Props) {
   const auth = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const { locale, setLocale } = useT();
+  const { t, locale, setLocale } = useT();
   const [open, setOpen] = createSignal(false);
 
   const isRoomsActive = createMemo(() => location.pathname === "/generale" || location.pathname.startsWith("/game/"));
@@ -51,7 +51,7 @@ export default function GeneraleLayout(props: Props) {
           <A
             href="/"
             class="text-base-content/40 hover:text-base-content flex items-center gap-1 px-1"
-            aria-label="Back to Platform"
+            aria-label={t("Back to Platform")}
           >
             <svg
               class="w-4 h-4"
@@ -97,7 +97,7 @@ export default function GeneraleLayout(props: Props) {
             when={auth.user}
             fallback={
               <A href="/login" class="px-3 py-1 rounded bg-base-300 hover:bg-base-300/80 text-sm">
-                Login
+                {t("Login")}
               </A>
             }
           >
@@ -124,14 +124,14 @@ export default function GeneraleLayout(props: Props) {
                 }`}
               >
                 <A href="/profile" class="block px-4 py-2 text-sm hover:bg-sky-100" onClick={() => setOpen(false)}>
-                  Profile
+                  {t("Profile")}
                 </A>
                 <button
                   type="button"
                   onClick={handleLogout}
                   class="w-full text-left px-4 py-2 text-sm hover:bg-sky-100"
                 >
-                  Logout
+                  {t("Logout")}
                 </button>
               </div>
             </div>
@@ -168,7 +168,7 @@ export default function GeneraleLayout(props: Props) {
                   <rect x="3" y="14" width="7" height="7" rx="1" />
                   <rect x="14" y="14" width="7" height="7" rx="1" />
                 </svg>
-                Rooms
+                {t("Rooms")}
               </A>
               <A
                 href="/maps"
@@ -190,7 +190,7 @@ export default function GeneraleLayout(props: Props) {
                 >
                   <path d="M9 20l-5.447-2.724A1 1 0 0 1 3 16.382V5.618a1 1 0 0 1 1.553-.894L9 7l6-3 5.447 2.724A1 1 0 0 1 21 7.618v10.764a1 1 0 0 1-1.553.894L15 17l-6 3z" />
                 </svg>
-                Maps
+                {t("Maps")}
               </A>
             </nav>
 
@@ -212,7 +212,7 @@ export default function GeneraleLayout(props: Props) {
                   <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
                   <polyline points="9 22 9 12 15 12 15 22" />
                 </svg>
-                Platform
+                {t("Platform")}
               </A>
             </div>
           </aside>

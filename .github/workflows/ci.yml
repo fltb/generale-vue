@@ -50,7 +50,7 @@ jobs:
         run: bun build --compile ./packages/backend/src/index.ts --outfile /tmp/generale-server
 
       - name: Audit
-        run: bun audit --prod || true
+        run: bun audit --prod
 
   package:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -75,20 +75,28 @@ jobs:
       - name: Build
         run: bun run build
 
-      - name: Compile backend binary
+      - name: Assemble deploy package
         run: |
-          mkdir -p deploy/generale-server
+          mkdir -p deploy/generale-server/frontend \
+            deploy/generale-server/migrations \
+            deploy/generale-server/public/avatars/default \
+            deploy/generale-server/public/maps
+
+          # Compile the backend into a self-contained Bun binary.
           bun build --compile \
             ./packages/backend/src/index.ts \
             --outfile ./deploy/generale-server/server
 
-      - name: Assemble deploy package
-        run: |
-          mkdir -p deploy/generale-server/frontend deploy/generale-server/migrations deploy/generale-server/public/avatars/default
+          # Frontend static dist
           cp -r packages/frontend/dist/* deploy/generale-server/frontend/
+
+          # Runtime data required by the compiled backend.
           cp -r packages/backend/drizzle/* deploy/generale-server/migrations/
           cp -r packages/backend/public/avatars/default/* deploy/generale-server/public/avatars/default/
+          cp -r packages/backend/public/maps/* deploy/generale-server/public/maps/
           cp packages/backend/.env.example deploy/generale-server/
+
+          # Production startup script
           cp scripts/start.sh deploy/generale-server/
           chmod +x deploy/generale-server/start.sh
 
@@ -96,4 +104,29 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: generale-server
-          path: deploy//
+          path: deploy/generale-server
+
+  e2e:
+    runs-on: ubuntu-latest
+    needs: [check]
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Cache dependencies
+        uses: actions/cache@v6
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Install Playwright browsers
+        run: npx playwright install chromium --with-deps
+
+      - name: E2E tests
+        run: bun run test:e2e

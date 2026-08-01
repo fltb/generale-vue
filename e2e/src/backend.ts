@@ -34,6 +34,7 @@ export async function startBackend(backendDir: string): Promise<BackendControlle
     HOST: "127.0.0.1",
     MIGRATIONS_FOLDER: join(backendDir, "drizzle"),
     EMAIL_METHOD: "none",
+    E2E_TEST: "1",
   };
 
   const proc = spawn("bun", ["run", "src/index.ts"], {

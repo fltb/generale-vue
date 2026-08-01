@@ -32,5 +32,18 @@
   "workspaces": [
     "packages/*",
     "e2e"
-  ]
+  ],
+  "dependencies": {
+    "pixi.js": "^8.19.0"
+  },
+  "overrides": {
+    "brace-expansion": "5.0.8",
+    "postcss": "8.5.23",
+    "vite": "7.3.5",
+    "ws": "8.21.1",
+    "file-type": "22.0.1",
+    "rollup": "4.59.0",
+    "esbuild": "0.25.0",
+    "picomatch": "4.0.4"
+  }
 }

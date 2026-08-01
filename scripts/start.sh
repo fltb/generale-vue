@@ -29,5 +29,9 @@ echo "[generale] DB: $DB_FILE_NAME"
 echo "[generale] Frontend: $FRONTEND_DIST"
 echo "[generale] Migrations: $MIGRATIONS_FOLDER"
 export MIGRATIONS_FOLDER
+# Warn when PUBLIC_URL defaults to localhost
+if [ "${PUBLIC_URL:-http://localhost:3000}" = "http://localhost:3000" ]; then
+  echo "[generale] WARNING: PUBLIC_URL not set — sitemap/robots will use http://localhost:3000"
+fi
 
 exec ./server

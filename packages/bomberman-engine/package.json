@@ -21,7 +21,7 @@
     "@generale/types": "workspace:*"
   },
   "devDependencies": {
-    "typescript": "^5.9.2",
-    "vitest": "^3.0.0"
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.7"
   }
 }

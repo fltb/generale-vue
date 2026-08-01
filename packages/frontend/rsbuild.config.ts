@@ -7,8 +7,12 @@ const BACKEND_TARGET = process.env["BACKEND_TARGET"] || "http://localhost:3000";
 export default defineConfig({
   plugins: [
     pluginBabel({
-      include: /\.(?:jsx|tsx)$/,
-      exclude: /[\\/]node_modules[\\/]/,
+      include: [
+        /[\\/]src[\\/].*\.(?:jsx|tsx)$/,
+        /[\\/]node_modules[\\/]@solidjs[\\/]meta[\\/]/,
+        /[\\/]node_modules[\\/]@solidjs[\\/]router[\\/]/,
+        /[\\/]node_modules[\\/]@tanstack[\\/]solid-query-devtools[\\/]/,
+      ],
     }),
     pluginSolid(),
   ],
@@ -16,6 +20,11 @@ export default defineConfig({
     entry: {
       index: "./src/index.tsx",
     },
+    include: [
+      /[\\/]node_modules[\\/]@solidjs[\\/]meta[\\/]/,
+      /[\\/]node_modules[\\/]@solidjs[\\/]router[\\/]/,
+      /[\\/]node_modules[\\/]@tanstack[\\/]solid-query-devtools[\\/]/,
+    ],
   },
   server: {
     host: "0.0.0.0",

@@ -36,8 +36,8 @@ export default function Home() {
           />
           <GameCard
             title={"Bomberman"}
-            description={"Arena battle — place bombs, destroy walls, and be the last one standing."}
-            meta={"2-4 players"}
+            description={t("Arena battle — place bombs, destroy walls, and be the last one standing.")}
+            meta={t("{n} players", { n: 4 })}
             href="/bomberman"
           />
         </div>
